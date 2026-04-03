@@ -238,6 +238,116 @@ def run_migrations():
                 conn.rollback()
                 raise
         
+         # マイグレーション: restructured_plテーブルに新規カラムを追加
+        print("\n[マイグレーション] restructured_plテーブルにPL組換え用カラムを追加...")
+        
+        pl_new_columns = [
+            ('beginning_inventory', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('manufacturing_cost', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('ending_inventory', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('external_cost_adjustment', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('gross_added_value', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('labor_cost', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('executive_compensation', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('capital_regeneration_cost', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('research_development_expenses', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('general_expenses', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('general_expenses_fixed', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('general_expenses_variable', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('financial_profit_loss', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('other_non_operating', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('extraordinary_profit_loss', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('dividend', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('retained_profit', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('legal_reserve', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('voluntary_reserve', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('retained_earnings_increase', 'INTEGER DEFAULT 0 NOT NULL'),
+        ]
+        
+        for col_name, col_type in pl_new_columns:
+            try:
+                if _is_pg(conn):
+                    cur.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'restructured_pl' AND column_name = %s
+                    """, (col_name,))
+                    if not cur.fetchone():
+                        cur.execute(f'ALTER TABLE restructured_pl ADD COLUMN {col_name} {col_type}')
+                        conn.commit()
+                        print(f"  ✅ restructured_plに{col_name}カラムを追加")
+                    else:
+                        print(f"  ℹ️  {col_name}は既に存在（スキップ）")
+                else:
+                    cur.execute('PRAGMA table_info(restructured_pl)')
+                    columns = [row[1] for row in cur.fetchall()]
+                    if col_name not in columns:
+                        cur.execute(f'ALTER TABLE restructured_pl ADD COLUMN {col_name} {col_type}')
+                        conn.commit()
+                        print(f"  ✅ restructured_plに{col_name}カラムを追加")
+                    else:
+                        print(f"  ℹ️  {col_name}は既に存在（スキップ）")
+            except Exception as e:
+                print(f"  ⚠️  {col_name}カラム追加エラー: {e}")
+                conn.rollback()
+        
+        # マイグレーション: restructured_bsテーブルに新規カラムを追加
+        print("\n[マイグレーション] restructured_bsテーブルにBS組換え用カラムを追加...")
+        
+        bs_new_columns = [
+            ('cash_on_hand', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('investment_deposits', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('marketable_securities', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('trade_receivables', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('inventory_assets', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('tangible_fixed_assets', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('intangible_fixed_assets', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('investments_and_other', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('deferred_assets', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('trade_payables', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('short_term_borrowings', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('current_portion_long_term', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('discounted_notes', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('other_current_liabilities', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('long_term_borrowings', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('executive_borrowings', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('retirement_benefit_liability', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('other_fixed_liabilities', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('capital', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('capital_surplus', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('legal_reserve_bs', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('voluntary_reserve_bs', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('retained_earnings_carried', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('treasury_stock', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('discounted_notes_note', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('endorsed_notes_note', 'INTEGER DEFAULT 0 NOT NULL'),
+        ]
+        
+        for col_name, col_type in bs_new_columns:
+            try:
+                if _is_pg(conn):
+                    cur.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'restructured_bs' AND column_name = %s
+                    """, (col_name,))
+                    if not cur.fetchone():
+                        cur.execute(f'ALTER TABLE restructured_bs ADD COLUMN {col_name} {col_type}')
+                        conn.commit()
+                        print(f"  ✅ restructured_bsに{col_name}カラムを追加")
+                    else:
+                        print(f"  ℹ️  {col_name}は既に存在（スキップ）")
+                else:
+                    cur.execute('PRAGMA table_info(restructured_bs)')
+                    columns = [row[1] for row in cur.fetchall()]
+                    if col_name not in columns:
+                        cur.execute(f'ALTER TABLE restructured_bs ADD COLUMN {col_name} {col_type}')
+                        conn.commit()
+                        print(f"  ✅ restructured_bsに{col_name}カラムを追加")
+                    else:
+                        print(f"  ℹ️  {col_name}は既に存在（スキップ）")
+            except Exception as e:
+                print(f"  ⚠️  {col_name}カラム追加エラー: {e}")
+                conn.rollback()
+        
         conn.close()
         
         print("\n" + "=" * 60)
@@ -249,6 +359,5 @@ def run_migrations():
         print(f"\n❌ マイグレーション失敗: {e}")
         print("=" * 60)
         return 1
-
 if __name__ == "__main__":
     sys.exit(run_migrations())

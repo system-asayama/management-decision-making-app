@@ -3635,3 +3635,179 @@ def create_multi_year_working_capital_plan():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+
+# ==================== PL組換え ====================
+
+@bp.route('/pl-restructuring', methods=['GET', 'POST'])
+@require_roles(ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+def pl_restructuring():
+    """PL組換え（損益計算書の組換え）"""
+    from ..models_decision import RestructuredPL
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        companies = db.query(Company).filter_by(tenant_id=tenant_id).all()
+
+        company_id = request.args.get('company_id', type=int) or request.form.get('company_id', type=int)
+        fiscal_year_id = request.args.get('fiscal_year_id', type=int) or request.form.get('fiscal_year_id', type=int)
+
+        selected_company = None
+        fiscal_years = []
+        selected_fy = None
+        rpl = None
+
+        if company_id:
+            selected_company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+            if selected_company:
+                fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
+
+        if fiscal_year_id:
+            selected_fy = db.query(FiscalYear).filter_by(id=fiscal_year_id).first()
+            if selected_fy:
+                rpl = db.query(RestructuredPL).filter_by(fiscal_year_id=fiscal_year_id).first()
+
+        if request.method == 'POST':
+            if not selected_fy:
+                return redirect(url_for('decision.pl_restructuring'))
+
+            def pi(key):
+                return parse_int(request.form.get(key, '0') or '0')
+
+            if rpl is None:
+                rpl = RestructuredPL(fiscal_year_id=fiscal_year_id)
+                db.add(rpl)
+
+            rpl.sales = pi('sales')
+            rpl.beginning_inventory = pi('beginning_inventory')
+            rpl.manufacturing_cost = pi('manufacturing_cost')
+            rpl.ending_inventory = pi('ending_inventory')
+            rpl.cost_of_sales = pi('cost_of_sales')
+            rpl.gross_profit = pi('gross_profit')
+            rpl.external_cost_adjustment = pi('external_cost_adjustment')
+            rpl.gross_added_value = pi('gross_added_value')
+            rpl.labor_cost = pi('labor_cost')
+            rpl.executive_compensation = pi('executive_compensation')
+            rpl.capital_regeneration_cost = pi('capital_regeneration_cost')
+            rpl.research_development_expenses = pi('research_development_expenses')
+            rpl.general_expenses = pi('general_expenses')
+            rpl.general_expenses_fixed = pi('general_expenses_fixed')
+            rpl.general_expenses_variable = pi('general_expenses_variable')
+            rpl.selling_general_admin_expenses = pi('selling_general_admin_expenses')
+            rpl.operating_income = pi('operating_income')
+            rpl.financial_profit_loss = pi('financial_profit_loss')
+            rpl.other_non_operating = pi('other_non_operating')
+            rpl.ordinary_income = pi('ordinary_income')
+            rpl.extraordinary_profit_loss = pi('extraordinary_profit_loss')
+            rpl.income_before_tax = pi('income_before_tax')
+            rpl.income_taxes = pi('income_taxes')
+            rpl.net_income = pi('net_income')
+            rpl.dividend = pi('dividend')
+            rpl.retained_profit = pi('retained_profit')
+            rpl.legal_reserve = pi('legal_reserve')
+            rpl.voluntary_reserve = pi('voluntary_reserve')
+            rpl.retained_earnings_increase = pi('retained_earnings_increase')
+
+            db.commit()
+            return redirect(url_for('decision.pl_restructuring', company_id=company_id, fiscal_year_id=fiscal_year_id))
+
+        return render_template('pl_restructuring.html',
+            companies=companies,
+            selected_company=selected_company,
+            fiscal_years=fiscal_years,
+            selected_fy=selected_fy,
+            rpl=rpl
+        )
+    finally:
+        db.close()
+
+
+# ==================== BS組換え ====================
+
+@bp.route('/bs-restructuring', methods=['GET', 'POST'])
+@require_roles(ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+def bs_restructuring():
+    """BS組換え（貸借対照表の組換え）"""
+    from ..models_decision import RestructuredBS
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        companies = db.query(Company).filter_by(tenant_id=tenant_id).all()
+
+        company_id = request.args.get('company_id', type=int) or request.form.get('company_id', type=int)
+        fiscal_year_id = request.args.get('fiscal_year_id', type=int) or request.form.get('fiscal_year_id', type=int)
+
+        selected_company = None
+        fiscal_years = []
+        selected_fy = None
+        rbs = None
+
+        if company_id:
+            selected_company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+            if selected_company:
+                fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
+
+        if fiscal_year_id:
+            selected_fy = db.query(FiscalYear).filter_by(id=fiscal_year_id).first()
+            if selected_fy:
+                rbs = db.query(RestructuredBS).filter_by(fiscal_year_id=fiscal_year_id).first()
+
+        if request.method == 'POST':
+            if not selected_fy:
+                return redirect(url_for('decision.bs_restructuring'))
+
+            def pi(key):
+                return parse_int(request.form.get(key, '0') or '0')
+
+            if rbs is None:
+                rbs = RestructuredBS(fiscal_year_id=fiscal_year_id)
+                db.add(rbs)
+
+            rbs.cash_on_hand = pi('cash_on_hand')
+            rbs.investment_deposits = pi('investment_deposits')
+            rbs.marketable_securities = pi('marketable_securities')
+            rbs.trade_receivables = pi('trade_receivables')
+            rbs.inventory_assets = pi('inventory_assets')
+            rbs.current_assets = pi('current_assets')
+            rbs.tangible_fixed_assets = pi('tangible_fixed_assets')
+            rbs.intangible_fixed_assets = pi('intangible_fixed_assets')
+            rbs.investments_and_other = pi('investments_and_other')
+            rbs.deferred_assets = pi('deferred_assets')
+            rbs.fixed_assets = pi('fixed_assets')
+            rbs.total_assets = pi('total_assets')
+            rbs.trade_payables = pi('trade_payables')
+            rbs.short_term_borrowings = pi('short_term_borrowings')
+            rbs.current_portion_long_term = pi('current_portion_long_term')
+            rbs.discounted_notes = pi('discounted_notes')
+            rbs.other_current_liabilities = pi('other_current_liabilities')
+            rbs.current_liabilities = pi('current_liabilities')
+            rbs.long_term_borrowings = pi('long_term_borrowings')
+            rbs.executive_borrowings = pi('executive_borrowings')
+            rbs.retirement_benefit_liability = pi('retirement_benefit_liability')
+            rbs.other_fixed_liabilities = pi('other_fixed_liabilities')
+            rbs.fixed_liabilities = pi('fixed_liabilities')
+            rbs.total_liabilities = pi('total_liabilities')
+            rbs.capital = pi('capital')
+            rbs.capital_surplus = pi('capital_surplus')
+            rbs.legal_reserve_bs = pi('legal_reserve_bs')
+            rbs.voluntary_reserve_bs = pi('voluntary_reserve_bs')
+            rbs.retained_earnings_carried = pi('retained_earnings_carried')
+            rbs.retained_earnings = pi('retained_earnings')
+            rbs.treasury_stock = pi('treasury_stock')
+            rbs.net_assets = pi('net_assets')
+            rbs.total_liabilities_and_net_assets = pi('total_liabilities_and_net_assets')
+            rbs.discounted_notes_note = pi('discounted_notes_note')
+            rbs.endorsed_notes_note = pi('endorsed_notes_note')
+
+            db.commit()
+            return redirect(url_for('decision.bs_restructuring', company_id=company_id, fiscal_year_id=fiscal_year_id))
+
+        return render_template('bs_restructuring.html',
+            companies=companies,
+            selected_company=selected_company,
+            fiscal_years=fiscal_years,
+            selected_fy=selected_fy,
+            rbs=rbs
+        )
+    finally:
+        db.close()

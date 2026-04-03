@@ -1,0 +1,606 @@
+{% extends "base.html" %}
+{% block title %}PL組換え{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/decision/">経営意思決定アプリ</a></li>
+                    <li class="breadcrumb-item active">PL組換え</li>
+                </ol>
+            </nav>
+            <h2><i class="fas fa-exchange-alt me-2 text-success"></i>損益計算書の組換え</h2>
+            <p class="text-muted">標準的な損益計算書を経営分析用に組換えます。</p>
+        </div>
+    </div>
+
+    <!-- 会計年度選択 -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <i class="fas fa-calendar-alt me-2"></i>会計年度・企業の選択
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">企業</label>
+                    <select name="company_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">企業を選択</option>
+                        {% for c in companies %}
+                        <option value="{{ c.id }}" {% if selected_company and selected_company.id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">会計年度</label>
+                    <select name="fiscal_year_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">会計年度を選択</option>
+                        {% for fy in fiscal_years %}
+                        <option value="{{ fy.id }}" {% if selected_fy and selected_fy.id == fy.id %}selected{% endif %}>{{ fy.year_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if selected_fy %}
+    <form method="POST" id="plRestructuringForm">
+        <input type="hidden" name="fiscal_year_id" value="{{ selected_fy.id }}">
+
+        <div class="row">
+            <!-- 左カラム: 入力フォーム -->
+            <div class="col-lg-6">
+
+                <!-- 1. 売上高 -->
+                <div class="card mb-3 border-primary">
+                    <div class="card-header bg-primary text-white fw-bold">
+                        <span class="badge bg-white text-primary me-2">1</span>売上高
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label fw-bold">売上高</label>
+                                <input type="text" name="sales" id="sales" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.sales if rpl else '' }}" placeholder="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 売上原価 -->
+                <div class="card mb-3 border-danger">
+                    <div class="card-header bg-danger text-white fw-bold">
+                        <span class="badge bg-white text-danger me-2">2</span>売上原価
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（１）期首棚卸高</label>
+                                <input type="text" name="beginning_inventory" id="beginning_inventory" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.beginning_inventory if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（２）当期製造（工事）原価</label>
+                                <input type="text" name="manufacturing_cost" id="manufacturing_cost" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.manufacturing_cost if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（３）期末棚卸高</label>
+                                <input type="text" name="ending_inventory" id="ending_inventory" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.ending_inventory if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12 mt-1">
+                                <label class="form-label fw-bold">売上原価 合計</label>
+                                <input type="text" name="cost_of_sales" id="cost_of_sales" class="form-control js-comma-int text-end bg-light fw-bold"
+                                    value="{{ rpl.cost_of_sales if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 売上総利益 -->
+                <div class="card mb-3 border-success">
+                    <div class="card-body bg-light">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-6"><span class="fw-bold text-success fs-6">売上総利益</span></div>
+                            <div class="col-6">
+                                <input type="text" name="gross_profit" id="gross_profit" class="form-control js-comma-int text-end fw-bold text-success bg-white"
+                                    value="{{ rpl.gross_profit if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 外部経費調整 -->
+                <div class="card mb-3 border-info">
+                    <div class="card-header bg-info text-white fw-bold">
+                        外部経費調整
+                        <small class="fw-normal ms-2">（製造原価の労務費＋減価償却費＋修繕費）</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label fw-bold">外部経費調整 合計</label>
+                                <input type="text" name="external_cost_adjustment" id="external_cost_adjustment" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.external_cost_adjustment if rpl else '' }}" placeholder="0">
+                                <div class="form-text">製造原価報告書の労務費＋減価償却費＋修繕費の合計</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 粗付加価値 -->
+                <div class="card mb-3 border-success">
+                    <div class="card-body bg-success bg-opacity-10">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-6"><span class="fw-bold text-success fs-6">粗付加価値</span><br><small class="text-muted">（売上総利益＋外部経費調整）</small></div>
+                            <div class="col-6">
+                                <input type="text" name="gross_added_value" id="gross_added_value" class="form-control js-comma-int text-end fw-bold text-success bg-white"
+                                    value="{{ rpl.gross_added_value if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 販売費及び一般管理費 -->
+                <div class="card mb-3 border-warning">
+                    <div class="card-header bg-warning text-dark fw-bold">
+                        <span class="badge bg-dark me-2">3</span>販売費及び一般管理費
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（１）人件費</label>
+                                <input type="text" name="labor_cost" id="labor_cost" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.labor_cost if rpl else '' }}" placeholder="0">
+                                <div class="form-text">製造原価報告書の労務費＋販管費の人件費（役員に関するものを除く）</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（２）役員報酬</label>
+                                <input type="text" name="executive_compensation" id="executive_compensation" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.executive_compensation if rpl else '' }}" placeholder="0">
+                                <div class="form-text">役員報酬＋法定福利費（役員分）</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（３）資本再生費</label>
+                                <input type="text" name="capital_regeneration_cost" id="capital_regeneration_cost" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.capital_regeneration_cost if rpl else '' }}" placeholder="0">
+                                <div class="form-text">減価償却費＋修繕費（製造原価＋販管費）</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（４）研究開発費</label>
+                                <input type="text" name="research_development_expenses" id="research_development_expenses" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.research_development_expenses if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（５）一般経費</label>
+                                <input type="text" name="general_expenses" id="general_expenses" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.general_expenses if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label text-muted small">&nbsp;&nbsp;①固定費</label>
+                                <input type="text" name="general_expenses_fixed" id="general_expenses_fixed" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.general_expenses_fixed if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label text-muted small">&nbsp;&nbsp;②変動費</label>
+                                <input type="text" name="general_expenses_variable" id="general_expenses_variable" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.general_expenses_variable if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12 mt-1">
+                                <label class="form-label fw-bold">販管費 合計</label>
+                                <input type="text" name="selling_general_admin_expenses" id="selling_general_admin_expenses" class="form-control js-comma-int text-end bg-light fw-bold"
+                                    value="{{ rpl.selling_general_admin_expenses if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 営業利益 -->
+                <div class="card mb-3 border-primary">
+                    <div class="card-body bg-primary bg-opacity-10">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-6"><span class="fw-bold text-primary fs-6">営業利益</span></div>
+                            <div class="col-6">
+                                <input type="text" name="operating_income" id="operating_income" class="form-control js-comma-int text-end fw-bold text-primary bg-white"
+                                    value="{{ rpl.operating_income if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 営業外損益 -->
+                <div class="card mb-3 border-secondary">
+                    <div class="card-header bg-secondary text-white fw-bold">
+                        <span class="badge bg-white text-secondary me-2">4</span>営業外損益
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（１）金融損益</label>
+                                <input type="text" name="financial_profit_loss" id="financial_profit_loss" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.financial_profit_loss if rpl else '' }}" placeholder="0">
+                                <div class="form-text">受取利息－支払利息（マイナスも入力可）</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（２）その他の損益</label>
+                                <input type="text" name="other_non_operating" id="other_non_operating" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.other_non_operating if rpl else '' }}" placeholder="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 経常利益 -->
+                <div class="card mb-3 border-primary">
+                    <div class="card-body bg-primary bg-opacity-10">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-6"><span class="fw-bold text-primary fs-6">経常利益</span></div>
+                            <div class="col-6">
+                                <input type="text" name="ordinary_income" id="ordinary_income" class="form-control js-comma-int text-end fw-bold text-primary bg-white"
+                                    value="{{ rpl.ordinary_income if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. 特別損益 -->
+                <div class="card mb-3 border-danger">
+                    <div class="card-header bg-danger text-white fw-bold">
+                        <span class="badge bg-white text-danger me-2">5</span>特別損益
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label fw-bold">特別損益 合計</label>
+                                <input type="text" name="extraordinary_profit_loss" id="extraordinary_profit_loss" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.extraordinary_profit_loss if rpl else '' }}" placeholder="0">
+                                <div class="form-text">特別利益－特別損失（マイナスも入力可）</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 税引前・税引後 -->
+                <div class="card mb-3 border-dark">
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label fw-bold">税引前当期純利益</label>
+                                <input type="text" name="income_before_tax" id="income_before_tax" class="form-control js-comma-int text-end fw-bold bg-light"
+                                    value="{{ rpl.income_before_tax if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">法人税・住民税・事業税</label>
+                                <input type="text" name="income_taxes" id="income_taxes" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.income_taxes if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold">当期純利益</label>
+                                <input type="text" name="net_income" id="net_income" class="form-control js-comma-int text-end fw-bold bg-light"
+                                    value="{{ rpl.net_income if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. 利益処分 -->
+                <div class="card mb-3 border-info">
+                    <div class="card-header bg-info text-white fw-bold">
+                        <span class="badge bg-white text-info me-2">6</span>利益処分
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（１）配当金</label>
+                                <input type="text" name="dividend" id="dividend" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.dividend if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold">（２）内部留保</label>
+                                <input type="text" name="retained_profit" id="retained_profit" class="form-control js-comma-int text-end fw-bold bg-light"
+                                    value="{{ rpl.retained_profit if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">&nbsp;&nbsp;①利益準備金積立額</label>
+                                <input type="text" name="legal_reserve" id="legal_reserve" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.legal_reserve if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">&nbsp;&nbsp;②その他剰余金積立額</label>
+                                <input type="text" name="voluntary_reserve" id="voluntary_reserve" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.voluntary_reserve if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">&nbsp;&nbsp;③繰越利益剰余金増加</label>
+                                <input type="text" name="retained_earnings_increase" id="retained_earnings_increase" class="form-control js-comma-int text-end bg-light"
+                                    value="{{ rpl.retained_earnings_increase if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /左カラム -->
+
+            <!-- 右カラム: 組換えPLサマリー -->
+            <div class="col-lg-6">
+                <div class="card sticky-top" style="top: 80px;">
+                    <div class="card-header bg-dark text-white fw-bold">
+                        <i class="fas fa-table me-2"></i>組換えPL サマリー
+                        <small class="fw-normal ms-2">（{{ selected_fy.year_name }}）</small>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>項目</th>
+                                    <th class="text-end">金額（千円）</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="table-primary">
+                                    <td><strong>1. 売上高</strong></td>
+                                    <td class="text-end fw-bold" id="sum_sales">-</td>
+                                </tr>
+                                <tr>
+                                    <td>2. 売上原価</td>
+                                    <td class="text-end" id="sum_cost_of_sales">-</td>
+                                </tr>
+                                <tr class="table-success">
+                                    <td><strong>　売上総利益</strong></td>
+                                    <td class="text-end fw-bold text-success" id="sum_gross_profit">-</td>
+                                </tr>
+                                <tr>
+                                    <td>　外部経費調整</td>
+                                    <td class="text-end" id="sum_external_cost">-</td>
+                                </tr>
+                                <tr class="table-success">
+                                    <td><strong>　粗付加価値</strong></td>
+                                    <td class="text-end fw-bold text-success" id="sum_gross_added_value">-</td>
+                                </tr>
+                                <tr>
+                                    <td>3. 販売費一般管理費</td>
+                                    <td class="text-end" id="sum_sga">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;（１）人件費</td>
+                                    <td class="text-end text-muted" id="sum_labor_cost">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;（２）役員報酬</td>
+                                    <td class="text-end text-muted" id="sum_exec_comp">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;（３）資本再生費</td>
+                                    <td class="text-end text-muted" id="sum_cap_regen">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;（４）研究開発費</td>
+                                    <td class="text-end text-muted" id="sum_rd">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;（５）一般経費</td>
+                                    <td class="text-end text-muted" id="sum_general">-</td>
+                                </tr>
+                                <tr class="table-primary">
+                                    <td><strong>　営業利益</strong></td>
+                                    <td class="text-end fw-bold text-primary" id="sum_operating_income">-</td>
+                                </tr>
+                                <tr>
+                                    <td>4. 営業外損益</td>
+                                    <td class="text-end" id="sum_non_op">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;（１）金融損益</td>
+                                    <td class="text-end text-muted" id="sum_financial">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;（２）その他の損益</td>
+                                    <td class="text-end text-muted" id="sum_other_non_op">-</td>
+                                </tr>
+                                <tr class="table-primary">
+                                    <td><strong>　経常利益</strong></td>
+                                    <td class="text-end fw-bold text-primary" id="sum_ordinary_income">-</td>
+                                </tr>
+                                <tr>
+                                    <td>5. 特別損益</td>
+                                    <td class="text-end" id="sum_extraordinary">-</td>
+                                </tr>
+                                <tr class="table-warning">
+                                    <td><strong>　税引前当期純利益</strong></td>
+                                    <td class="text-end fw-bold" id="sum_income_before_tax">-</td>
+                                </tr>
+                                <tr>
+                                    <td>&nbsp;&nbsp;法人税等</td>
+                                    <td class="text-end" id="sum_taxes">-</td>
+                                </tr>
+                                <tr class="table-warning">
+                                    <td><strong>　当期純利益</strong></td>
+                                    <td class="text-end fw-bold" id="sum_net_income">-</td>
+                                </tr>
+                                <tr>
+                                    <td>6. 利益処分</td>
+                                    <td class="text-end"></td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;（１）配当金</td>
+                                    <td class="text-end text-muted" id="sum_dividend">-</td>
+                                </tr>
+                                <tr class="table-success">
+                                    <td><strong>&nbsp;&nbsp;（２）内部留保</strong></td>
+                                    <td class="text-end fw-bold text-success" id="sum_retained">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div><!-- /右カラム -->
+        </div><!-- /row -->
+
+        <!-- 保存ボタン -->
+        <div class="row mt-3 mb-5">
+            <div class="col-12 d-flex gap-2">
+                <button type="submit" class="btn btn-success btn-lg">
+                    <i class="fas fa-save me-2"></i>保存
+                </button>
+                <a href="/decision/" class="btn btn-outline-secondary btn-lg">
+                    <i class="fas fa-arrow-left me-2"></i>戻る
+                </a>
+            </div>
+        </div>
+    </form>
+
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>企業と会計年度を選択してください。
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// 数値のパース（カンマ除去）
+function parseNum(id) {
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    const v = el.value.replace(/,/g, '').replace(/[^-\d]/g, '');
+    return parseInt(v) || 0;
+}
+
+// 数値のフォーマット（カンマ付き）
+function fmt(n) {
+    if (n === 0) return '0';
+    return n.toLocaleString('ja-JP');
+}
+
+// サマリー表示の更新
+function updateSummary(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = fmt(val);
+}
+
+// 自動計算
+function recalculate() {
+    const sales = parseNum('sales');
+    const beginInv = parseNum('beginning_inventory');
+    const mfgCost = parseNum('manufacturing_cost');
+    const endInv = parseNum('ending_inventory');
+    const costOfSales = beginInv + mfgCost - endInv;
+    
+    // 売上原価を自動計算
+    const cosEl = document.getElementById('cost_of_sales');
+    if (cosEl) cosEl.value = fmt(costOfSales);
+    
+    const grossProfit = sales - costOfSales;
+    const gpEl = document.getElementById('gross_profit');
+    if (gpEl) gpEl.value = fmt(grossProfit);
+    
+    const extCost = parseNum('external_cost_adjustment');
+    const grossAddedValue = grossProfit + extCost;
+    const gavEl = document.getElementById('gross_added_value');
+    if (gavEl) gavEl.value = fmt(grossAddedValue);
+    
+    const laborCost = parseNum('labor_cost');
+    const execComp = parseNum('executive_compensation');
+    const capRegen = parseNum('capital_regeneration_cost');
+    const rd = parseNum('research_development_expenses');
+    const genExp = parseNum('general_expenses');
+    const genFixed = parseNum('general_expenses_fixed');
+    const genVar = parseNum('general_expenses_variable');
+    
+    // 一般経費 = 固定費 + 変動費（手動入力の場合はそのまま）
+    const sga = laborCost + execComp + capRegen + rd + genExp;
+    const sgaEl = document.getElementById('selling_general_admin_expenses');
+    if (sgaEl) sgaEl.value = fmt(sga);
+    
+    const operatingIncome = grossProfit - sga;
+    const oiEl = document.getElementById('operating_income');
+    if (oiEl) oiEl.value = fmt(operatingIncome);
+    
+    const financial = parseNum('financial_profit_loss');
+    const otherNonOp = parseNum('other_non_operating');
+    const nonOpTotal = financial + otherNonOp;
+    
+    const ordinaryIncome = operatingIncome + nonOpTotal;
+    const ordiEl = document.getElementById('ordinary_income');
+    if (ordiEl) ordiEl.value = fmt(ordinaryIncome);
+    
+    const extraordinary = parseNum('extraordinary_profit_loss');
+    const incomeBeforeTax = ordinaryIncome + extraordinary;
+    const ibtEl = document.getElementById('income_before_tax');
+    if (ibtEl) ibtEl.value = fmt(incomeBeforeTax);
+    
+    const taxes = parseNum('income_taxes');
+    const netIncome = incomeBeforeTax - taxes;
+    const niEl = document.getElementById('net_income');
+    if (niEl) niEl.value = fmt(netIncome);
+    
+    const dividend = parseNum('dividend');
+    const retainedProfit = netIncome - dividend;
+    const rpEl = document.getElementById('retained_profit');
+    if (rpEl) rpEl.value = fmt(retainedProfit);
+    
+    const legalRes = parseNum('legal_reserve');
+    const volRes = parseNum('voluntary_reserve');
+    const retEarningsInc = retainedProfit - legalRes - volRes;
+    const reiEl = document.getElementById('retained_earnings_increase');
+    if (reiEl) reiEl.value = fmt(retEarningsInc);
+    
+    // サマリー更新
+    updateSummary('sum_sales', sales);
+    updateSummary('sum_cost_of_sales', costOfSales);
+    updateSummary('sum_gross_profit', grossProfit);
+    updateSummary('sum_external_cost', extCost);
+    updateSummary('sum_gross_added_value', grossAddedValue);
+    updateSummary('sum_sga', sga);
+    updateSummary('sum_labor_cost', laborCost);
+    updateSummary('sum_exec_comp', execComp);
+    updateSummary('sum_cap_regen', capRegen);
+    updateSummary('sum_rd', rd);
+    updateSummary('sum_general', genExp);
+    updateSummary('sum_operating_income', operatingIncome);
+    updateSummary('sum_non_op', nonOpTotal);
+    updateSummary('sum_financial', financial);
+    updateSummary('sum_other_non_op', otherNonOp);
+    updateSummary('sum_ordinary_income', ordinaryIncome);
+    updateSummary('sum_extraordinary', extraordinary);
+    updateSummary('sum_income_before_tax', incomeBeforeTax);
+    updateSummary('sum_taxes', taxes);
+    updateSummary('sum_net_income', netIncome);
+    updateSummary('sum_dividend', dividend);
+    updateSummary('sum_retained', retainedProfit);
+}
+
+// カンマ区切り入力
+function initCommaInputs() {
+    document.querySelectorAll('.js-comma-int').forEach(function(el) {
+        if (!el.readOnly) {
+            el.addEventListener('input', function() {
+                const raw = this.value.replace(/,/g, '').replace(/[^-\d]/g, '');
+                if (raw !== '') {
+                    const num = parseInt(raw);
+                    if (!isNaN(num)) {
+                        const pos = this.selectionStart;
+                        this.value = num.toLocaleString('ja-JP');
+                    }
+                }
+                recalculate();
+            });
+        }
+    });
+}
+
+// フォーム送信前にカンマを除去
+document.getElementById('plRestructuringForm').addEventListener('submit', function() {
+    document.querySelectorAll('.js-comma-int').forEach(function(el) {
+        el.value = el.value.replace(/,/g, '');
+    });
+});
+
+// 初期化
+document.addEventListener('DOMContentLoaded', function() {
+    initCommaInputs();
+    recalculate();
+});
+</script>
+{% endblock %}

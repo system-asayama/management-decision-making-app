@@ -163,32 +163,57 @@ class RestructuredPL(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     fiscal_year_id = Column(Integer, ForeignKey('fiscal_years.id'), nullable=False)
     
-    # 売上高
+    # 1. 売上高
     sales = Column(Integer, default=0, nullable=False)
-    # 売上原価
+    # 2. 売上原価
     cost_of_sales = Column(Integer, default=0, nullable=False)
+    # 売上原価内訳
+    beginning_inventory = Column(Integer, default=0, nullable=False)      # 期首棚卸高
+    manufacturing_cost = Column(Integer, default=0, nullable=False)        # 当期製造（工事）原価
+    ending_inventory = Column(Integer, default=0, nullable=False)          # 期末棚卸高
     # 売上総利益
     gross_profit = Column(Integer, default=0, nullable=False)
-    # 販売費及び一般管理費
+    # 外部経費調整（労務費＋減価償却費＋修繕費）
+    external_cost_adjustment = Column(Integer, default=0, nullable=False)
+    # 粗付加価値（売上総利益＋外部経費調整）
+    gross_added_value = Column(Integer, default=0, nullable=False)
+    # 3. 販売費及び一般管理費
     selling_general_admin_expenses = Column(Integer, default=0, nullable=False)
+    # 販管費内訳
+    labor_cost = Column(Integer, default=0, nullable=False)                # 人件費
+    executive_compensation = Column(Integer, default=0, nullable=False)    # 役員報酬
+    capital_regeneration_cost = Column(Integer, default=0, nullable=False) # 資本再生費（減価償却費＋修繕費）
+    research_development_expenses = Column(Integer, default=0, nullable=False)  # 研究開発費
+    general_expenses = Column(Integer, default=0, nullable=False)          # 一般経費
+    general_expenses_fixed = Column(Integer, default=0, nullable=False)    # 一般経費（固定費）
+    general_expenses_variable = Column(Integer, default=0, nullable=False) # 一般経費（変動費）
     # 営業利益
     operating_income = Column(Integer, default=0, nullable=False)
-    # 営業外収益
-    non_operating_income = Column(Integer, default=0, nullable=False)
-    # 営業外費用
-    non_operating_expenses = Column(Integer, default=0, nullable=False)
+    # 4. 営業外損益
+    financial_profit_loss = Column(Integer, default=0, nullable=False)     # 金融損益（受取利息－支払利息）
+    other_non_operating = Column(Integer, default=0, nullable=False)       # その他の損益
     # 経常利益
     ordinary_income = Column(Integer, default=0, nullable=False)
-    # 特別利益
-    extraordinary_income = Column(Integer, default=0, nullable=False)
-    # 特別損失
-    extraordinary_loss = Column(Integer, default=0, nullable=False)
+    # 5. 特別損益
+    extraordinary_profit_loss = Column(Integer, default=0, nullable=False) # 特別損益合計
     # 税引前当期純利益
     income_before_tax = Column(Integer, default=0, nullable=False)
     # 法人税等
     income_taxes = Column(Integer, default=0, nullable=False)
     # 当期純利益
     net_income = Column(Integer, default=0, nullable=False)
+    # 6. 利益処分
+    dividend = Column(Integer, default=0, nullable=False)                  # 配当金
+    retained_profit = Column(Integer, default=0, nullable=False)           # 内部留保
+    legal_reserve = Column(Integer, default=0, nullable=False)             # 利益準備金積立額
+    voluntary_reserve = Column(Integer, default=0, nullable=False)         # その他剰余金積立額
+    retained_earnings_increase = Column(Integer, default=0, nullable=False) # 繰越利益剰余金増加
+    
+    # 旧フィールド（後方互換性）
+    non_operating_income = Column(Integer, default=0, nullable=False)
+    non_operating_expenses = Column(Integer, default=0, nullable=False)
+    extraordinary_income = Column(Integer, default=0, nullable=False)
+    extraordinary_loss = Column(Integer, default=0, nullable=False)
     
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
@@ -206,22 +231,62 @@ class RestructuredBS(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     fiscal_year_id = Column(Integer, ForeignKey('fiscal_years.id'), nullable=False)
     
-    # 流動資産
+    # ===== 資産の部 =====
+    # 1. 当座資産
+    cash_on_hand = Column(Integer, default=0, nullable=False)              # 手許現預金
+    investment_deposits = Column(Integer, default=0, nullable=False)       # 運用預金
+    marketable_securities = Column(Integer, default=0, nullable=False)     # 有価証券
+    # 2. 売掛債権
+    trade_receivables = Column(Integer, default=0, nullable=False)         # 売掛債権（売掛金＋受取手形）
+    # 3. 棚卸資産
+    inventory_assets = Column(Integer, default=0, nullable=False)          # 棚卸資産
+    # 流動資産合計
     current_assets = Column(Integer, default=0, nullable=False)
     # 固定資産
+    tangible_fixed_assets = Column(Integer, default=0, nullable=False)     # 有形固定資産
+    intangible_fixed_assets = Column(Integer, default=0, nullable=False)   # 無形固定資産
+    investments_and_other = Column(Integer, default=0, nullable=False)     # 投資その他資産
+    deferred_assets = Column(Integer, default=0, nullable=False)           # 繰延資産
     fixed_assets = Column(Integer, default=0, nullable=False)
     # 資産合計
     total_assets = Column(Integer, default=0, nullable=False)
-    # 流動負債
+    
+    # ===== 負債の部 =====
+    # 4. 買掛債務
+    trade_payables = Column(Integer, default=0, nullable=False)            # 買掛債務
+    # 5. 短期借入金（1年以内返済の長期借入金を含む）
+    short_term_borrowings = Column(Integer, default=0, nullable=False)     # 短期借入金
+    current_portion_long_term = Column(Integer, default=0, nullable=False) # 1年以内返済の長期借入金
+    discounted_notes = Column(Integer, default=0, nullable=False)          # 割引手形
+    other_current_liabilities = Column(Integer, default=0, nullable=False) # その他流動負債
+    # 流動負債合計
     current_liabilities = Column(Integer, default=0, nullable=False)
-    # 固定負債
+    # 6. 長期借入金
+    long_term_borrowings = Column(Integer, default=0, nullable=False)      # 長期借入金
+    executive_borrowings = Column(Integer, default=0, nullable=False)      # 役員等借入金
+    retirement_benefit_liability = Column(Integer, default=0, nullable=False)  # 退職給付引当金
+    other_fixed_liabilities = Column(Integer, default=0, nullable=False)   # その他固定負債
+    # 固定負債合計
     fixed_liabilities = Column(Integer, default=0, nullable=False)
     # 負債合計
     total_liabilities = Column(Integer, default=0, nullable=False)
-    # 純資産
+    
+    # ===== 純資産の部 =====
+    capital = Column(Integer, default=0, nullable=False)                   # 資本金
+    capital_surplus = Column(Integer, default=0, nullable=False)           # 資本剰余金
+    retained_earnings = Column(Integer, default=0, nullable=False)         # 利益剰余金
+    legal_reserve_bs = Column(Integer, default=0, nullable=False)          # 利益準備金
+    voluntary_reserve_bs = Column(Integer, default=0, nullable=False)      # 任意積立金
+    retained_earnings_carried = Column(Integer, default=0, nullable=False) # 繰越利益剰余金
+    treasury_stock = Column(Integer, default=0, nullable=False)            # 自己株式
+    # 純資産合計
     net_assets = Column(Integer, default=0, nullable=False)
     # 負債純資産合計
     total_liabilities_and_net_assets = Column(Integer, default=0, nullable=False)
+    
+    # 脈診注記
+    discounted_notes_note = Column(Integer, default=0, nullable=False)     # 割引手形高（脈診）
+    endorsed_notes_note = Column(Integer, default=0, nullable=False)       # 裏書手形高（脈診）
     
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
