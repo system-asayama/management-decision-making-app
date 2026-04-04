@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block title %}PDF財務諸表読み取り{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <!-- パンくずリスト -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('decision.index') }}">経営意思決定アプリ</a></li>
+      <li class="breadcrumb-item active">PDF財務諸表読み取り</li>
+    </ol>
+  </nav>
+
+  <h2 class="mb-1"><i class="bi bi-file-earmark-pdf text-danger me-2"></i>PDF財務諸表読み取り</h2>
+  <p class="text-muted mb-4">会計ソフトから出力したPDFをアップロードすると、貸借対照表・損益計算書・製造原価報告書を自動で読み取ります。</p>
+
+  {% if error_message %}
+  <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error_message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
+
+  <!-- Step 1: 企業・会計年度選択 & PDFアップロード -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0"><i class="bi bi-upload me-2"></i>Step 1: PDFをアップロード</h5>
+    </div>
+    <div class="card-body">
+      <form method="POST" enctype="multipart/form-data" id="uploadForm">
+        <div class="row g-3 mb-3">
+          <div class="col-md-5">
+            <label class="form-label fw-bold">企業</label>
+            <select name="company_id" id="company_select" class="form-select" required>
+              <option value="">企業を選択</option>
+              {% for c in companies %}
+              <option value="{{ c.id }}" {% if company_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label fw-bold">会計年度</label>
+            <select name="fiscal_year_id" id="fy_select" class="form-select" required>
+              <option value="">会計年度を選択</option>
+              {% for fy in fiscal_years %}
+              <option value="{{ fy.id }}" {% if fiscal_year_id == fy.id %}selected{% endif %}>{{ fy.year_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">読み取る財務諸表の種類</label>
+          <div class="d-flex gap-4 flex-wrap">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="target_types" value="balance_sheet" id="chk_bs" checked>
+              <label class="form-check-label" for="chk_bs"><i class="bi bi-table me-1 text-primary"></i>貸借対照表</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="target_types" value="profit_loss" id="chk_pl" checked>
+              <label class="form-check-label" for="chk_pl"><i class="bi bi-bar-chart me-1 text-success"></i>損益計算書</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="target_types" value="manufacturing_cost" id="chk_mfg" checked>
+              <label class="form-check-label" for="chk_mfg"><i class="bi bi-gear me-1 text-warning"></i>製造原価報告書</label>
+            </div>
+          </div>
+          <small class="text-muted">含まれていない書類のチェックを外すと処理が速くなります</small>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">PDFファイル</label>
+          <input type="file" name="pdf_file" accept=".pdf" class="form-control" required id="pdf_input">
+          <div class="form-text">会計ソフト（弥生・freee・マネーフォワード等）から出力したPDFをアップロードしてください。</div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          <i class="bi bi-cpu me-2"></i>AIで読み取る
+        </button>
+      </form>
+    </div>
+  </div>
+
+  {% if parse_result %}
+  <!-- Step 2: 読み取り結果の確認・修正 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white">
+      <h5 class="mb-0"><i class="bi bi-check2-circle me-2"></i>Step 2: 読み取り結果を確認・修正して保存</h5>
+    </div>
+    <div class="card-body">
+      <div class="alert alert-info mb-3">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>検出された財務諸表:</strong>
+        {% for t in parse_result.detected_types %}
+          {% if t == 'balance_sheet' %}<span class="badge bg-primary me-1">貸借対照表</span>{% endif %}
+          {% if t == 'profit_loss' %}<span class="badge bg-success me-1">損益計算書</span>{% endif %}
+          {% if t == 'manufacturing_cost' %}<span class="badge bg-warning text-dark me-1">製造原価報告書</span>{% endif %}
+        {% endfor %}
+        <br><small class="text-muted mt-1 d-block">数値を確認・修正してから「データを保存」ボタンを押してください。</small>
+      </div>
+
+      <form method="POST" action="{{ url_for('decision.pdf_apply') }}" id="applyForm">
+        <input type="hidden" name="fiscal_year_id" value="{{ fiscal_year_id }}">
+        <input type="hidden" name="company_id" value="{{ company_id }}">
+
+        <!-- 損益計算書 -->
+        {% if parse_result.profit_loss %}
+        <div class="mb-4">
+          <div class="d-flex align-items-center mb-2">
+            <input class="form-check-input me-2" type="checkbox" name="apply_types" value="profit_loss" id="apply_pl" checked>
+            <label class="form-check-label fw-bold fs-5 text-success" for="apply_pl">
+              <i class="bi bi-bar-chart me-1"></i>損益計算書
+            </label>
+          </div>
+          {% set pl = parse_result.profit_loss %}
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered table-hover">
+              <thead class="table-success">
+                <tr><th style="width:40%">項目</th><th style="width:30%">読み取り値（千円）</th><th style="width:30%">修正値（千円）</th></tr>
+              </thead>
+              <tbody>
+                {% set pl_fields = [
+                  ('pl_sales', '売上高', pl.sales),
+                  ('pl_beginning_inventory', '期首棚卸高', pl.beginning_inventory),
+                  ('pl_manufacturing_cost', '当期製造（工事）原価', pl.manufacturing_cost),
+                  ('pl_ending_inventory', '期末棚卸高', pl.ending_inventory),
+                  ('pl_cost_of_sales', '売上原価 合計', pl.cost_of_sales),
+                  ('pl_gross_profit', '売上総利益', pl.gross_profit),
+                  ('pl_labor_cost', '人件費', pl.labor_cost),
+                  ('pl_executive_compensation', '役員報酬', pl.executive_compensation),
+                  ('pl_capital_regeneration_cost', '資本再生費', pl.capital_regeneration_cost),
+                  ('pl_research_development_expenses', '研究開発費', pl.research_development_expenses),
+                  ('pl_general_expenses', '一般経費', pl.general_expenses),
+                  ('pl_general_expenses_fixed', '　①固定費', pl.general_expenses_fixed),
+                  ('pl_general_expenses_variable', '　②変動費', pl.general_expenses_variable),
+                  ('pl_selling_general_admin_expenses', '販管費 合計', pl.selling_general_admin_expenses),
+                  ('pl_operating_income', '営業利益', pl.operating_income),
+                  ('pl_financial_profit_loss', '金融損益', pl.financial_profit_loss),
+                  ('pl_other_non_operating', 'その他営業外損益', pl.other_non_operating),
+                  ('pl_ordinary_income', '経常利益', pl.ordinary_income),
+                  ('pl_extraordinary_profit_loss', '特別損益', pl.extraordinary_profit_loss),
+                  ('pl_income_before_tax', '税引前当期純利益', pl.income_before_tax),
+                  ('pl_income_taxes', '法人税等', pl.income_taxes),
+                  ('pl_net_income', '当期純利益', pl.net_income),
+                  ('pl_dividend', '配当金', pl.dividend),
+                  ('pl_retained_profit', '内部留保', pl.retained_profit),
+                  ('pl_legal_reserve', '利益準備金積立額', pl.legal_reserve),
+                  ('pl_voluntary_reserve', 'その他剰余金積立額', pl.voluntary_reserve),
+                  ('pl_retained_earnings_increase', '繰越利益剰余金増加', pl.retained_earnings_increase),
+                ] %}
+                {% for fname, label, val in pl_fields %}
+                <tr>
+                  <td>{{ label }}</td>
+                  <td class="text-end text-muted">{{ "{:,}".format(val) }}</td>
+                  <td><input type="number" name="{{ fname }}" value="{{ val }}" class="form-control form-control-sm text-end"></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- 貸借対照表 -->
+        {% if parse_result.balance_sheet %}
+        <div class="mb-4">
+          <div class="d-flex align-items-center mb-2">
+            <input class="form-check-input me-2" type="checkbox" name="apply_types" value="balance_sheet" id="apply_bs" checked>
+            <label class="form-check-label fw-bold fs-5 text-primary" for="apply_bs">
+              <i class="bi bi-table me-1"></i>貸借対照表
+            </label>
+          </div>
+          {% set bs = parse_result.balance_sheet %}
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered table-hover">
+              <thead class="table-primary">
+                <tr><th style="width:40%">項目</th><th style="width:30%">読み取り値（千円）</th><th style="width:30%">修正値（千円）</th></tr>
+              </thead>
+              <tbody>
+                <tr class="table-light"><td colspan="3"><strong>【資産の部】</strong></td></tr>
+                {% set bs_fields = [
+                  ('bs_cash_on_hand', '手許現預金', bs.cash_on_hand),
+                  ('bs_investment_deposits', '運用預金', bs.investment_deposits),
+                  ('bs_marketable_securities', '有価証券', bs.marketable_securities),
+                  ('bs_trade_receivables', '売掛債権', bs.trade_receivables),
+                  ('bs_inventory_assets', '棚卸資産', bs.inventory_assets),
+                  ('bs_current_assets', '流動資産 合計', bs.current_assets),
+                  ('bs_tangible_fixed_assets', '有形固定資産', bs.tangible_fixed_assets),
+                  ('bs_intangible_fixed_assets', '無形固定資産', bs.intangible_fixed_assets),
+                  ('bs_investments_and_other', '投資その他の資産', bs.investments_and_other),
+                  ('bs_deferred_assets', '繰延資産', bs.deferred_assets),
+                  ('bs_fixed_assets', '固定資産 合計', bs.fixed_assets),
+                  ('bs_total_assets', '資産 合計', bs.total_assets),
+                ] %}
+                {% for fname, label, val in bs_fields %}
+                <tr>
+                  <td>{{ label }}</td>
+                  <td class="text-end text-muted">{{ "{:,}".format(val) }}</td>
+                  <td><input type="number" name="{{ fname }}" value="{{ val }}" class="form-control form-control-sm text-end"></td>
+                </tr>
+                {% endfor %}
+                <tr class="table-light"><td colspan="3"><strong>【負債の部】</strong></td></tr>
+                {% set bs_fields2 = [
+                  ('bs_trade_payables', '買掛債務', bs.trade_payables),
+                  ('bs_short_term_borrowings', '短期借入金', bs.short_term_borrowings),
+                  ('bs_current_portion_long_term', '1年以内返済長期借入金', bs.current_portion_long_term),
+                  ('bs_discounted_notes', '割引手形', bs.discounted_notes),
+                  ('bs_other_current_liabilities', 'その他流動負債', bs.other_current_liabilities),
+                  ('bs_current_liabilities', '流動負債 合計', bs.current_liabilities),
+                  ('bs_long_term_borrowings', '長期借入金', bs.long_term_borrowings),
+                  ('bs_executive_borrowings', '役員等借入金', bs.executive_borrowings),
+                  ('bs_retirement_benefit_liability', '退職給付引当金', bs.retirement_benefit_liability),
+                  ('bs_other_fixed_liabilities', 'その他固定負債', bs.other_fixed_liabilities),
+                  ('bs_fixed_liabilities', '固定負債 合計', bs.fixed_liabilities),
+                  ('bs_total_liabilities', '負債 合計', bs.total_liabilities),
+                ] %}
+                {% for fname, label, val in bs_fields2 %}
+                <tr>
+                  <td>{{ label }}</td>
+                  <td class="text-end text-muted">{{ "{:,}".format(val) }}</td>
+                  <td><input type="number" name="{{ fname }}" value="{{ val }}" class="form-control form-control-sm text-end"></td>
+                </tr>
+                {% endfor %}
+                <tr class="table-light"><td colspan="3"><strong>【純資産の部】</strong></td></tr>
+                {% set bs_fields3 = [
+                  ('bs_capital', '資本金', bs.capital),
+                  ('bs_capital_surplus', '資本剰余金', bs.capital_surplus),
+                  ('bs_retained_earnings', '利益剰余金 合計', bs.retained_earnings),
+                  ('bs_legal_reserve_bs', '　利益準備金', bs.legal_reserve_bs),
+                  ('bs_voluntary_reserve_bs', '　任意積立金', bs.voluntary_reserve_bs),
+                  ('bs_retained_earnings_carried', '　繰越利益剰余金', bs.retained_earnings_carried),
+                  ('bs_treasury_stock', '自己株式', bs.treasury_stock),
+                  ('bs_net_assets', '純資産 合計', bs.net_assets),
+                  ('bs_total_liabilities_and_net_assets', '負債純資産 合計', bs.total_liabilities_and_net_assets),
+                ] %}
+                {% for fname, label, val in bs_fields3 %}
+                <tr>
+                  <td>{{ label }}</td>
+                  <td class="text-end text-muted">{{ "{:,}".format(val) }}</td>
+                  <td><input type="number" name="{{ fname }}" value="{{ val }}" class="form-control form-control-sm text-end"></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- 製造原価報告書（参考表示のみ） -->
+        {% if parse_result.manufacturing_cost %}
+        <div class="mb-4">
+          <h5 class="text-warning"><i class="bi bi-gear me-1"></i>製造原価報告書（参考）</h5>
+          <p class="text-muted small">製造原価報告書の数値はPL組換えの「当期製造原価」「外部経費調整」の入力に参考にしてください。</p>
+          {% set mfg = parse_result.manufacturing_cost %}
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+              <thead class="table-warning">
+                <tr><th>項目</th><th class="text-end">金額（千円）</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>材料費</td><td class="text-end">{{ "{:,}".format(mfg.material_cost) }}</td></tr>
+                <tr><td>労務費</td><td class="text-end">{{ "{:,}".format(mfg.labor_cost_manufacturing) }}</td></tr>
+                <tr><td>外注費</td><td class="text-end">{{ "{:,}".format(mfg.outsourcing_cost) }}</td></tr>
+                <tr><td>減価償却費（製造）</td><td class="text-end">{{ "{:,}".format(mfg.depreciation_manufacturing) }}</td></tr>
+                <tr><td>修繕費（製造）</td><td class="text-end">{{ "{:,}".format(mfg.repair_cost_manufacturing) }}</td></tr>
+                <tr><td>その他製造経費</td><td class="text-end">{{ "{:,}".format(mfg.other_manufacturing_cost) }}</td></tr>
+                <tr class="table-warning fw-bold"><td>当期総製造費用</td><td class="text-end">{{ "{:,}".format(mfg.total_manufacturing_cost_current) }}</td></tr>
+                <tr><td>期首仕掛品棚卸高</td><td class="text-end">{{ "{:,}".format(mfg.beginning_wip) }}</td></tr>
+                <tr><td>期末仕掛品棚卸高</td><td class="text-end">{{ "{:,}".format(mfg.ending_wip) }}</td></tr>
+                <tr class="table-warning fw-bold"><td>当期製造原価合計</td><td class="text-end">{{ "{:,}".format(mfg.total_manufacturing_cost) }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="d-flex gap-2 mt-3">
+          <button type="submit" class="btn btn-success btn-lg">
+            <i class="bi bi-save me-2"></i>データを保存してフォームに反映
+          </button>
+          <a href="{{ url_for('decision.pdf_upload', company_id=company_id, fiscal_year_id=fiscal_year_id) }}" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-arrow-counterclockwise me-2"></i>やり直す
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <a href="{{ url_for('decision.index') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>アプリ一覧に戻る
+  </a>
+</div>
+
+<script>
+// 企業選択時に会計年度を動的ロード
+document.getElementById('company_select').addEventListener('change', function() {
+  const companyId = this.value;
+  if (companyId) {
+    window.location.href = '{{ url_for("decision.pdf_upload") }}?company_id=' + companyId;
+  }
+});
+
+// アップロード中のローディング表示
+document.getElementById('uploadForm').addEventListener('submit', function() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>AIが読み取り中... しばらくお待ちください';
+});
+</script>
+{% endblock %}

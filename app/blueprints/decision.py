@@ -3811,3 +3811,186 @@ def bs_restructuring():
         )
     finally:
         db.close()
+
+
+## ==================== PDF財務諸表読み取り ====================
+import os
+import tempfile
+from ..services.pdf_parser_service import parse_financial_pdf
+from ..models_decision import RestructuredPL, RestructuredBS
+from ..models_login import TKanrisha
+@bp.route('/pdf-upload', methods=['GET', 'POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def pdf_upload():
+    """PDF財務諸表アップロード・読み取りページ"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        companies = db.query(Company).filter_by(tenant_id=tenant_id).all()
+        # DBに保存されたOpenAI APIキーを取得（システム管理者の設定から）
+        openai_api_key = None
+        sys_admin = db.query(TKanrisha).filter(TKanrisha.openai_api_key != None).first()
+        if sys_admin and sys_admin.openai_api_key:
+            openai_api_key = sys_admin.openai_api_key
+
+        selected_company = None
+        fiscal_years = []
+        selected_fy = None
+        parse_result = None
+        error_message = None
+
+        company_id = request.args.get('company_id', type=int) or request.form.get('company_id', type=int)
+        fiscal_year_id = request.args.get('fiscal_year_id', type=int) or request.form.get('fiscal_year_id', type=int)
+
+        if company_id:
+            selected_company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+            if selected_company:
+                fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.year.desc()).all()
+
+        if fiscal_year_id:
+            selected_fy = db.query(FiscalYear).filter_by(id=fiscal_year_id).first()
+
+        if request.method == 'POST' and 'pdf_file' in request.files:
+            pdf_file = request.files['pdf_file']
+            target_types = request.form.getlist('target_types')
+
+            if not pdf_file or pdf_file.filename == '':
+                error_message = 'PDFファイルを選択してください。'
+            elif not pdf_file.filename.lower().endswith('.pdf'):
+                error_message = 'PDFファイルのみアップロード可能です。'
+            elif not fiscal_year_id:
+                error_message = '企業と会計年度を選択してください。'
+            else:
+                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+                    pdf_file.save(tmp.name)
+                    tmp_path = tmp.name
+                try:
+                    parse_result = parse_financial_pdf(
+                        tmp_path,
+                        target_types=target_types if target_types else None,
+                        api_key=openai_api_key
+                    )
+                finally:
+                    os.unlink(tmp_path)
+
+                if 'error' in parse_result:
+                    error_message = parse_result['error']
+
+        return render_template(
+            'pdf_upload.html',
+            companies=companies,
+            selected_company=selected_company,
+            fiscal_years=fiscal_years,
+            selected_fy=selected_fy,
+            parse_result=parse_result,
+            error_message=error_message,
+            company_id=company_id,
+            fiscal_year_id=fiscal_year_id
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/pdf-apply', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def pdf_apply():
+    """PDF解析結果をBS・PLデータとして保存する"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        fiscal_year_id = request.form.get('fiscal_year_id', type=int)
+        company_id = request.form.get('company_id', type=int)
+        apply_types = request.form.getlist('apply_types')
+
+        if not fiscal_year_id:
+            return jsonify({'error': '会計年度が指定されていません'}), 400
+
+        def pi(name, default=0):
+            val = request.form.get(name, '')
+            try:
+                return int(str(val).replace(',', '').replace('\u3000', '').strip()) if val else default
+            except (ValueError, TypeError):
+                return default
+
+        if 'profit_loss' in apply_types:
+            rpl = db.query(RestructuredPL).filter_by(fiscal_year_id=fiscal_year_id).first()
+            if not rpl:
+                rpl = RestructuredPL(fiscal_year_id=fiscal_year_id)
+                db.add(rpl)
+            rpl.sales = pi('pl_sales')
+            rpl.beginning_inventory = pi('pl_beginning_inventory')
+            rpl.manufacturing_cost = pi('pl_manufacturing_cost')
+            rpl.ending_inventory = pi('pl_ending_inventory')
+            rpl.cost_of_sales = pi('pl_cost_of_sales')
+            rpl.gross_profit = pi('pl_gross_profit')
+            rpl.labor_cost = pi('pl_labor_cost')
+            rpl.executive_compensation = pi('pl_executive_compensation')
+            rpl.capital_regeneration_cost = pi('pl_capital_regeneration_cost')
+            rpl.research_development_expenses = pi('pl_research_development_expenses')
+            rpl.general_expenses = pi('pl_general_expenses')
+            rpl.general_expenses_fixed = pi('pl_general_expenses_fixed')
+            rpl.general_expenses_variable = pi('pl_general_expenses_variable')
+            rpl.selling_general_admin_expenses = pi('pl_selling_general_admin_expenses')
+            rpl.operating_income = pi('pl_operating_income')
+            rpl.financial_profit_loss = pi('pl_financial_profit_loss')
+            rpl.other_non_operating = pi('pl_other_non_operating')
+            rpl.ordinary_income = pi('pl_ordinary_income')
+            rpl.extraordinary_profit_loss = pi('pl_extraordinary_profit_loss')
+            rpl.income_before_tax = pi('pl_income_before_tax')
+            rpl.income_taxes = pi('pl_income_taxes')
+            rpl.net_income = pi('pl_net_income')
+            rpl.dividend = pi('pl_dividend')
+            rpl.retained_profit = pi('pl_retained_profit')
+            rpl.legal_reserve = pi('pl_legal_reserve')
+            rpl.voluntary_reserve = pi('pl_voluntary_reserve')
+            rpl.retained_earnings_increase = pi('pl_retained_earnings_increase')
+
+        if 'balance_sheet' in apply_types:
+            rbs = db.query(RestructuredBS).filter_by(fiscal_year_id=fiscal_year_id).first()
+            if not rbs:
+                rbs = RestructuredBS(fiscal_year_id=fiscal_year_id)
+                db.add(rbs)
+            rbs.cash_on_hand = pi('bs_cash_on_hand')
+            rbs.investment_deposits = pi('bs_investment_deposits')
+            rbs.marketable_securities = pi('bs_marketable_securities')
+            rbs.trade_receivables = pi('bs_trade_receivables')
+            rbs.inventory_assets = pi('bs_inventory_assets')
+            rbs.current_assets = pi('bs_current_assets')
+            rbs.tangible_fixed_assets = pi('bs_tangible_fixed_assets')
+            rbs.intangible_fixed_assets = pi('bs_intangible_fixed_assets')
+            rbs.investments_and_other = pi('bs_investments_and_other')
+            rbs.deferred_assets = pi('bs_deferred_assets')
+            rbs.fixed_assets = pi('bs_fixed_assets')
+            rbs.total_assets = pi('bs_total_assets')
+            rbs.trade_payables = pi('bs_trade_payables')
+            rbs.short_term_borrowings = pi('bs_short_term_borrowings')
+            rbs.current_portion_long_term = pi('bs_current_portion_long_term')
+            rbs.discounted_notes = pi('bs_discounted_notes')
+            rbs.other_current_liabilities = pi('bs_other_current_liabilities')
+            rbs.current_liabilities = pi('bs_current_liabilities')
+            rbs.long_term_borrowings = pi('bs_long_term_borrowings')
+            rbs.executive_borrowings = pi('bs_executive_borrowings')
+            rbs.retirement_benefit_liability = pi('bs_retirement_benefit_liability')
+            rbs.other_fixed_liabilities = pi('bs_other_fixed_liabilities')
+            rbs.fixed_liabilities = pi('bs_fixed_liabilities')
+            rbs.total_liabilities = pi('bs_total_liabilities')
+            rbs.capital = pi('bs_capital')
+            rbs.capital_surplus = pi('bs_capital_surplus')
+            rbs.retained_earnings = pi('bs_retained_earnings')
+            rbs.legal_reserve_bs = pi('bs_legal_reserve_bs')
+            rbs.voluntary_reserve_bs = pi('bs_voluntary_reserve_bs')
+            rbs.retained_earnings_carried = pi('bs_retained_earnings_carried')
+            rbs.treasury_stock = pi('bs_treasury_stock')
+            rbs.net_assets = pi('bs_net_assets')
+            rbs.total_liabilities_and_net_assets = pi('bs_total_liabilities_and_net_assets')
+
+        db.commit()
+
+        if 'profit_loss' in apply_types:
+            return redirect(url_for('decision.pl_restructuring', company_id=company_id, fiscal_year_id=fiscal_year_id))
+        elif 'balance_sheet' in apply_types:
+            return redirect(url_for('decision.bs_restructuring', company_id=company_id, fiscal_year_id=fiscal_year_id))
+        else:
+            return redirect(url_for('decision.pdf_upload', company_id=company_id, fiscal_year_id=fiscal_year_id))
+    finally:
+        db.close()
