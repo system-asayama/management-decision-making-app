@@ -103,10 +103,18 @@
         <input type="hidden" name="company_id" value="{{ company_id }}">
         <!-- オリジナル試算表データ（生科目JSON） -->
         {% if parse_result.original_trial_balance %}
-        <input type="hidden" name="otb_pl_items" value="{{ parse_result.original_trial_balance.pl_items | tojson if parse_result.original_trial_balance.pl_items else '[]' }}">
-        <input type="hidden" name="otb_bs_items" value="{{ parse_result.original_trial_balance.bs_items | tojson if parse_result.original_trial_balance.bs_items else '[]' }}">
-        <input type="hidden" name="otb_mcr_items" value="{{ parse_result.original_trial_balance.mcr_items | tojson if parse_result.original_trial_balance.mcr_items else '[]' }}">
+        <input type="hidden" name="otb_pl_items" id="otb_pl_items_field">
+        <input type="hidden" name="otb_bs_items" id="otb_bs_items_field">
+        <input type="hidden" name="otb_mcr_items" id="otb_mcr_items_field">
         <input type="hidden" name="otb_unit" value="{{ parse_result.unit }}">
+        <script>
+        (function(){
+          var otbData = {{ parse_result.original_trial_balance | tojson | safe }};
+          document.getElementById('otb_pl_items_field').value = JSON.stringify(otbData.pl_items || []);
+          document.getElementById('otb_bs_items_field').value = JSON.stringify(otbData.bs_items || []);
+          document.getElementById('otb_mcr_items_field').value = JSON.stringify(otbData.mcr_items || []);
+        })();
+        </script>
         {% endif %}
 
         <!-- 損益計算書 -->
