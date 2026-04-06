@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, redirect, url_for, session, reques
 from ..utils.decorators import require_roles, ROLES
 from ..utils.formatting import parse_int, parse_int_or_none
 from ..db import SessionLocal
-from ..models_decision import Company, FiscalYear, ProfitLossStatement, BalanceSheet
+from ..models_decision import Company, FiscalYear, ProfitLossStatement, BalanceSheet, RestructuredPL, RestructuredBS
 from datetime import datetime
 
 bp = Blueprint('decision', __name__, url_prefix='/decision')
@@ -218,8 +218,6 @@ def company_financial_statements(company_id):
         company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
         if not company:
             return redirect(url_for('decision.company_list'))
-
-        from ..models_decision import RestructuredPL, RestructuredBS
 
         fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
 
