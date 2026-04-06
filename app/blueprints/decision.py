@@ -219,7 +219,7 @@ def company_financial_statements(company_id):
         if not company:
             return redirect(url_for('decision.company_list'))
 
-        from app.models_decision import RestructuredPL, RestructuredBS
+        from ..models_decision import RestructuredPL, RestructuredBS
 
         fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
 
