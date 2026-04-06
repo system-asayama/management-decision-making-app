@@ -3845,7 +3845,7 @@ def pdf_upload():
         if company_id:
             selected_company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
             if selected_company:
-                fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.year.desc()).all()
+                fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
 
         if fiscal_year_id:
             selected_fy = db.query(FiscalYear).filter_by(id=fiscal_year_id).first()
