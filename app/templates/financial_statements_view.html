@@ -183,10 +183,10 @@
                   <tr class="fw-bold"><td class="ps-3">負債合計</td><td class="text-end pe-3">{{ item.bs.total_liabilities | comma }}円</td></tr>
 
                   <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">純資産の部</th></tr>
-                  <tr><td class="ps-4">資本金</td><td class="text-end pe-3">{{ item.bs.capital | comma }}円</td></tr>
+                    <tr><td class="ps-4">資本金</td><td class="text-end pe-3">{{ item.bs.capital | comma }}円</td></tr>
                   <tr><td class="ps-4">資本剰余金</td><td class="text-end pe-3">{{ item.bs.capital_surplus | comma }}円</td></tr>
+                  <tr><td class="ps-4">利益剰余金</td><td class="text-end pe-3">{{ item.bs.retained_earnings | comma }}円</td></tr>
                   <tr><td class="ps-4">利益準備金</td><td class="text-end pe-3">{{ item.bs.legal_reserve_bs | comma }}円</td></tr>
-                  <tr><td class="ps-4">任意積立金</td><td class="text-end pe-3">{{ item.bs.voluntary_reserve_bs | comma }}円</td></tr>
                   <tr><td class="ps-4">繰越利益剰余金</td><td class="text-end pe-3">{{ item.bs.retained_earnings_carried | comma }}円</td></tr>
                   <tr><td class="ps-4">自己株式</td><td class="text-end pe-3">{{ item.bs.treasury_stock | comma }}円</td></tr>
                   <tr class="fw-bold"><td class="ps-3">純資産合計</td><td class="text-end pe-3">{{ item.bs.net_assets | comma }}円</td></tr>
