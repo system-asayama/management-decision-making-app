@@ -4316,3 +4316,60 @@ def run_migration_otb():
         return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         db.close()
+
+
+@bp.route('/debug-pl-restructuring', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def debug_pl_restructuring():
+    """pl-restructuringのデバッグ"""
+    import traceback
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        company_id = request.args.get('company_id', type=int)
+        fiscal_year_id = request.args.get('fiscal_year_id', type=int)
+        
+        info = {
+            'tenant_id': tenant_id,
+            'company_id': company_id,
+            'fiscal_year_id': fiscal_year_id,
+        }
+        
+        if fiscal_year_id:
+            try:
+                otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
+                if otb:
+                    info['otb_id'] = otb.id
+                    info['otb_pl_items_type'] = type(otb.pl_items).__name__
+                    info['otb_pl_items_len'] = len(otb.pl_items) if otb.pl_items else 0
+                    info['otb_pl_items_preview'] = otb.pl_items[:200] if otb.pl_items else None
+                else:
+                    info['otb'] = None
+            except Exception as e:
+                info['otb_error'] = str(e)
+                info['otb_traceback'] = traceback.format_exc()
+        
+        return jsonify(info)
+    finally:
+        db.close()
+
+
+@bp.route('/debug-restructured-pl', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def debug_restructured_pl():
+    """restructured_plsテーブルのカラムを確認するデバッグ"""
+    from sqlalchemy import text as sa_text
+    db = SessionLocal()
+    try:
+        result = db.execute(sa_text("""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'restructured_pls'
+            ORDER BY ordinal_position
+        """))
+        columns = [{'name': row[0], 'type': row[1]} for row in result.fetchall()]
+        return jsonify({'columns': columns, 'count': len(columns)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
