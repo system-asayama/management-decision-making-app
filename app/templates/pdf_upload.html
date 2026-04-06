@@ -104,6 +104,7 @@
 
         <!-- 損益計算書 -->
         {% if parse_result.profit_loss %}
+        {% set pl = parse_result.profit_loss %}
         <div class="mb-4">
           <div class="d-flex align-items-center mb-2">
             <input class="form-check-input me-2" type="checkbox" name="apply_types" value="profit_loss" id="apply_pl" checked>
@@ -111,7 +112,6 @@
               <i class="bi bi-bar-chart me-1"></i>損益計算書
             </label>
           </div>
-          {% set pl = parse_result.profit_loss %}
           <div class="table-responsive">
             <table class="table table-sm table-bordered table-hover">
               <thead class="table-success">
@@ -119,35 +119,36 @@
               </thead>
               <tbody>
                 {% set pl_fields = [
-                  ('pl_sales', '売上高', pl.sales),
-                  ('pl_beginning_inventory', '期首棚卸高', pl.beginning_inventory),
-                  ('pl_manufacturing_cost', '当期製造（工事）原価', pl.manufacturing_cost),
-                  ('pl_ending_inventory', '期末棚卸高', pl.ending_inventory),
-                  ('pl_cost_of_sales', '売上原価 合計', pl.cost_of_sales),
-                  ('pl_gross_profit', '売上総利益', pl.gross_profit),
-                  ('pl_labor_cost', '人件費', pl.labor_cost),
-                  ('pl_executive_compensation', '役員報酬', pl.executive_compensation),
-                  ('pl_capital_regeneration_cost', '資本再生費', pl.capital_regeneration_cost),
-                  ('pl_research_development_expenses', '研究開発費', pl.research_development_expenses),
-                  ('pl_general_expenses', '一般経費', pl.general_expenses),
-                  ('pl_general_expenses_fixed', '　①固定費', pl.general_expenses_fixed),
-                  ('pl_general_expenses_variable', '　②変動費', pl.general_expenses_variable),
-                  ('pl_selling_general_admin_expenses', '販管費 合計', pl.selling_general_admin_expenses),
-                  ('pl_operating_income', '営業利益', pl.operating_income),
-                  ('pl_financial_profit_loss', '金融損益', pl.financial_profit_loss),
-                  ('pl_other_non_operating', 'その他営業外損益', pl.other_non_operating),
-                  ('pl_ordinary_income', '経常利益', pl.ordinary_income),
-                  ('pl_extraordinary_profit_loss', '特別損益', pl.extraordinary_profit_loss),
-                  ('pl_income_before_tax', '税引前当期純利益', pl.income_before_tax),
-                  ('pl_income_taxes', '法人税等', pl.income_taxes),
-                  ('pl_net_income', '当期純利益', pl.net_income),
-                  ('pl_dividend', '配当金', pl.dividend),
-                  ('pl_retained_profit', '内部留保', pl.retained_profit),
-                  ('pl_legal_reserve', '利益準備金積立額', pl.legal_reserve),
-                  ('pl_voluntary_reserve', 'その他剰余金積立額', pl.voluntary_reserve),
-                  ('pl_retained_earnings_increase', '繰越利益剰余金増加', pl.retained_earnings_increase),
+                  ('pl_sales', '売上高', 'sales'),
+                  ('pl_beginning_inventory', '期首棚卸高', 'beginning_inventory'),
+                  ('pl_manufacturing_cost', '当期製造（工事）原価', 'manufacturing_cost'),
+                  ('pl_ending_inventory', '期末棚卸高', 'ending_inventory'),
+                  ('pl_cost_of_sales', '売上原価 合計', 'cost_of_sales'),
+                  ('pl_gross_profit', '売上総利益', 'gross_profit'),
+                  ('pl_labor_cost', '人件費', 'labor_cost'),
+                  ('pl_executive_compensation', '役員報酬', 'executive_compensation'),
+                  ('pl_capital_regeneration_cost', '資本再生費', 'capital_regeneration_cost'),
+                  ('pl_research_development_expenses', '研究開発費', 'research_development_expenses'),
+                  ('pl_general_expenses', '一般経費', 'general_expenses'),
+                  ('pl_general_expenses_fixed', '　①固定費', 'general_expenses_fixed'),
+                  ('pl_general_expenses_variable', '　②変動費', 'general_expenses_variable'),
+                  ('pl_selling_general_admin_expenses', '販管費 合計', 'selling_general_admin_expenses'),
+                  ('pl_operating_income', '営業利益', 'operating_income'),
+                  ('pl_financial_profit_loss', '金融損益', 'financial_profit_loss'),
+                  ('pl_other_non_operating', 'その他営業外損益', 'other_non_operating'),
+                  ('pl_ordinary_income', '経常利益', 'ordinary_income'),
+                  ('pl_extraordinary_profit_loss', '特別損益', 'extraordinary_profit_loss'),
+                  ('pl_income_before_tax', '税引前当期純利益', 'income_before_tax'),
+                  ('pl_income_taxes', '法人税等', 'income_taxes'),
+                  ('pl_net_income', '当期純利益', 'net_income'),
+                  ('pl_dividend', '配当金', 'dividend'),
+                  ('pl_retained_profit', '内部留保', 'retained_profit'),
+                  ('pl_legal_reserve', '利益準備金積立額', 'legal_reserve'),
+                  ('pl_voluntary_reserve', 'その他剰余金積立額', 'voluntary_reserve'),
+                  ('pl_retained_earnings_increase', '繰越利益剰余金増加', 'retained_earnings_increase'),
                 ] %}
-                {% for fname, label, val in pl_fields %}
+                {% for fname, label, key in pl_fields %}
+                {% set val = pl.get(key, 0) or 0 %}
                 <tr>
                   <td>{{ label }}</td>
                   <td class="text-end text-muted">{{ "{:,}".format(val) }}</td>
@@ -162,6 +163,7 @@
 
         <!-- 貸借対照表 -->
         {% if parse_result.balance_sheet %}
+        {% set bs = parse_result.balance_sheet %}
         <div class="mb-4">
           <div class="d-flex align-items-center mb-2">
             <input class="form-check-input me-2" type="checkbox" name="apply_types" value="balance_sheet" id="apply_bs" checked>
@@ -169,7 +171,6 @@
               <i class="bi bi-table me-1"></i>貸借対照表
             </label>
           </div>
-          {% set bs = parse_result.balance_sheet %}
           <div class="table-responsive">
             <table class="table table-sm table-bordered table-hover">
               <thead class="table-primary">
@@ -177,62 +178,67 @@
               </thead>
               <tbody>
                 <tr class="table-light"><td colspan="3"><strong>【資産の部】</strong></td></tr>
-                {% set bs_fields = [
-                  ('bs_cash_on_hand', '手許現預金', bs.cash_on_hand),
-                  ('bs_investment_deposits', '運用預金', bs.investment_deposits),
-                  ('bs_marketable_securities', '有価証券', bs.marketable_securities),
-                  ('bs_trade_receivables', '売掛債権', bs.trade_receivables),
-                  ('bs_inventory_assets', '棚卸資産', bs.inventory_assets),
-                  ('bs_current_assets', '流動資産 合計', bs.current_assets),
-                  ('bs_tangible_fixed_assets', '有形固定資産', bs.tangible_fixed_assets),
-                  ('bs_intangible_fixed_assets', '無形固定資産', bs.intangible_fixed_assets),
-                  ('bs_investments_and_other', '投資その他の資産', bs.investments_and_other),
-                  ('bs_deferred_assets', '繰延資産', bs.deferred_assets),
-                  ('bs_fixed_assets', '固定資産 合計', bs.fixed_assets),
-                  ('bs_total_assets', '資産 合計', bs.total_assets),
+                {% set bs_asset_fields = [
+                  ('bs_cash_on_hand', '手許現預金', 'cash_on_hand'),
+                  ('bs_investment_deposits', '運用預金', 'investment_deposits'),
+                  ('bs_marketable_securities', '有価証券', 'marketable_securities'),
+                  ('bs_trade_receivables', '売掛債権', 'trade_receivables'),
+                  ('bs_inventory_assets', '棚卸資産', 'inventory_assets'),
+                  ('bs_current_assets', '流動資産 合計', 'current_assets'),
+                  ('bs_tangible_fixed_assets', '有形固定資産', 'tangible_fixed_assets'),
+                  ('bs_intangible_fixed_assets', '無形固定資産', 'intangible_fixed_assets'),
+                  ('bs_investments_and_other', '投資その他の資産', 'investments_and_other'),
+                  ('bs_deferred_assets', '繰延資産', 'deferred_assets'),
+                  ('bs_fixed_assets', '固定資産 合計', 'fixed_assets'),
+                  ('bs_total_assets', '資産 合計', 'total_assets'),
                 ] %}
-                {% for fname, label, val in bs_fields %}
+                {% for fname, label, key in bs_asset_fields %}
+                {% set val = bs.get(key, 0) or 0 %}
                 <tr>
                   <td>{{ label }}</td>
                   <td class="text-end text-muted">{{ "{:,}".format(val) }}</td>
                   <td><input type="number" name="{{ fname }}" value="{{ val }}" class="form-control form-control-sm text-end"></td>
                 </tr>
                 {% endfor %}
+
                 <tr class="table-light"><td colspan="3"><strong>【負債の部】</strong></td></tr>
-                {% set bs_fields2 = [
-                  ('bs_trade_payables', '買掛債務', bs.trade_payables),
-                  ('bs_short_term_borrowings', '短期借入金', bs.short_term_borrowings),
-                  ('bs_current_portion_long_term', '1年以内返済長期借入金', bs.current_portion_long_term),
-                  ('bs_discounted_notes', '割引手形', bs.discounted_notes),
-                  ('bs_other_current_liabilities', 'その他流動負債', bs.other_current_liabilities),
-                  ('bs_current_liabilities', '流動負債 合計', bs.current_liabilities),
-                  ('bs_long_term_borrowings', '長期借入金', bs.long_term_borrowings),
-                  ('bs_executive_borrowings', '役員等借入金', bs.executive_borrowings),
-                  ('bs_retirement_benefit_liability', '退職給付引当金', bs.retirement_benefit_liability),
-                  ('bs_other_fixed_liabilities', 'その他固定負債', bs.other_fixed_liabilities),
-                  ('bs_fixed_liabilities', '固定負債 合計', bs.fixed_liabilities),
-                  ('bs_total_liabilities', '負債 合計', bs.total_liabilities),
+                {% set bs_liab_fields = [
+                  ('bs_trade_payables', '買掛債務', 'trade_payables'),
+                  ('bs_short_term_borrowings', '短期借入金', 'short_term_borrowings'),
+                  ('bs_current_portion_long_term', '1年以内返済長期借入金', 'current_portion_long_term'),
+                  ('bs_discounted_notes', '割引手形', 'discounted_notes'),
+                  ('bs_other_current_liabilities', 'その他流動負債', 'other_current_liabilities'),
+                  ('bs_current_liabilities', '流動負債 合計', 'current_liabilities'),
+                  ('bs_long_term_borrowings', '長期借入金', 'long_term_borrowings'),
+                  ('bs_executive_borrowings', '役員等借入金', 'executive_borrowings'),
+                  ('bs_retirement_benefit_liability', '退職給付引当金', 'retirement_benefit_liability'),
+                  ('bs_other_fixed_liabilities', 'その他固定負債', 'other_fixed_liabilities'),
+                  ('bs_fixed_liabilities', '固定負債 合計', 'fixed_liabilities'),
+                  ('bs_total_liabilities', '負債 合計', 'total_liabilities'),
                 ] %}
-                {% for fname, label, val in bs_fields2 %}
+                {% for fname, label, key in bs_liab_fields %}
+                {% set val = bs.get(key, 0) or 0 %}
                 <tr>
                   <td>{{ label }}</td>
                   <td class="text-end text-muted">{{ "{:,}".format(val) }}</td>
                   <td><input type="number" name="{{ fname }}" value="{{ val }}" class="form-control form-control-sm text-end"></td>
                 </tr>
                 {% endfor %}
+
                 <tr class="table-light"><td colspan="3"><strong>【純資産の部】</strong></td></tr>
-                {% set bs_fields3 = [
-                  ('bs_capital', '資本金', bs.capital),
-                  ('bs_capital_surplus', '資本剰余金', bs.capital_surplus),
-                  ('bs_retained_earnings', '利益剰余金 合計', bs.retained_earnings),
-                  ('bs_legal_reserve_bs', '　利益準備金', bs.legal_reserve_bs),
-                  ('bs_voluntary_reserve_bs', '　任意積立金', bs.voluntary_reserve_bs),
-                  ('bs_retained_earnings_carried', '　繰越利益剰余金', bs.retained_earnings_carried),
-                  ('bs_treasury_stock', '自己株式', bs.treasury_stock),
-                  ('bs_net_assets', '純資産 合計', bs.net_assets),
-                  ('bs_total_liabilities_and_net_assets', '負債純資産 合計', bs.total_liabilities_and_net_assets),
+                {% set bs_equity_fields = [
+                  ('bs_capital', '資本金', 'capital'),
+                  ('bs_capital_surplus', '資本剰余金', 'capital_surplus'),
+                  ('bs_retained_earnings', '利益剰余金 合計', 'retained_earnings'),
+                  ('bs_legal_reserve_bs', '　利益準備金', 'legal_reserve_bs'),
+                  ('bs_voluntary_reserve_bs', '　任意積立金', 'voluntary_reserve_bs'),
+                  ('bs_retained_earnings_carried', '　繰越利益剰余金', 'retained_earnings_carried'),
+                  ('bs_treasury_stock', '自己株式', 'treasury_stock'),
+                  ('bs_net_assets', '純資産 合計', 'net_assets'),
+                  ('bs_total_liabilities_and_net_assets', '負債純資産 合計', 'total_liabilities_and_net_assets'),
                 ] %}
-                {% for fname, label, val in bs_fields3 %}
+                {% for fname, label, key in bs_equity_fields %}
+                {% set val = bs.get(key, 0) or 0 %}
                 <tr>
                   <td>{{ label }}</td>
                   <td class="text-end text-muted">{{ "{:,}".format(val) }}</td>
@@ -247,32 +253,33 @@
 
         <!-- 製造原価報告書（参考表示のみ） -->
         {% if parse_result.manufacturing_cost %}
+        {% set mfg = parse_result.manufacturing_cost %}
         <div class="mb-4">
           <h5 class="text-warning"><i class="bi bi-gear me-1"></i>製造原価報告書（参考）</h5>
           <p class="text-muted small">製造原価報告書の数値はPL組換えの「当期製造原価」「外部経費調整」の入力に参考にしてください。</p>
-          {% set mfg = parse_result.manufacturing_cost %}
           <div class="table-responsive">
             <table class="table table-sm table-bordered">
               <thead class="table-warning">
                 <tr><th>項目</th><th class="text-end">金額（千円）</th></tr>
               </thead>
               <tbody>
-                <tr><td>材料費</td><td class="text-end">{{ "{:,}".format(mfg.material_cost) }}</td></tr>
-                <tr><td>労務費</td><td class="text-end">{{ "{:,}".format(mfg.labor_cost_manufacturing) }}</td></tr>
-                <tr><td>外注費</td><td class="text-end">{{ "{:,}".format(mfg.outsourcing_cost) }}</td></tr>
-                <tr><td>減価償却費（製造）</td><td class="text-end">{{ "{:,}".format(mfg.depreciation_manufacturing) }}</td></tr>
-                <tr><td>修繕費（製造）</td><td class="text-end">{{ "{:,}".format(mfg.repair_cost_manufacturing) }}</td></tr>
-                <tr><td>その他製造経費</td><td class="text-end">{{ "{:,}".format(mfg.other_manufacturing_cost) }}</td></tr>
-                <tr class="table-warning fw-bold"><td>当期総製造費用</td><td class="text-end">{{ "{:,}".format(mfg.total_manufacturing_cost_current) }}</td></tr>
-                <tr><td>期首仕掛品棚卸高</td><td class="text-end">{{ "{:,}".format(mfg.beginning_wip) }}</td></tr>
-                <tr><td>期末仕掛品棚卸高</td><td class="text-end">{{ "{:,}".format(mfg.ending_wip) }}</td></tr>
-                <tr class="table-warning fw-bold"><td>当期製造原価合計</td><td class="text-end">{{ "{:,}".format(mfg.total_manufacturing_cost) }}</td></tr>
+                <tr><td>材料費</td><td class="text-end">{{ "{:,}".format(mfg.get('material_cost', 0) or 0) }}</td></tr>
+                <tr><td>労務費</td><td class="text-end">{{ "{:,}".format(mfg.get('labor_cost_manufacturing', 0) or 0) }}</td></tr>
+                <tr><td>外注費</td><td class="text-end">{{ "{:,}".format(mfg.get('outsourcing_cost', 0) or 0) }}</td></tr>
+                <tr><td>減価償却費（製造）</td><td class="text-end">{{ "{:,}".format(mfg.get('depreciation_manufacturing', 0) or 0) }}</td></tr>
+                <tr><td>修繕費（製造）</td><td class="text-end">{{ "{:,}".format(mfg.get('repair_cost_manufacturing', 0) or 0) }}</td></tr>
+                <tr><td>その他製造経費</td><td class="text-end">{{ "{:,}".format(mfg.get('other_manufacturing_cost', 0) or 0) }}</td></tr>
+                <tr class="table-warning fw-bold"><td>当期総製造費用</td><td class="text-end">{{ "{:,}".format(mfg.get('total_manufacturing_cost_current', 0) or 0) }}</td></tr>
+                <tr><td>期首仕掛品棚卸高</td><td class="text-end">{{ "{:,}".format(mfg.get('beginning_wip', 0) or 0) }}</td></tr>
+                <tr><td>期末仕掛品棚卸高</td><td class="text-end">{{ "{:,}".format(mfg.get('ending_wip', 0) or 0) }}</td></tr>
+                <tr class="table-warning fw-bold"><td>当期製造原価合計</td><td class="text-end">{{ "{:,}".format(mfg.get('total_manufacturing_cost', 0) or 0) }}</td></tr>
               </tbody>
             </table>
           </div>
         </div>
         {% endif %}
 
+        {% if parse_result.profit_loss or parse_result.balance_sheet %}
         <div class="d-flex gap-2 mt-3">
           <button type="submit" class="btn btn-success btn-lg">
             <i class="bi bi-save me-2"></i>データを保存してフォームに反映
@@ -281,6 +288,21 @@
             <i class="bi bi-arrow-counterclockwise me-2"></i>やり直す
           </a>
         </div>
+        {% else %}
+        <div class="alert alert-warning">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          財務諸表のデータを読み取れませんでした。PDFの内容を確認してください。
+          {% if parse_result.get('balance_sheet_error') %}
+          <br><small>BSエラー: {{ parse_result.balance_sheet_error }}</small>
+          {% endif %}
+          {% if parse_result.get('profit_loss_error') %}
+          <br><small>PLエラー: {{ parse_result.profit_loss_error }}</small>
+          {% endif %}
+        </div>
+        <a href="{{ url_for('decision.pdf_upload', company_id=company_id, fiscal_year_id=fiscal_year_id) }}" class="btn btn-outline-secondary">
+          <i class="bi bi-arrow-counterclockwise me-2"></i>やり直す
+        </a>
+        {% endif %}
       </form>
     </div>
   </div>
