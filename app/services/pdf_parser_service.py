@@ -14,7 +14,7 @@ MODEL = "gpt-4.1-mini"
 def get_openai_client(api_key: str = None) -> OpenAI:
     """
     OpenAIクライアントを取得する。
-    優先順位: 引数api_key > DB保存のAPIKey > 環境変数OPENAI_API_KEY
+    優先順位: 引数api_key > 環境変数OPENAI_API_KEY
     """
     if api_key:
         return OpenAI(api_key=api_key)
@@ -33,17 +33,51 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     return "\n\n".join(text_pages)
 
 
-def parse_balance_sheet(pdf_text: str, api_key: str = None) -> dict:
+def detect_unit(pdf_text: str, api_key: str = None) -> str:
+    """PDFの金額単位を検出する（円 / 千円 / 百万円）"""
+    client = get_openai_client(api_key)
+    prompt = f"""以下の財務諸表PDFテキストの金額単位を判定してください。
+
+判定ルール:
+- テキスト中に「（単位：千円）」「単位：千円」「千円」等の記載があれば → "千円"
+- テキスト中に「（単位：百万円）」「百万円」等の記載があれば → "百万円"
+- テキスト中に「（単位：円）」「単位：円」の記載があれば → "円"
+- 記載がない場合、数値の桁数から推測する（7桁以上の数値が多い場合は「円」の可能性が高い）
+
+【出力フォーマット（JSON）】
+{{"unit": "千円"}}  // "円" または "千円" または "百万円" のいずれか
+
+【PDFテキスト（先頭部分）】
+{pdf_text[:2000]}
+
+JSONのみを返してください。"""
+
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+        response_format={"type": "json_object"}
+    )
+    result = json.loads(response.choices[0].message.content)
+    return result.get("unit", "千円")
+
+
+def parse_balance_sheet(pdf_text: str, api_key: str = None, unit: str = "千円") -> dict:
     """貸借対照表をLLMで解析してフィールドマッピングを返す"""
     client = get_openai_client(api_key)
+
+    unit_instruction = {
+        "円": "- 金額は「円」単位で記載されています。1000で割って千円単位の整数に変換して返す（例: 1,234,000円 → 1234）",
+        "千円": "- 金額は「千円」単位で記載されています。そのまま整数で返す（例: 1,234千円 → 1234）",
+        "百万円": "- 金額は「百万円」単位で記載されています。1000を掛けて千円単位の整数に変換して返す（例: 1,234百万円 → 1234000）",
+    }.get(unit, "- 金額はそのまま整数で返す")
+
     prompt = f"""以下は財務諸表PDFから抽出したテキストです。
 このテキストから「貸借対照表（Balance Sheet）」の数値を読み取り、
 指定されたJSONフォーマットで返してください。
 
 【重要なルール】
-- 金額は千円単位の整数で返す（例: 1,234千円 → 1234）
-- 単位が「円」の場合は1000で割って千円単位に変換する（例: 1,234,000円 → 1234）
-- 単位が「百万円」の場合は1000を掛けて千円単位に変換する
+{unit_instruction}
 - 該当する項目が見つからない場合は 0 を返す
 - カンマや円マークは除去して純粋な整数を返す
 - 数値が見つからない場合は必ず 0 を返す（nullや文字列は不可）
@@ -96,23 +130,28 @@ JSONのみを返してください。説明文は不要です。"""
         temperature=0,
         response_format={"type": "json_object"}
     )
-    
+
     result = json.loads(response.choices[0].message.content)
     # 全フィールドを整数に変換
     return {k: int(v) if v else 0 for k, v in result.items()}
 
 
-def parse_profit_loss(pdf_text: str, api_key: str = None) -> dict:
+def parse_profit_loss(pdf_text: str, api_key: str = None, unit: str = "千円") -> dict:
     """損益計算書をLLMで解析してフィールドマッピングを返す"""
     client = get_openai_client(api_key)
+
+    unit_instruction = {
+        "円": "- 金額は「円」単位で記載されています。1000で割って千円単位の整数に変換して返す（例: 1,234,000円 → 1234）",
+        "千円": "- 金額は「千円」単位で記載されています。そのまま整数で返す（例: 1,234千円 → 1234）",
+        "百万円": "- 金額は「百万円」単位で記載されています。1000を掛けて千円単位の整数に変換して返す（例: 1,234百万円 → 1234000）",
+    }.get(unit, "- 金額はそのまま整数で返す")
+
     prompt = f"""以下は財務諸表PDFから抽出したテキストです。
 このテキストから「損益計算書（Profit and Loss Statement）」の数値を読み取り、
 指定されたJSONフォーマットで返してください。
 
 【重要なルール】
-- 金額は千円単位の整数で返す（例: 1,234千円 → 1234）
-- 単位が「円」の場合は1000で割って千円単位に変換する
-- 単位が「百万円」の場合は1000を掛けて千円単位に変換する
+{unit_instruction}
 - 該当する項目が見つからない場合は 0 を返す
 - カンマや円マークは除去して純粋な整数を返す
 - 費用項目は正の整数で返す（マイナスにしない）
@@ -160,22 +199,27 @@ JSONのみを返してください。説明文は不要です。"""
         temperature=0,
         response_format={"type": "json_object"}
     )
-    
+
     result = json.loads(response.choices[0].message.content)
     return {k: int(v) if v else 0 for k, v in result.items()}
 
 
-def parse_manufacturing_cost(pdf_text: str, api_key: str = None) -> dict:
+def parse_manufacturing_cost(pdf_text: str, api_key: str = None, unit: str = "千円") -> dict:
     """製造原価報告書をLLMで解析してフィールドマッピングを返す"""
     client = get_openai_client(api_key)
+
+    unit_instruction = {
+        "円": "- 金額は「円」単位で記載されています。1000で割って千円単位の整数に変換して返す（例: 1,234,000円 → 1234）",
+        "千円": "- 金額は「千円」単位で記載されています。そのまま整数で返す（例: 1,234千円 → 1234）",
+        "百万円": "- 金額は「百万円」単位で記載されています。1000を掛けて千円単位の整数に変換して返す（例: 1,234百万円 → 1234000）",
+    }.get(unit, "- 金額はそのまま整数で返す")
+
     prompt = f"""以下は財務諸表PDFから抽出したテキストです。
 このテキストから「製造原価報告書（Cost of Manufacturing Report）」の数値を読み取り、
 指定されたJSONフォーマットで返してください。
 
 【重要なルール】
-- 金額は千円単位の整数で返す（例: 1,234千円 → 1234）
-- 単位が「円」の場合は1000で割って千円単位に変換する
-- 単位が「百万円」の場合は1000を掛けて千円単位に変換する
+{unit_instruction}
 - 該当する項目が見つからない場合は 0 を返す
 - カンマや円マークは除去して純粋な整数を返す
 
@@ -204,7 +248,7 @@ JSONのみを返してください。説明文は不要です。"""
         temperature=0,
         response_format={"type": "json_object"}
     )
-    
+
     result = json.loads(response.choices[0].message.content)
     return {k: int(v) if v else 0 for k, v in result.items()}
 
@@ -236,7 +280,7 @@ JSONのみを返してください。"""
         temperature=0,
         response_format={"type": "json_object"}
     )
-    
+
     result = json.loads(response.choices[0].message.content)
     return result.get("types", [])
 
@@ -244,15 +288,16 @@ JSONのみを返してください。"""
 def parse_financial_pdf(pdf_path: str, target_types: list = None, api_key: str = None) -> dict:
     """
     PDFを解析して財務諸表データを返す
-    
+
     Args:
         pdf_path: PDFファイルのパス
         target_types: 解析対象の種類リスト（None の場合は自動検出）
                       例: ["balance_sheet", "profit_loss", "manufacturing_cost"]
-    
+
     Returns:
         {
             "detected_types": [...],
+            "unit": "千円",
             "balance_sheet": {...} or None,
             "profit_loss": {...} or None,
             "manufacturing_cost": {...} or None,
@@ -261,48 +306,56 @@ def parse_financial_pdf(pdf_path: str, target_types: list = None, api_key: str =
     """
     # テキスト抽出
     pdf_text = extract_text_from_pdf(pdf_path)
-    
+
     if not pdf_text.strip():
         return {
             "error": "PDFからテキストを抽出できませんでした。スキャンされたPDFの場合はOCRが必要です。",
             "detected_types": [],
+            "unit": "千円",
             "balance_sheet": None,
             "profit_loss": None,
             "manufacturing_cost": None,
             "raw_text": ""
         }
-    
+
+    # 金額単位を先に検出
+    try:
+        unit = detect_unit(pdf_text, api_key=api_key)
+    except Exception:
+        unit = "千円"  # デフォルトは千円
+
     # 財務諸表の種類を検出
     if target_types is None:
         detected_types = detect_document_types(pdf_text, api_key=api_key)
     else:
         detected_types = target_types
-    
+
     result = {
         "detected_types": detected_types,
+        "unit": unit,
         "balance_sheet": None,
         "profit_loss": None,
         "manufacturing_cost": None,
         "raw_text": pdf_text[:2000]  # プレビュー用
     }
-    
-    # 各財務諸表を解析
+
+    # 各財務諸表を解析（検出した単位を渡す）
     if "balance_sheet" in detected_types:
         try:
-            result["balance_sheet"] = parse_balance_sheet(pdf_text, api_key=api_key)
+            result["balance_sheet"] = parse_balance_sheet(pdf_text, api_key=api_key, unit=unit)
         except Exception as e:
             result["balance_sheet_error"] = str(e)
-    
+
     if "profit_loss" in detected_types:
         try:
-            result["profit_loss"] = parse_profit_loss(pdf_text, api_key=api_key)
+            result["profit_loss"] = parse_profit_loss(pdf_text, api_key=api_key, unit=unit)
         except Exception as e:
             result["profit_loss_error"] = str(e)
-    
+
     if "manufacturing_cost" in detected_types:
         try:
-            result["manufacturing_cost"] = parse_manufacturing_cost(pdf_text, api_key=api_key)
+            result["manufacturing_cost"] = parse_manufacturing_cost(pdf_text, api_key=api_key, unit=unit)
         except Exception as e:
             result["manufacturing_cost_error"] = str(e)
-    
+
     return result
