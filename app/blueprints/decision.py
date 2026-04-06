@@ -3827,11 +3827,21 @@ def pdf_upload():
     db = SessionLocal()
     try:
         companies = db.query(Company).filter_by(tenant_id=tenant_id).all()
-        # DBに保存されたOpenAI APIキーを取得（システム管理者の設定から）
+        # DBに保存されたOpenAI APIキーを取得（ログイン中のユーザーのAPIキーを優先）
         openai_api_key = None
-        sys_admin = db.query(TKanrisha).filter(TKanrisha.openai_api_key != None).first()
-        if sys_admin and sys_admin.openai_api_key:
-            openai_api_key = sys_admin.openai_api_key
+        current_user_id = session.get('user_id')
+        if current_user_id:
+            current_user = db.query(TKanrisha).filter(TKanrisha.id == current_user_id).first()
+            if current_user and current_user.openai_api_key and current_user.openai_api_key.strip():
+                openai_api_key = current_user.openai_api_key.strip()
+        # ログイン中のユーザーにAPIキーがない場合は、他のシステム管理者のAPIキーを探す
+        if not openai_api_key:
+            sys_admin = db.query(TKanrisha).filter(
+                TKanrisha.openai_api_key != None,
+                TKanrisha.openai_api_key != ''
+            ).first()
+            if sys_admin and sys_admin.openai_api_key:
+                openai_api_key = sys_admin.openai_api_key.strip()
 
         selected_company = None
         fiscal_years = []
