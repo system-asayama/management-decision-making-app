@@ -208,6 +208,35 @@ def company_financial_data(company_id):
         db.close()
 
 
+@bp.route('/companies/<int:company_id>/financial-statements')
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def company_financial_statements(company_id):
+    """企業別 読み取り済み財務諸表表示ページ"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if not company:
+            return redirect(url_for('decision.company_list'))
+
+        from app.models_decision import RestructuredPL, RestructuredBS
+
+        fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
+
+        fiscal_year_data = []
+        for fy in fiscal_years:
+            pl = db.query(RestructuredPL).filter_by(fiscal_year_id=fy.id).first()
+            bs = db.query(RestructuredBS).filter_by(fiscal_year_id=fy.id).first()
+            if pl or bs:
+                fiscal_year_data.append({'fiscal_year': fy, 'pl': pl, 'bs': bs})
+
+        return render_template('financial_statements_view.html',
+                               company=company,
+                               fiscal_year_data=fiscal_year_data)
+    finally:
+        db.close()
+
+
 @bp.route('/companies/<int:company_id>/analysis')
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def company_analysis(company_id):
