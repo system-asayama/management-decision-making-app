@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ company.name }} - 財務データ{% endblock %}
+{% block content %}
+<div class="container mt-4">
+
+  <!-- パンくずナビ -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/decision/">企業一覧</a></li>
+      <li class="breadcrumb-item"><a href="/decision/companies/{{ company.id }}">{{ company.name }}</a></li>
+      <li class="breadcrumb-item active">財務データ</li>
+    </ol>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="card shadow-sm border-0 mb-4" style="background: linear-gradient(135deg, #0056b3 0%, #007bff 100%);">
+    <div class="card-body text-white py-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h3 class="mb-1 fw-bold"><i class="fas fa-file-invoice-dollar me-2"></i>財務データ</h3>
+          <p class="mb-0 opacity-75">{{ company.name }}</p>
+        </div>
+        <a href="/decision/companies/{{ company.id }}" class="btn btn-outline-light btn-sm">
+          <i class="fas fa-arrow-left me-1"></i>戻る
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 財務データカード一覧 -->
+  <div class="row g-4">
+
+    <!-- PDF財務諸表読み取り -->
+    <div class="col-md-4">
+      <div class="card h-100 shadow-sm border-0 hover-card text-center">
+        <div class="card-body py-5 d-flex flex-column align-items-center justify-content-center">
+          <span class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+            style="width:72px;height:72px;background:#fdecea;">
+            <i class="fas fa-file-pdf fa-2x" style="color:#e74c3c;"></i>
+          </span>
+          <h5 class="fw-bold mb-2">PDF財務諸表読み取り</h5>
+          <p class="text-muted small mb-4">会計ソフトのPDFをAIで自動読み取りし、財務データを入力します。</p>
+          <a href="/decision/pdf-upload?company_id={{ company.id }}" class="btn btn-danger px-4">
+            <i class="fas fa-upload me-2"></i>PDFをアップロード
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- PL組換え -->
+    <div class="col-md-4">
+      <div class="card h-100 shadow-sm border-0 hover-card text-center">
+        <div class="card-body py-5 d-flex flex-column align-items-center justify-content-center">
+          <span class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+            style="width:72px;height:72px;background:#e7f1ff;">
+            <i class="fas fa-exchange-alt fa-2x" style="color:#007bff;"></i>
+          </span>
+          <h5 class="fw-bold mb-2">PL組換え</h5>
+          <p class="text-muted small mb-4">損益計算書の組換え入力を行います。</p>
+          <a href="/decision/pl-restructuring?company_id={{ company.id }}" class="btn btn-primary px-4">
+            <i class="fas fa-edit me-2"></i>入力する
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- BS組換え -->
+    <div class="col-md-4">
+      <div class="card h-100 shadow-sm border-0 hover-card text-center">
+        <div class="card-body py-5 d-flex flex-column align-items-center justify-content-center">
+          <span class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+            style="width:72px;height:72px;background:#fff8e1;">
+            <i class="fas fa-balance-scale fa-2x" style="color:#f39c12;"></i>
+          </span>
+          <h5 class="fw-bold mb-2">BS組換え</h5>
+          <p class="text-muted small mb-4">貸借対照表の組換え入力を行います。</p>
+          <a href="/decision/bs-restructuring?company_id={{ company.id }}" class="btn btn-warning px-4">
+            <i class="fas fa-edit me-2"></i>入力する
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<style>
+.hover-card { transition: transform 0.15s, box-shadow 0.15s; }
+.hover-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important; }
+</style>
+{% endblock %}

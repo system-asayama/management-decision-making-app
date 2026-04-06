@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ company.name }} - 会計年度管理{% endblock %}
+{% block content %}
+<div class="container mt-4">
+
+  <!-- パンくずナビ -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/decision/">企業一覧</a></li>
+      <li class="breadcrumb-item"><a href="/decision/companies/{{ company.id }}">{{ company.name }}</a></li>
+      <li class="breadcrumb-item active">会計年度</li>
+    </ol>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="card shadow-sm border-0 mb-4" style="background: linear-gradient(135deg, #1e7e34 0%, #28a745 100%);">
+    <div class="card-body text-white py-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h3 class="mb-1 fw-bold"><i class="fas fa-calendar-alt me-2"></i>会計年度管理</h3>
+          <p class="mb-0 opacity-75">{{ company.name }}</p>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="/decision/fiscal-years/new?company_id={{ company.id }}" class="btn btn-light btn-sm">
+            <i class="fas fa-plus me-1"></i>会計年度を追加
+          </a>
+          <a href="/decision/companies/{{ company.id }}" class="btn btn-outline-light btn-sm">
+            <i class="fas fa-arrow-left me-1"></i>戻る
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 会計年度一覧 -->
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      {% if fiscal_years %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>年度名</th>
+              <th>開始日</th>
+              <th>終了日</th>
+              <th>月数</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for fy in fiscal_years %}
+            <tr>
+              <td class="fw-bold">{{ fy.year_name }}</td>
+              <td>{{ fy.start_date.strftime('%Y/%m/%d') if fy.start_date else '-' }}</td>
+              <td>{{ fy.end_date.strftime('%Y/%m/%d') if fy.end_date else '-' }}</td>
+              <td>{{ fy.months }}ヶ月</td>
+              <td>
+                <a href="/decision/fiscal-years/{{ fy.id }}/edit?company_id={{ company.id }}" class="btn btn-outline-warning btn-sm me-1">
+                  <i class="fas fa-edit"></i>
+                </a>
+                <button class="btn btn-outline-danger btn-sm" onclick="deleteFiscalYear({{ fy.id }}, '{{ fy.year_name }}')">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-5">
+        <i class="fas fa-calendar-alt fa-3x text-muted mb-3"></i>
+        <p class="text-muted mb-3">会計年度が登録されていません</p>
+        <a href="/decision/fiscal-years/new?company_id={{ company.id }}" class="btn btn-success">
+          <i class="fas fa-plus me-1"></i>会計年度を追加
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<script>
+function deleteFiscalYear(id, name) {
+  if (confirm('「' + name + '」を削除してもよいですか？')) {
+    fetch('/decision/fiscal-years/' + id, {
+      method: 'DELETE',
+      headers: {'Content-Type': 'application/json'}
+    }).then(r => r.json()).then(data => {
+      if (data.success) location.reload();
+      else alert('削除に失敗しました: ' + (data.error || ''));
+    }).catch(() => alert('削除に失敗しました。'));
+  }
+}
+</script>
+{% endblock %}

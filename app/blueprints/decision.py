@@ -174,6 +174,56 @@ def company_detail_or_delete(company_id):
 
 
 # ============================================================
+# 企業別カテゴリページ（会計年度・財務データ・経営分析）
+# ============================================================
+
+@bp.route('/companies/<int:company_id>/fiscal-years')
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def company_fiscal_years(company_id):
+    """企業別 会計年度管理ページ"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if not company:
+            return redirect(url_for('decision.company_list'))
+        fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
+        return render_template('company_fiscal_years.html', company=company, fiscal_years=fiscal_years)
+    finally:
+        db.close()
+
+
+@bp.route('/companies/<int:company_id>/financial-data')
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def company_financial_data(company_id):
+    """企業別 財務データページ"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if not company:
+            return redirect(url_for('decision.company_list'))
+        return render_template('company_financial_data.html', company=company)
+    finally:
+        db.close()
+
+
+@bp.route('/companies/<int:company_id>/analysis')
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def company_analysis(company_id):
+    """企業別 経営分析ページ"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if not company:
+            return redirect(url_for('decision.company_list'))
+        return render_template('company_analysis.html', company=company)
+    finally:
+        db.close()
+
+
+# ============================================================
 # 会計年度管理ルート
 # ============================================================
 
