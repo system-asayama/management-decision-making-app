@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, redirect, url_for, session, reques
 from ..utils.decorators import require_roles, ROLES
 from ..utils.formatting import parse_int, parse_int_or_none
 from ..db import SessionLocal
-from ..models_decision import Company, FiscalYear, ProfitLossStatement, BalanceSheet, RestructuredPL, RestructuredBS
+from ..models_decision import Company, FiscalYear, ProfitLossStatement, BalanceSheet, RestructuredPL, RestructuredBS, ManufacturingCostReport
 from datetime import datetime
 
 bp = Blueprint('decision', __name__, url_prefix='/decision')
@@ -225,8 +225,9 @@ def company_financial_statements(company_id):
         for fy in fiscal_years:
             pl = db.query(RestructuredPL).filter_by(fiscal_year_id=fy.id).first()
             bs = db.query(RestructuredBS).filter_by(fiscal_year_id=fy.id).first()
-            if pl or bs:
-                fiscal_year_data.append({'fiscal_year': fy, 'pl': pl, 'bs': bs})
+            mcr = db.query(ManufacturingCostReport).filter_by(fiscal_year_id=fy.id).first()
+            if pl or bs or mcr:
+                fiscal_year_data.append({'fiscal_year': fy, 'pl': pl, 'bs': bs, 'mcr': mcr})
 
         return render_template('financial_statements_view.html',
                                company=company,
@@ -4075,6 +4076,34 @@ def pdf_apply():
             rbs.treasury_stock = pi('bs_treasury_stock')
             rbs.net_assets = pi('bs_net_assets')
             rbs.total_liabilities_and_net_assets = pi('bs_total_liabilities_and_net_assets')
+
+        if 'manufacturing_cost' in apply_types:
+            mcr = db.query(ManufacturingCostReport).filter_by(fiscal_year_id=fiscal_year_id).first()
+            if not mcr:
+                mcr = ManufacturingCostReport(fiscal_year_id=fiscal_year_id)
+                db.add(mcr)
+            mcr.beginning_raw_material = pi('mc_beginning_raw_material')
+            mcr.raw_material_purchase = pi('mc_raw_material_purchase')
+            mcr.ending_raw_material = pi('mc_ending_raw_material')
+            mcr.material_cost = pi('mc_material_cost')
+            mcr.labor_cost_manufacturing = pi('mc_labor_cost_manufacturing')
+            mcr.outsourcing_cost = pi('mc_outsourcing_cost')
+            mcr.freight_manufacturing = pi('mc_freight_manufacturing')
+            mcr.meeting_cost_manufacturing = pi('mc_meeting_cost_manufacturing')
+            mcr.travel_cost_manufacturing = pi('mc_travel_cost_manufacturing')
+            mcr.communication_cost_manufacturing = pi('mc_communication_cost_manufacturing')
+            mcr.supplies_manufacturing = pi('mc_supplies_manufacturing')
+            mcr.vehicle_cost_manufacturing = pi('mc_vehicle_cost_manufacturing')
+            mcr.rent_manufacturing = pi('mc_rent_manufacturing')
+            mcr.insurance_manufacturing = pi('mc_insurance_manufacturing')
+            mcr.depreciation_manufacturing = pi('mc_depreciation_manufacturing')
+            mcr.repair_cost_manufacturing = pi('mc_repair_cost_manufacturing')
+            mcr.other_manufacturing_cost = pi('mc_other_manufacturing_cost')
+            mcr.manufacturing_expenses_total = pi('mc_manufacturing_expenses_total')
+            mcr.total_manufacturing_cost_current = pi('mc_total_manufacturing_cost_current')
+            mcr.beginning_wip = pi('mc_beginning_wip')
+            mcr.ending_wip = pi('mc_ending_wip')
+            mcr.total_manufacturing_cost = pi('mc_total_manufacturing_cost')
 
         db.commit()
 

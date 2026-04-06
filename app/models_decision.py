@@ -66,6 +66,7 @@ class FiscalYear(Base):
     balance_sheet = relationship("BalanceSheet", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     restructured_pl = relationship("RestructuredPL", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     restructured_bs = relationship("RestructuredBS", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
+    manufacturing_cost_report = relationship("ManufacturingCostReport", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     labor_cost = relationship("LaborCost", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     financial_indicators = relationship("FinancialIndicator", back_populates="fiscal_year", cascade="all, delete-orphan")
     business_segments = relationship("BusinessSegment", back_populates="fiscal_year", cascade="all, delete-orphan")
@@ -293,6 +294,52 @@ class RestructuredBS(Base):
     
     # リレーション
     fiscal_year = relationship("FiscalYear", back_populates="restructured_bs")
+
+
+class ManufacturingCostReport(Base):
+    """製造原価報告書（PDF読み取り版）"""
+    __tablename__ = 'manufacturing_cost_reports'
+    
+    __table_args__ = {'extend_existing': True}
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fiscal_year_id = Column(Integer, ForeignKey('fiscal_years.id'), nullable=False)
+    
+    # ===== 材料費 =====
+    beginning_raw_material = Column(Integer, default=0, nullable=False)       # 期首原材料棚卸高
+    raw_material_purchase = Column(Integer, default=0, nullable=False)        # 当期原材料仕入高
+    ending_raw_material = Column(Integer, default=0, nullable=False)          # 期末原材料棚卸高
+    material_cost = Column(Integer, default=0, nullable=False)                # 材料費計
+    
+    # ===== 労務費 =====
+    labor_cost_manufacturing = Column(Integer, default=0, nullable=False)     # 労務費計
+    
+    # ===== 製造経費 =====
+    outsourcing_cost = Column(Integer, default=0, nullable=False)             # 外注加工費
+    freight_manufacturing = Column(Integer, default=0, nullable=False)        # 荷造運賃（製造）
+    meeting_cost_manufacturing = Column(Integer, default=0, nullable=False)   # 会議費（製造）
+    travel_cost_manufacturing = Column(Integer, default=0, nullable=False)    # 旅費交通費（製造）
+    communication_cost_manufacturing = Column(Integer, default=0, nullable=False)  # 通信費（製造）
+    supplies_manufacturing = Column(Integer, default=0, nullable=False)       # 消耗品費（製造）
+    vehicle_cost_manufacturing = Column(Integer, default=0, nullable=False)   # 車両費（製造）
+    rent_manufacturing = Column(Integer, default=0, nullable=False)           # 賃借料（製造）
+    insurance_manufacturing = Column(Integer, default=0, nullable=False)      # 保険料（製造）
+    depreciation_manufacturing = Column(Integer, default=0, nullable=False)   # 減価償却費（製造）
+    repair_cost_manufacturing = Column(Integer, default=0, nullable=False)    # 修繕費（製造）
+    other_manufacturing_cost = Column(Integer, default=0, nullable=False)     # その他製造経費
+    manufacturing_expenses_total = Column(Integer, default=0, nullable=False) # 製造経費計
+    
+    # ===== 合計 =====
+    total_manufacturing_cost_current = Column(Integer, default=0, nullable=False)  # 総製造費用
+    beginning_wip = Column(Integer, default=0, nullable=False)               # 期首仕掛品棚卸高
+    ending_wip = Column(Integer, default=0, nullable=False)                  # 期末仕掛品棚卸高
+    total_manufacturing_cost = Column(Integer, default=0, nullable=False)    # 製造原価合計
+    
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+    
+    # リレーション
+    fiscal_year = relationship("FiscalYear", back_populates="manufacturing_cost_report")
 
 
 # ==================== 人件費・労務管理 ====================

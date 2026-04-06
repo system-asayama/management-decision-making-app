@@ -251,35 +251,62 @@
         </div>
         {% endif %}
 
-        <!-- 製造原価報告書（参考表示のみ） -->
+        <!-- 製造原価報告書（保存可能なフォーム） -->
         {% if parse_result.manufacturing_cost %}
         {% set mfg = parse_result.manufacturing_cost %}
         <div class="mb-4">
-          <h5 class="text-warning"><i class="bi bi-gear me-1"></i>製造原価報告書（参考）</h5>
-          <p class="text-muted small">製造原価報告書の数値はPL組換えの「当期製造原価」「外部経費調整」の入力に参考にしてください。</p>
+          <div class="d-flex align-items-center mb-2">
+            <input class="form-check-input me-2" type="checkbox" name="apply_types" value="manufacturing_cost" id="apply_mfg" checked>
+            <label class="form-check-label fw-bold fs-5 text-warning" for="apply_mfg">
+              <i class="bi bi-gear me-1"></i>製造原価報告書
+            </label>
+          </div>
           <div class="table-responsive">
-            <table class="table table-sm table-bordered">
+            <table class="table table-sm table-bordered table-hover">
               <thead class="table-warning">
-                <tr><th>項目</th><th class="text-end">金額（千円）</th></tr>
+                <tr><th style="width:40%">項目</th><th style="width:30%">読み取り値（1円単位）</th><th style="width:30%">修正値（1円単位）</th></tr>
               </thead>
               <tbody>
-                <tr><td>材料費</td><td class="text-end">{{ "{:,}".format(mfg.get('material_cost', 0) or 0) }}</td></tr>
-                <tr><td>労務費</td><td class="text-end">{{ "{:,}".format(mfg.get('labor_cost_manufacturing', 0) or 0) }}</td></tr>
-                <tr><td>外注費</td><td class="text-end">{{ "{:,}".format(mfg.get('outsourcing_cost', 0) or 0) }}</td></tr>
-                <tr><td>減価償却費（製造）</td><td class="text-end">{{ "{:,}".format(mfg.get('depreciation_manufacturing', 0) or 0) }}</td></tr>
-                <tr><td>修繕費（製造）</td><td class="text-end">{{ "{:,}".format(mfg.get('repair_cost_manufacturing', 0) or 0) }}</td></tr>
-                <tr><td>その他製造経費</td><td class="text-end">{{ "{:,}".format(mfg.get('other_manufacturing_cost', 0) or 0) }}</td></tr>
-                <tr class="table-warning fw-bold"><td>当期総製造費用</td><td class="text-end">{{ "{:,}".format(mfg.get('total_manufacturing_cost_current', 0) or 0) }}</td></tr>
-                <tr><td>期首仕掛品棚卸高</td><td class="text-end">{{ "{:,}".format(mfg.get('beginning_wip', 0) or 0) }}</td></tr>
-                <tr><td>期末仕掛品棚卸高</td><td class="text-end">{{ "{:,}".format(mfg.get('ending_wip', 0) or 0) }}</td></tr>
-                <tr class="table-warning fw-bold"><td>当期製造原価合計</td><td class="text-end">{{ "{:,}".format(mfg.get('total_manufacturing_cost', 0) or 0) }}</td></tr>
+                {% set mc_fields = [
+                  ('mc_beginning_raw_material', '期首原材料棚卸高', 'beginning_raw_material'),
+                  ('mc_raw_material_purchase', '当期原材料仕入高', 'raw_material_purchase'),
+                  ('mc_ending_raw_material', '期末原材料棚卸高', 'ending_raw_material'),
+                  ('mc_material_cost', '材料費計', 'material_cost'),
+                  ('mc_labor_cost_manufacturing', '労務費計', 'labor_cost_manufacturing'),
+                  ('mc_outsourcing_cost', '外注加工費', 'outsourcing_cost'),
+                  ('mc_freight_manufacturing', '荷造運賃（製造）', 'freight_manufacturing'),
+                  ('mc_meeting_cost_manufacturing', '会議費（製造）', 'meeting_cost_manufacturing'),
+                  ('mc_travel_cost_manufacturing', '旅費交通費（製造）', 'travel_cost_manufacturing'),
+                  ('mc_communication_cost_manufacturing', '通信費（製造）', 'communication_cost_manufacturing'),
+                  ('mc_supplies_manufacturing', '消耗品費（製造）', 'supplies_manufacturing'),
+                  ('mc_vehicle_cost_manufacturing', '車両費（製造）', 'vehicle_cost_manufacturing'),
+                  ('mc_rent_manufacturing', '賃借料（製造）', 'rent_manufacturing'),
+                  ('mc_insurance_manufacturing', '保険料（製造）', 'insurance_manufacturing'),
+                  ('mc_depreciation_manufacturing', '減価償却費（製造）', 'depreciation_manufacturing'),
+                  ('mc_repair_cost_manufacturing', '修繕費（製造）', 'repair_cost_manufacturing'),
+                  ('mc_other_manufacturing_cost', 'その他製造経費', 'other_manufacturing_cost'),
+                  ('mc_manufacturing_expenses_total', '製造経費計', 'manufacturing_expenses_total'),
+                  ('mc_total_manufacturing_cost_current', '総製造費用', 'total_manufacturing_cost_current'),
+                  ('mc_beginning_wip', '期首仕掛品棚卸高', 'beginning_wip'),
+                  ('mc_ending_wip', '期末仕掛品棚卸高', 'ending_wip'),
+                  ('mc_total_manufacturing_cost', '製造原価合計', 'total_manufacturing_cost'),
+                ] %}
+                {% for field_name, label, key in mc_fields %}
+                {% set val = mfg.get(key, 0) or 0 %}
+                {% set is_subtotal = key in ['material_cost', 'labor_cost_manufacturing', 'manufacturing_expenses_total', 'total_manufacturing_cost_current', 'total_manufacturing_cost'] %}
+                <tr{% if is_subtotal %} class="table-warning fw-bold"{% endif %}>
+                  <td>{{ label }}</td>
+                  <td class="text-end">{{ "{:,}".format(val) }}</td>
+                  <td><input type="number" name="{{ field_name }}" value="{{ val }}" class="form-control form-control-sm text-end"></td>
+                </tr>
+                {% endfor %}
               </tbody>
             </table>
           </div>
         </div>
         {% endif %}
 
-        {% if parse_result.profit_loss or parse_result.balance_sheet %}
+        {% if parse_result.profit_loss or parse_result.balance_sheet or parse_result.manufacturing_cost %}
         <div class="d-flex gap-2 mt-3">
           <button type="submit" class="btn btn-success btn-lg">
             <i class="bi bi-save me-2"></i>データを保存してフォームに反映

@@ -218,6 +218,73 @@
         </div>
         {% endif %}
 
+        <!-- 製造原価報告書 -->
+        {% if item.mcr %}
+        <div class="col-lg-6">
+          <div class="card shadow-sm border-0 h-100">
+            <div class="card-header py-2 fw-bold" style="background:#fff3cd; color:#856404;">
+              <i class="fas fa-industry me-2"></i>製造原価報告書
+              <span class="badge bg-secondary ms-2 fw-normal" style="font-size:0.72rem;">更新: {{ item.mcr.updated_at.strftime('%Y/%m/%d') }}</span>
+            </div>
+            <div class="card-body p-0">
+              <table class="table table-sm table-hover mb-0 fs-sm">
+                <tbody>
+                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">材料費</th></tr>
+                  <tr><td class="ps-4">期首原材料棚卸高</td><td class="text-end pe-3">{{ item.mcr.beginning_raw_material | comma }}円</td></tr>
+                  <tr><td class="ps-4">当期原材料仕入高</td><td class="text-end pe-3">{{ item.mcr.raw_material_purchase | comma }}円</td></tr>
+                  <tr><td class="ps-4">期末原材料棚卸高</td><td class="text-end pe-3">{{ item.mcr.ending_raw_material | comma }}円</td></tr>
+                  <tr class="fw-bold"><td class="ps-3">材料費計</td><td class="text-end pe-3">{{ item.mcr.material_cost | comma }}円</td></tr>
+
+                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">労務費</th></tr>
+                  <tr class="fw-bold"><td class="ps-3">労務費計</td><td class="text-end pe-3">{{ item.mcr.labor_cost_manufacturing | comma }}円</td></tr>
+
+                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">製造経費</th></tr>
+                  <tr><td class="ps-4">外注加工費</td><td class="text-end pe-3">{{ item.mcr.outsourcing_cost | comma }}円</td></tr>
+                  <tr><td class="ps-4">荷造運賃</td><td class="text-end pe-3">{{ item.mcr.freight_manufacturing | comma }}円</td></tr>
+                  <tr><td class="ps-4">会議費</td><td class="text-end pe-3">{{ item.mcr.meeting_cost_manufacturing | comma }}円</td></tr>
+                  <tr><td class="ps-4">旅費交通費</td><td class="text-end pe-3">{{ item.mcr.travel_cost_manufacturing | comma }}円</td></tr>
+                  <tr><td class="ps-4">通信費</td><td class="text-end pe-3">{{ item.mcr.communication_cost_manufacturing | comma }}円</td></tr>
+                  <tr><td class="ps-4">消耗品費</td><td class="text-end pe-3">{{ item.mcr.supplies_manufacturing | comma }}円</td></tr>
+                  <tr><td class="ps-4">車両費</td><td class="text-end pe-3">{{ item.mcr.vehicle_cost_manufacturing | comma }}円</td></tr>
+                  <tr><td class="ps-4">賃借料</td><td class="text-end pe-3">{{ item.mcr.rent_manufacturing | comma }}円</td></tr>
+                  <tr><td class="ps-4">保険料</td><td class="text-end pe-3">{{ item.mcr.insurance_manufacturing | comma }}円</td></tr>
+                  <tr><td class="ps-4">減価償却費</td><td class="text-end pe-3">{{ item.mcr.depreciation_manufacturing | comma }}円</td></tr>
+                  <tr><td class="ps-4">修繕費</td><td class="text-end pe-3">{{ item.mcr.repair_cost_manufacturing | comma }}円</td></tr>
+                  <tr><td class="ps-4">その他製造経費</td><td class="text-end pe-3">{{ item.mcr.other_manufacturing_cost | comma }}円</td></tr>
+                  <tr class="fw-bold"><td class="ps-3">製造経費計</td><td class="text-end pe-3">{{ item.mcr.manufacturing_expenses_total | comma }}円</td></tr>
+
+                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">合計</th></tr>
+                  <tr class="fw-bold table-warning"><td class="ps-3">総製造費用</td><td class="text-end pe-3 text-warning fw-bold">{{ item.mcr.total_manufacturing_cost_current | comma }}円</td></tr>
+                  <tr><td class="ps-4">期首仕掛品棚卸高</td><td class="text-end pe-3">{{ item.mcr.beginning_wip | comma }}円</td></tr>
+                  <tr><td class="ps-4">期末仕掛品棚卸高</td><td class="text-end pe-3">{{ item.mcr.ending_wip | comma }}円</td></tr>
+                  <tr class="fw-bold table-danger"><td class="ps-3">製造原価合計</td><td class="text-end pe-3 text-danger fw-bold">{{ item.mcr.total_manufacturing_cost | comma }}円</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card-footer bg-white text-end py-2">
+              <a href="/decision/pdf-upload?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}" class="btn btn-outline-warning btn-sm">
+                <i class="fas fa-sync me-1"></i>再読み取り
+              </a>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="col-lg-6">
+          <div class="card shadow-sm border-0 h-100">
+            <div class="card-header py-2 fw-bold" style="background:#fff3cd; color:#856404;">
+              <i class="fas fa-industry me-2"></i>製造原価報告書
+            </div>
+            <div class="card-body text-center py-5">
+              <i class="fas fa-industry fa-2x text-muted mb-2"></i>
+              <p class="text-muted small mb-3">この年度の製造原価データがありません</p>
+              <a href="/decision/pdf-upload?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}" class="btn btn-outline-warning btn-sm">
+                <i class="fas fa-upload me-1"></i>PDFから読み取る
+              </a>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
       </div><!-- /row -->
     </div><!-- /tab-pane -->
     {% endfor %}
