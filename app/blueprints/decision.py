@@ -227,10 +227,18 @@ def company_financial_statements(company_id):
             otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fy.id).first()
             mcr = db.query(ManufacturingCostReport).filter_by(fiscal_year_id=fy.id).first()
             if otb or mcr:
-                # JSONをパース
-                pl_items = json_module.loads(otb.pl_items) if otb and otb.pl_items else []
-                bs_items = json_module.loads(otb.bs_items) if otb and otb.bs_items else []
-                mcr_items = json_module.loads(otb.mcr_items) if otb and otb.mcr_items else []
+                # JSONをパース（不正なJSONの場合は空リストとして扱う）
+                def _safe_json_loads(s):
+                    if not s:
+                        return []
+                    try:
+                        result = json_module.loads(s)
+                        return result if isinstance(result, list) else []
+                    except (json_module.JSONDecodeError, ValueError):
+                        return []
+                pl_items = _safe_json_loads(otb.pl_items) if otb else []
+                bs_items = _safe_json_loads(otb.bs_items) if otb else []
+                mcr_items = _safe_json_loads(otb.mcr_items) if otb else []
                 unit = otb.unit if otb else '円'
                 fiscal_year_data.append({
                     'fiscal_year': fy,
@@ -3767,7 +3775,12 @@ def pl_restructuring():
                 otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
                 if otb and otb.pl_items:
                     import json as json_module
-                    otb_pl_items = json_module.loads(otb.pl_items)
+                    try:
+                        otb_pl_items = json_module.loads(otb.pl_items)
+                        if not isinstance(otb_pl_items, list):
+                            otb_pl_items = []
+                    except (json_module.JSONDecodeError, ValueError):
+                        otb_pl_items = []
 
         if request.method == 'POST':
             if not selected_fy:
@@ -3860,7 +3873,12 @@ def bs_restructuring():
                 otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
                 if otb and otb.bs_items:
                     import json as json_module
-                    otb_bs_items = json_module.loads(otb.bs_items)
+                    try:
+                        otb_bs_items = json_module.loads(otb.bs_items)
+                        if not isinstance(otb_bs_items, list):
+                            otb_bs_items = []
+                    except (json_module.JSONDecodeError, ValueError):
+                        otb_bs_items = []
 
         if request.method == 'POST':
             if not selected_fy:
