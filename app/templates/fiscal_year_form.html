@@ -97,7 +97,7 @@
 
                         <!-- ボタン -->
                         <div class="d-flex justify-content-between">
-                            <a href="{{ '/decision/companies/' + (fiscal_year.company_id|string if fiscal_year else (preselect_company_id|string if preselect_company_id else '')) if (fiscal_year or preselect_company_id) else '/decision/' }}" class="btn btn-outline-secondary">
+                            <a href="{{ '/decision/companies/' + (fiscal_year.company_id|string if fiscal_year else (preselect_company_id|string if preselect_company_id else '')) + '/fiscal-years' if (fiscal_year or preselect_company_id) else '/decision/' }}" class="btn btn-outline-secondary">
                                 <i class="fas fa-times me-2"></i>キャンセル
                             </a>
                             <button type="submit" class="btn btn-success">

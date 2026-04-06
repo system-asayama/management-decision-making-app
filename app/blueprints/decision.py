@@ -269,9 +269,9 @@ def fiscal_year_new():
                 )
                 db.add(fiscal_year)
                 db.commit()
-                # 企業詳細ページにリダイレクト
+                # 企業別会計年度ページにリダイレクト
                 cid = fiscal_year.company_id
-                return redirect(url_for('decision.company_detail_or_delete', company_id=cid))
+                return redirect(url_for('decision.company_fiscal_years', company_id=cid))
             except Exception as e:
                 db.rollback()
                 preselect_company_id = request.form.get('company_id')
@@ -312,7 +312,7 @@ def fiscal_year_edit(fiscal_year_id):
                 fiscal_year.months = parse_int(request.form.get('months'), default=12)
                 fiscal_year.notes = request.form.get('notes') or None
                 db.commit()
-                return redirect(url_for('decision.fiscal_year_list'))
+                return redirect(url_for('decision.company_fiscal_years', company_id=fiscal_year.company_id))
             except Exception as e:
                 db.rollback()
                 return render_template('fiscal_year_form.html', companies=companies, fiscal_year=fiscal_year, error=str(e))
