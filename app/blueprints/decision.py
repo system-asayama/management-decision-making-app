@@ -3738,6 +3738,7 @@ def create_multi_year_working_capital_plan():
 @require_roles(ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
 def pl_restructuring():
     """PL組換え（損益計算書の組換え）"""
+    import traceback as _traceback
     from ..models_decision import RestructuredPL
     db = SessionLocal()
     try:
@@ -3820,11 +3821,13 @@ def pl_restructuring():
             rpl=rpl,
             otb_pl_items=otb_pl_items
         )
+    except Exception as _e:
+        db.rollback()
+        _tb = _traceback.format_exc()
+        return jsonify({'error': str(_e), 'traceback': _tb}), 500
     finally:
         db.close()
-
-
-# ==================== BS組換え ====================
+# ==================== BS組換え ======================
 
 @bp.route('/bs-restructuring', methods=['GET', 'POST'])
 @require_roles(ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
