@@ -438,6 +438,44 @@
             </div><!-- /右カラム -->
         </div><!-- /row -->
 
+        <!-- オリジナルデータ参照パネル -->
+        {% if otb_pl_items %}
+        <div class="row mt-4">
+          <div class="col-12">
+            <div class="card border-info">
+              <div class="card-header bg-info text-white fw-bold">
+                <i class="fas fa-file-alt me-2"></i>オリジナルデータ参照（PDFから読み取った生科目）
+                <button class="btn btn-sm btn-outline-light ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#otbPanel">
+                  表示/非表示
+                </button>
+              </div>
+              <div class="collapse show" id="otbPanel">
+                <div class="card-body p-0">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th class="ps-3">科目名</th>
+                          <th class="text-end pe-3">金額（円）</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for row in otb_pl_items %}
+                        <tr {% if '合計' in row.name or row.name.endswith('計') or '利益' in row.name %}class="fw-bold table-light"{% endif %}>
+                          <td class="ps-3">{{ row.name }}</td>
+                          <td class="text-end pe-3">{{ row.amount | comma }}</td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
         <!-- 保存ボタン -->
         <div class="row mt-3 mb-5">
             <div class="col-12 d-flex gap-2">

@@ -67,6 +67,7 @@ class FiscalYear(Base):
     restructured_pl = relationship("RestructuredPL", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     restructured_bs = relationship("RestructuredBS", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     manufacturing_cost_report = relationship("ManufacturingCostReport", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
+    original_trial_balance = relationship("OriginalTrialBalance", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     labor_cost = relationship("LaborCost", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     financial_indicators = relationship("FinancialIndicator", back_populates="fiscal_year", cascade="all, delete-orphan")
     business_segments = relationship("BusinessSegment", back_populates="fiscal_year", cascade="all, delete-orphan")
@@ -340,6 +341,32 @@ class ManufacturingCostReport(Base):
     
     # リレーション
     fiscal_year = relationship("FiscalYear", back_populates="manufacturing_cost_report")
+
+
+class OriginalTrialBalance(Base):
+    """試算表オリジナルデータ（PDF読み取り生データ）"""
+    __tablename__ = 'original_trial_balances'
+    
+    __table_args__ = {'extend_existing': True}
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fiscal_year_id = Column(Integer, ForeignKey('fiscal_years.id'), nullable=False)
+    
+    # 損益計算書の生科目（JSON形式: [{"name": "売上高", "amount": 394238924}, ...]）
+    pl_items = Column(Text, nullable=True)  # JSON
+    # 貸借対照表の生科目（JSON形式）
+    bs_items = Column(Text, nullable=True)  # JSON
+    # 製造原価報告書の生科目（JSON形式）
+    mcr_items = Column(Text, nullable=True)  # JSON
+    
+    # 金額単位（円/千円/百万円）
+    unit = Column(String(10), default='円', nullable=False)
+    
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+    
+    # リレーション
+    fiscal_year = relationship("FiscalYear", back_populates="original_trial_balance")
 
 
 # ==================== 人件費・労務管理 ====================

@@ -101,6 +101,13 @@
       <form method="POST" action="{{ url_for('decision.pdf_apply') }}" id="applyForm">
         <input type="hidden" name="fiscal_year_id" value="{{ fiscal_year_id }}">
         <input type="hidden" name="company_id" value="{{ company_id }}">
+        <!-- オリジナル試算表データ（生科目JSON） -->
+        {% if parse_result.original_trial_balance %}
+        <input type="hidden" name="otb_pl_items" value="{{ parse_result.original_trial_balance.pl_items | tojson if parse_result.original_trial_balance.pl_items else '[]' }}">
+        <input type="hidden" name="otb_bs_items" value="{{ parse_result.original_trial_balance.bs_items | tojson if parse_result.original_trial_balance.bs_items else '[]' }}">
+        <input type="hidden" name="otb_mcr_items" value="{{ parse_result.original_trial_balance.mcr_items | tojson if parse_result.original_trial_balance.mcr_items else '[]' }}">
+        <input type="hidden" name="otb_unit" value="{{ parse_result.unit }}">
+        {% endif %}
 
         <!-- 損益計算書 -->
         {% if parse_result.profit_loss %}

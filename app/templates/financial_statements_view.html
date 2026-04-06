@@ -18,8 +18,8 @@
     <div class="card-body text-white py-3">
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
-          <h4 class="mb-1 fw-bold"><i class="fas fa-file-alt me-2"></i>読み取り済み財務諸表</h4>
-          <p class="mb-0 opacity-75 small">{{ company.name }} &nbsp;|&nbsp; 金額単位：円（1円単位）</p>
+          <h4 class="mb-1 fw-bold"><i class="fas fa-file-alt me-2"></i>読み取り済み財務諸表（オリジナル）</h4>
+          <p class="mb-0 opacity-75 small">{{ company.name }} &nbsp;|&nbsp; PDFから読み取った生データ（1円単位）</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
           <a href="/decision/pdf-upload?company_id={{ company.id }}" class="btn btn-light btn-sm">
@@ -66,73 +66,59 @@
     <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
       id="pane-{{ item.fiscal_year.id }}" role="tabpanel">
 
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <small class="text-muted">
+          <i class="fas fa-calendar me-1"></i>
+          期間: {{ item.fiscal_year.start_date.strftime('%Y年%m月%d日') if item.fiscal_year.start_date else '-' }}
+          〜 {{ item.fiscal_year.end_date.strftime('%Y年%m月%d日') if item.fiscal_year.end_date else '-' }}
+          &nbsp;|&nbsp; 単位: <strong>{{ item.unit }}</strong>
+        </small>
+        <a href="/decision/pdf-upload?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}"
+           class="btn btn-outline-secondary btn-sm">
+          <i class="fas fa-sync me-1"></i>再読み取り
+        </a>
+      </div>
+
+      {% if not item.has_data %}
+      <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        この年度のオリジナルデータがありません。PDFを再読み取りしてください。
+      </div>
+      {% endif %}
+
       <div class="row g-4">
 
         <!-- 損益計算書 -->
-        {% if item.pl %}
+        {% if item.pl_items %}
         <div class="col-lg-6">
           <div class="card shadow-sm border-0 h-100">
             <div class="card-header py-2 fw-bold" style="background:#e7f1ff; color:#0056b3;">
-              <i class="fas fa-chart-line me-2"></i>損益計算書（PL）
-              <span class="badge bg-secondary ms-2 fw-normal" style="font-size:0.72rem;">更新: {{ item.pl.updated_at.strftime('%Y/%m/%d') }}</span>
+              <i class="fas fa-chart-line me-2"></i>損益計算書（オリジナル）
             </div>
             <div class="card-body p-0">
-              <table class="table table-sm table-hover mb-0 fs-sm">
-                <tbody>
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">売上高・売上原価</th></tr>
-                  <tr><td class="ps-4">売上高</td><td class="text-end pe-3 fw-bold text-primary">{{ item.pl.sales | comma }}円</td></tr>
-                  <tr><td class="ps-4">期首棚卸高</td><td class="text-end pe-3">{{ item.pl.beginning_inventory | comma }}円</td></tr>
-                  <tr><td class="ps-4">当期製造（工事）原価</td><td class="text-end pe-3">{{ item.pl.manufacturing_cost | comma }}円</td></tr>
-                  <tr><td class="ps-4">期末棚卸高</td><td class="text-end pe-3">{{ item.pl.ending_inventory | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-3">売上原価</td><td class="text-end pe-3">{{ item.pl.cost_of_sales | comma }}円</td></tr>
-                  <tr class="fw-bold table-success"><td class="ps-3">売上総利益</td><td class="text-end pe-3 text-success">{{ item.pl.gross_profit | comma }}円</td></tr>
-
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">販売費及び一般管理費</th></tr>
-                  <tr><td class="ps-4">人件費</td><td class="text-end pe-3">{{ item.pl.labor_cost | comma }}円</td></tr>
-                  <tr><td class="ps-4">役員報酬</td><td class="text-end pe-3">{{ item.pl.executive_compensation | comma }}円</td></tr>
-                  <tr><td class="ps-4">資本再生費（減価償却費＋修繕費）</td><td class="text-end pe-3">{{ item.pl.capital_regeneration_cost | comma }}円</td></tr>
-                  <tr><td class="ps-4">研究開発費</td><td class="text-end pe-3">{{ item.pl.research_development_expenses | comma }}円</td></tr>
-                  <tr><td class="ps-4">一般経費</td><td class="text-end pe-3">{{ item.pl.general_expenses | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-3">販売費及び一般管理費合計</td><td class="text-end pe-3">{{ item.pl.selling_general_admin_expenses | comma }}円</td></tr>
-                  <tr class="fw-bold table-info"><td class="ps-3">営業利益</td><td class="text-end pe-3 text-info">{{ item.pl.operating_income | comma }}円</td></tr>
-
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">営業外損益</th></tr>
-                  <tr><td class="ps-4">金融損益（受取利息－支払利息）</td><td class="text-end pe-3">{{ item.pl.financial_profit_loss | comma }}円</td></tr>
-                  <tr><td class="ps-4">その他の損益</td><td class="text-end pe-3">{{ item.pl.other_non_operating | comma }}円</td></tr>
-                  <tr class="fw-bold table-warning"><td class="ps-3">経常利益</td><td class="text-end pe-3 text-warning">{{ item.pl.ordinary_income | comma }}円</td></tr>
-
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">特別損益・税金</th></tr>
-                  <tr><td class="ps-4">特別損益合計</td><td class="text-end pe-3">{{ item.pl.extraordinary_profit_loss | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-3">税引前当期純利益</td><td class="text-end pe-3">{{ item.pl.income_before_tax | comma }}円</td></tr>
-                  <tr><td class="ps-4">法人税等</td><td class="text-end pe-3">{{ item.pl.income_taxes | comma }}円</td></tr>
-                  <tr class="fw-bold table-danger"><td class="ps-3">当期純利益</td><td class="text-end pe-3 text-danger">{{ item.pl.net_income | comma }}円</td></tr>
-
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">利益処分</th></tr>
-                  <tr><td class="ps-4">配当金</td><td class="text-end pe-3">{{ item.pl.dividend | comma }}円</td></tr>
-                  <tr><td class="ps-4">利益準備金積立額</td><td class="text-end pe-3">{{ item.pl.legal_reserve | comma }}円</td></tr>
-                  <tr><td class="ps-4">その他剰余金積立額</td><td class="text-end pe-3">{{ item.pl.voluntary_reserve | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-3">内部留保</td><td class="text-end pe-3">{{ item.pl.retained_profit | comma }}円</td></tr>
-                </tbody>
-              </table>
+              <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th class="ps-3">科目名</th>
+                      <th class="text-end pe-3">金額（円）</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in item.pl_items %}
+                    <tr {% if '合計' in row.name or row.name.endswith('計') or '利益' in row.name %}class="fw-bold"{% endif %}>
+                      <td class="ps-3">{{ row.name }}</td>
+                      <td class="text-end pe-3">{{ row.amount | comma }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
             </div>
             <div class="card-footer bg-white text-end py-2">
-              <a href="/decision/pl-restructuring?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}" class="btn btn-outline-primary btn-sm">
-                <i class="fas fa-edit me-1"></i>PL組換えを編集
-              </a>
-            </div>
-          </div>
-        </div>
-        {% else %}
-        <div class="col-lg-6">
-          <div class="card shadow-sm border-0 h-100">
-            <div class="card-header py-2 fw-bold" style="background:#e7f1ff; color:#0056b3;">
-              <i class="fas fa-chart-line me-2"></i>損益計算書（PL）
-            </div>
-            <div class="card-body text-center py-5">
-              <i class="fas fa-chart-line fa-2x text-muted mb-2"></i>
-              <p class="text-muted small mb-3">この年度のPLデータがありません</p>
-              <a href="/decision/pdf-upload?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}" class="btn btn-outline-primary btn-sm">
-                <i class="fas fa-upload me-1"></i>PDFから読み取る
+              <a href="/decision/pl-restructuring?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}"
+                 class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-edit me-1"></i>PL組換えへ
               </a>
             </div>
           </div>
@@ -140,78 +126,36 @@
         {% endif %}
 
         <!-- 貸借対照表 -->
-        {% if item.bs %}
+        {% if item.bs_items %}
         <div class="col-lg-6">
           <div class="card shadow-sm border-0 h-100">
             <div class="card-header py-2 fw-bold" style="background:#fff8e1; color:#856404;">
-              <i class="fas fa-balance-scale me-2"></i>貸借対照表（BS）
-              <span class="badge bg-secondary ms-2 fw-normal" style="font-size:0.72rem;">更新: {{ item.bs.updated_at.strftime('%Y/%m/%d') }}</span>
+              <i class="fas fa-balance-scale me-2"></i>貸借対照表（オリジナル）
             </div>
             <div class="card-body p-0">
-              <table class="table table-sm table-hover mb-0 fs-sm">
-                <tbody>
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">資産の部</th></tr>
-                  <tr class="table-light"><th colspan="2" class="ps-4 py-1 text-muted" style="font-size:0.8rem;">流動資産</th></tr>
-                  <tr><td class="ps-5">手許現預金</td><td class="text-end pe-3">{{ item.bs.cash_on_hand | comma }}円</td></tr>
-                  <tr><td class="ps-5">運用預金</td><td class="text-end pe-3">{{ item.bs.investment_deposits | comma }}円</td></tr>
-                  <tr><td class="ps-5">有価証券</td><td class="text-end pe-3">{{ item.bs.marketable_securities | comma }}円</td></tr>
-                  <tr><td class="ps-5">売掛債権</td><td class="text-end pe-3">{{ item.bs.trade_receivables | comma }}円</td></tr>
-                  <tr><td class="ps-5">棚卸資産</td><td class="text-end pe-3">{{ item.bs.inventory_assets | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-4">流動資産合計</td><td class="text-end pe-3">{{ item.bs.current_assets | comma }}円</td></tr>
-                  <tr class="table-light"><th colspan="2" class="ps-4 py-1 text-muted" style="font-size:0.8rem;">固定資産</th></tr>
-                  <tr><td class="ps-5">有形固定資産</td><td class="text-end pe-3">{{ item.bs.tangible_fixed_assets | comma }}円</td></tr>
-                  <tr><td class="ps-5">無形固定資産</td><td class="text-end pe-3">{{ item.bs.intangible_fixed_assets | comma }}円</td></tr>
-                  <tr><td class="ps-5">投資その他資産</td><td class="text-end pe-3">{{ item.bs.investments_and_other | comma }}円</td></tr>
-                  <tr><td class="ps-5">繰延資産</td><td class="text-end pe-3">{{ item.bs.deferred_assets | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-4">固定資産合計</td><td class="text-end pe-3">{{ item.bs.fixed_assets | comma }}円</td></tr>
-                  <tr class="fw-bold table-primary"><td class="ps-3">資産合計</td><td class="text-end pe-3 text-primary fw-bold">{{ item.bs.total_assets | comma }}円</td></tr>
-
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">負債の部</th></tr>
-                  <tr class="table-light"><th colspan="2" class="ps-4 py-1 text-muted" style="font-size:0.8rem;">流動負債</th></tr>
-                  <tr><td class="ps-5">買掛債務</td><td class="text-end pe-3">{{ item.bs.trade_payables | comma }}円</td></tr>
-                  <tr><td class="ps-5">短期借入金</td><td class="text-end pe-3">{{ item.bs.short_term_borrowings | comma }}円</td></tr>
-                  <tr><td class="ps-5">1年以内返済の長期借入金</td><td class="text-end pe-3">{{ item.bs.current_portion_long_term | comma }}円</td></tr>
-                  <tr><td class="ps-5">割引手形</td><td class="text-end pe-3">{{ item.bs.discounted_notes | comma }}円</td></tr>
-                  <tr><td class="ps-5">その他流動負債</td><td class="text-end pe-3">{{ item.bs.other_current_liabilities | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-4">流動負債合計</td><td class="text-end pe-3">{{ item.bs.current_liabilities | comma }}円</td></tr>
-                  <tr class="table-light"><th colspan="2" class="ps-4 py-1 text-muted" style="font-size:0.8rem;">固定負債</th></tr>
-                  <tr><td class="ps-5">長期借入金</td><td class="text-end pe-3">{{ item.bs.long_term_borrowings | comma }}円</td></tr>
-                  <tr><td class="ps-5">役員等借入金</td><td class="text-end pe-3">{{ item.bs.executive_borrowings | comma }}円</td></tr>
-                  <tr><td class="ps-5">退職給付引当金</td><td class="text-end pe-3">{{ item.bs.retirement_benefit_liability | comma }}円</td></tr>
-                  <tr><td class="ps-5">その他固定負債</td><td class="text-end pe-3">{{ item.bs.other_fixed_liabilities | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-4">固定負債合計</td><td class="text-end pe-3">{{ item.bs.fixed_liabilities | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-3">負債合計</td><td class="text-end pe-3">{{ item.bs.total_liabilities | comma }}円</td></tr>
-
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">純資産の部</th></tr>
-                    <tr><td class="ps-4">資本金</td><td class="text-end pe-3">{{ item.bs.capital | comma }}円</td></tr>
-                  <tr><td class="ps-4">資本剰余金</td><td class="text-end pe-3">{{ item.bs.capital_surplus | comma }}円</td></tr>
-                  <tr><td class="ps-4">利益剰余金</td><td class="text-end pe-3">{{ item.bs.retained_earnings | comma }}円</td></tr>
-                  <tr><td class="ps-4">利益準備金</td><td class="text-end pe-3">{{ item.bs.legal_reserve_bs | comma }}円</td></tr>
-                  <tr><td class="ps-4">繰越利益剰余金</td><td class="text-end pe-3">{{ item.bs.retained_earnings_carried | comma }}円</td></tr>
-                  <tr><td class="ps-4">自己株式</td><td class="text-end pe-3">{{ item.bs.treasury_stock | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-3">純資産合計</td><td class="text-end pe-3">{{ item.bs.net_assets | comma }}円</td></tr>
-                  <tr class="fw-bold table-primary"><td class="ps-3">負債純資産合計</td><td class="text-end pe-3 text-primary fw-bold">{{ item.bs.total_liabilities_and_net_assets | comma }}円</td></tr>
-                </tbody>
-              </table>
+              <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th class="ps-3">科目名</th>
+                      <th class="text-end pe-3">金額（円）</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in item.bs_items %}
+                    <tr {% if '合計' in row.name or row.name.endswith('計') %}class="fw-bold"{% endif %}>
+                      <td class="ps-3">{{ row.name }}</td>
+                      <td class="text-end pe-3">{{ row.amount | comma }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
             </div>
             <div class="card-footer bg-white text-end py-2">
-              <a href="/decision/bs-restructuring?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}" class="btn btn-outline-warning btn-sm">
-                <i class="fas fa-edit me-1"></i>BS組換えを編集
-              </a>
-            </div>
-          </div>
-        </div>
-        {% else %}
-        <div class="col-lg-6">
-          <div class="card shadow-sm border-0 h-100">
-            <div class="card-header py-2 fw-bold" style="background:#fff8e1; color:#856404;">
-              <i class="fas fa-balance-scale me-2"></i>貸借対照表（BS）
-            </div>
-            <div class="card-body text-center py-5">
-              <i class="fas fa-balance-scale fa-2x text-muted mb-2"></i>
-              <p class="text-muted small mb-3">この年度のBSデータがありません</p>
-              <a href="/decision/pdf-upload?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}" class="btn btn-outline-warning btn-sm">
-                <i class="fas fa-upload me-1"></i>PDFから読み取る
+              <a href="/decision/bs-restructuring?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}"
+                 class="btn btn-outline-warning btn-sm">
+                <i class="fas fa-edit me-1"></i>BS組換えへ
               </a>
             </div>
           </div>
@@ -219,67 +163,31 @@
         {% endif %}
 
         <!-- 製造原価報告書 -->
-        {% if item.mcr %}
+        {% if item.mcr_items %}
         <div class="col-lg-6">
           <div class="card shadow-sm border-0 h-100">
-            <div class="card-header py-2 fw-bold" style="background:#fff3cd; color:#856404;">
-              <i class="fas fa-industry me-2"></i>製造原価報告書
-              <span class="badge bg-secondary ms-2 fw-normal" style="font-size:0.72rem;">更新: {{ item.mcr.updated_at.strftime('%Y/%m/%d') }}</span>
+            <div class="card-header py-2 fw-bold" style="background:#e8f5e9; color:#1b5e20;">
+              <i class="fas fa-industry me-2"></i>製造原価報告書（オリジナル）
             </div>
             <div class="card-body p-0">
-              <table class="table table-sm table-hover mb-0 fs-sm">
-                <tbody>
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">材料費</th></tr>
-                  <tr><td class="ps-4">期首原材料棚卸高</td><td class="text-end pe-3">{{ item.mcr.beginning_raw_material | comma }}円</td></tr>
-                  <tr><td class="ps-4">当期原材料仕入高</td><td class="text-end pe-3">{{ item.mcr.raw_material_purchase | comma }}円</td></tr>
-                  <tr><td class="ps-4">期末原材料棚卸高</td><td class="text-end pe-3">{{ item.mcr.ending_raw_material | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-3">材料費計</td><td class="text-end pe-3">{{ item.mcr.material_cost | comma }}円</td></tr>
-
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">労務費</th></tr>
-                  <tr class="fw-bold"><td class="ps-3">労務費計</td><td class="text-end pe-3">{{ item.mcr.labor_cost_manufacturing | comma }}円</td></tr>
-
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">製造経費</th></tr>
-                  <tr><td class="ps-4">外注加工費</td><td class="text-end pe-3">{{ item.mcr.outsourcing_cost | comma }}円</td></tr>
-                  <tr><td class="ps-4">荷造運賃</td><td class="text-end pe-3">{{ item.mcr.freight_manufacturing | comma }}円</td></tr>
-                  <tr><td class="ps-4">会議費</td><td class="text-end pe-3">{{ item.mcr.meeting_cost_manufacturing | comma }}円</td></tr>
-                  <tr><td class="ps-4">旅費交通費</td><td class="text-end pe-3">{{ item.mcr.travel_cost_manufacturing | comma }}円</td></tr>
-                  <tr><td class="ps-4">通信費</td><td class="text-end pe-3">{{ item.mcr.communication_cost_manufacturing | comma }}円</td></tr>
-                  <tr><td class="ps-4">消耗品費</td><td class="text-end pe-3">{{ item.mcr.supplies_manufacturing | comma }}円</td></tr>
-                  <tr><td class="ps-4">車両費</td><td class="text-end pe-3">{{ item.mcr.vehicle_cost_manufacturing | comma }}円</td></tr>
-                  <tr><td class="ps-4">賃借料</td><td class="text-end pe-3">{{ item.mcr.rent_manufacturing | comma }}円</td></tr>
-                  <tr><td class="ps-4">保険料</td><td class="text-end pe-3">{{ item.mcr.insurance_manufacturing | comma }}円</td></tr>
-                  <tr><td class="ps-4">減価償却費</td><td class="text-end pe-3">{{ item.mcr.depreciation_manufacturing | comma }}円</td></tr>
-                  <tr><td class="ps-4">修繕費</td><td class="text-end pe-3">{{ item.mcr.repair_cost_manufacturing | comma }}円</td></tr>
-                  <tr><td class="ps-4">その他製造経費</td><td class="text-end pe-3">{{ item.mcr.other_manufacturing_cost | comma }}円</td></tr>
-                  <tr class="fw-bold"><td class="ps-3">製造経費計</td><td class="text-end pe-3">{{ item.mcr.manufacturing_expenses_total | comma }}円</td></tr>
-
-                  <tr class="table-light"><th colspan="2" class="ps-3 py-1 text-muted small">合計</th></tr>
-                  <tr class="fw-bold table-warning"><td class="ps-3">総製造費用</td><td class="text-end pe-3 text-warning fw-bold">{{ item.mcr.total_manufacturing_cost_current | comma }}円</td></tr>
-                  <tr><td class="ps-4">期首仕掛品棚卸高</td><td class="text-end pe-3">{{ item.mcr.beginning_wip | comma }}円</td></tr>
-                  <tr><td class="ps-4">期末仕掛品棚卸高</td><td class="text-end pe-3">{{ item.mcr.ending_wip | comma }}円</td></tr>
-                  <tr class="fw-bold table-danger"><td class="ps-3">製造原価合計</td><td class="text-end pe-3 text-danger fw-bold">{{ item.mcr.total_manufacturing_cost | comma }}円</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="card-footer bg-white text-end py-2">
-              <a href="/decision/pdf-upload?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}" class="btn btn-outline-warning btn-sm">
-                <i class="fas fa-sync me-1"></i>再読み取り
-              </a>
-            </div>
-          </div>
-        </div>
-        {% else %}
-        <div class="col-lg-6">
-          <div class="card shadow-sm border-0 h-100">
-            <div class="card-header py-2 fw-bold" style="background:#fff3cd; color:#856404;">
-              <i class="fas fa-industry me-2"></i>製造原価報告書
-            </div>
-            <div class="card-body text-center py-5">
-              <i class="fas fa-industry fa-2x text-muted mb-2"></i>
-              <p class="text-muted small mb-3">この年度の製造原価データがありません</p>
-              <a href="/decision/pdf-upload?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}" class="btn btn-outline-warning btn-sm">
-                <i class="fas fa-upload me-1"></i>PDFから読み取る
-              </a>
+              <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th class="ps-3">科目名</th>
+                      <th class="text-end pe-3">金額（円）</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in item.mcr_items %}
+                    <tr {% if '合計' in row.name or row.name.endswith('計') %}class="fw-bold"{% endif %}>
+                      <td class="ps-3">{{ row.name }}</td>
+                      <td class="text-end pe-3">{{ row.amount | comma }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -292,8 +200,4 @@
   {% endif %}
 
 </div>
-
-<style>
-.fs-sm td, .fs-sm th { font-size: 0.83rem; }
-</style>
 {% endblock %}

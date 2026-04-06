@@ -268,6 +268,80 @@ JSONのみを返してください。説明文は不要です。"""
     return {k: int(v) if v else 0 for k, v in result.items()}
 
 
+def parse_original_trial_balance(pdf_text: str, api_key: str = None, unit: str = "円") -> dict:
+    """
+    試算表の生科目をそのまま読み取る（オリジナルデータ保存用）
+    Returns:
+        {
+            "pl_items": [{"name": "売上高", "amount": 394238924}, ...],
+            "bs_items": [{"name": "現金及び預金", "amount": 12345678}, ...],
+            "mcr_items": [{"name": "外注加工費", "amount": 209540169}, ...]
+        }
+    """
+    client = get_openai_client(api_key)
+
+    unit_instruction = {
+        "円": "- 金額は「円」単位で記載されています。カンマや空白を除去して円単位の整数をそのまま返す",
+        "千円": "- 金額は「千円」単位で記載されています。1000を掛けて円単位の整数に変換して返す",
+        "百万円": "- 金額は「百万円」単位で記載されています。1000000を掛けて円単位の整数に変換して返す",
+    }.get(unit, "- 金額はそのまま整数で返す")
+
+    prompt = f"""以下は財務諸表PDFから抽出したテキストです。
+試算表に記載されている全科目の名称と金額を読み取り、指定のJSONフォーマットで返してください。
+
+【重要なルール】
+{unit_instruction}
+- 科目名はPDFに記載されている名称をそのまま使用する（例：「[製]外注加工費」「売上高」など）
+- 金額は期間残高（または期末残高）の値を使用する
+- 合計行（「合計」「計」で終わる科目）も含める
+- 損益計算書・製造原価報告書・貸借対照表の3種類に分類する
+- 製造原価報告書の科目は「[製]」プレフィックスがある場合はそのまま含める
+- 金額が0または空白の科目は除外してよい
+
+【出力フォーマット（JSON）】
+{{
+  "pl_items": [
+    {{"name": "売上高", "amount": 394238924}},
+    {{"name": "期首商品棚卸高", "amount": 0}},
+    ...
+  ],
+  "bs_items": [
+    {{"name": "現金及び預金", "amount": 12345678}},
+    {{"name": "売掛金", "amount": 5678901}},
+    ...
+  ],
+  "mcr_items": [
+    {{"name": "[製]外注加工費", "amount": 209540169}},
+    {{"name": "[製]荷造運賃", "amount": 69}},
+    ...
+  ]
+}}
+
+【PDFテキスト】
+{pdf_text}
+
+JSONのみを返してください。説明文は不要です。"""
+
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+        response_format={"type": "json_object"}
+    )
+
+    result = json.loads(response.choices[0].message.content)
+    # 各itemのamountを整数に変換
+    for key in ['pl_items', 'bs_items', 'mcr_items']:
+        if key in result and isinstance(result[key], list):
+            for item in result[key]:
+                if 'amount' in item:
+                    try:
+                        item['amount'] = int(item['amount']) if item['amount'] else 0
+                    except (ValueError, TypeError):
+                        item['amount'] = 0
+    return result
+
+
 def detect_document_types(pdf_text: str, api_key: str = None) -> list:
     """PDFに含まれる財務諸表の種類を検出する"""
     client = get_openai_client(api_key)
@@ -351,6 +425,7 @@ def parse_financial_pdf(pdf_path: str, target_types: list = None, api_key: str =
         "balance_sheet": None,
         "profit_loss": None,
         "manufacturing_cost": None,
+        "original_trial_balance": None,
         "raw_text": pdf_text[:2000]  # プレビュー用
     }
 
@@ -372,5 +447,11 @@ def parse_financial_pdf(pdf_path: str, target_types: list = None, api_key: str =
             result["manufacturing_cost"] = parse_manufacturing_cost(pdf_text, api_key=api_key, unit=unit)
         except Exception as e:
             result["manufacturing_cost_error"] = str(e)
+
+    # オリジナル試算表データの読み取り（生科目をそのまま保存）
+    try:
+        result["original_trial_balance"] = parse_original_trial_balance(pdf_text, api_key=api_key, unit=unit)
+    except Exception as e:
+        result["original_trial_balance_error"] = str(e)
 
     return result

@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, redirect, url_for, session, reques
 from ..utils.decorators import require_roles, ROLES
 from ..utils.formatting import parse_int, parse_int_or_none
 from ..db import SessionLocal
-from ..models_decision import Company, FiscalYear, ProfitLossStatement, BalanceSheet, RestructuredPL, RestructuredBS, ManufacturingCostReport
+from ..models_decision import Company, FiscalYear, ProfitLossStatement, BalanceSheet, RestructuredPL, RestructuredBS, ManufacturingCostReport, OriginalTrialBalance
 from datetime import datetime
 
 bp = Blueprint('decision', __name__, url_prefix='/decision')
@@ -221,13 +221,25 @@ def company_financial_statements(company_id):
 
         fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
 
+        import json as json_module
         fiscal_year_data = []
         for fy in fiscal_years:
-            pl = db.query(RestructuredPL).filter_by(fiscal_year_id=fy.id).first()
-            bs = db.query(RestructuredBS).filter_by(fiscal_year_id=fy.id).first()
+            otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fy.id).first()
             mcr = db.query(ManufacturingCostReport).filter_by(fiscal_year_id=fy.id).first()
-            if pl or bs or mcr:
-                fiscal_year_data.append({'fiscal_year': fy, 'pl': pl, 'bs': bs, 'mcr': mcr})
+            if otb or mcr:
+                # JSONをパース
+                pl_items = json_module.loads(otb.pl_items) if otb and otb.pl_items else []
+                bs_items = json_module.loads(otb.bs_items) if otb and otb.bs_items else []
+                mcr_items = json_module.loads(otb.mcr_items) if otb and otb.mcr_items else []
+                unit = otb.unit if otb else '円'
+                fiscal_year_data.append({
+                    'fiscal_year': fy,
+                    'pl_items': pl_items,
+                    'bs_items': bs_items,
+                    'mcr_items': mcr_items,
+                    'unit': unit,
+                    'has_data': bool(pl_items or bs_items or mcr_items)
+                })
 
         return render_template('financial_statements_view.html',
                                company=company,
@@ -3745,10 +3757,16 @@ def pl_restructuring():
             if selected_company:
                 fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
 
+        otb = None
+        otb_pl_items = []
         if fiscal_year_id:
             selected_fy = db.query(FiscalYear).filter_by(id=fiscal_year_id).first()
             if selected_fy:
                 rpl = db.query(RestructuredPL).filter_by(fiscal_year_id=fiscal_year_id).first()
+                otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
+                if otb and otb.pl_items:
+                    import json as json_module
+                    otb_pl_items = json_module.loads(otb.pl_items)
 
         if request.method == 'POST':
             if not selected_fy:
@@ -3799,7 +3817,8 @@ def pl_restructuring():
             selected_company=selected_company,
             fiscal_years=fiscal_years,
             selected_fy=selected_fy,
-            rpl=rpl
+            rpl=rpl,
+            otb_pl_items=otb_pl_items
         )
     finally:
         db.close()
@@ -3830,10 +3849,15 @@ def bs_restructuring():
             if selected_company:
                 fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
 
+        otb_bs_items = []
         if fiscal_year_id:
             selected_fy = db.query(FiscalYear).filter_by(id=fiscal_year_id).first()
             if selected_fy:
                 rbs = db.query(RestructuredBS).filter_by(fiscal_year_id=fiscal_year_id).first()
+                otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
+                if otb and otb.bs_items:
+                    import json as json_module
+                    otb_bs_items = json_module.loads(otb.bs_items)
 
         if request.method == 'POST':
             if not selected_fy:
@@ -3890,7 +3914,8 @@ def bs_restructuring():
             selected_company=selected_company,
             fiscal_years=fiscal_years,
             selected_fy=selected_fy,
-            rbs=rbs
+            rbs=rbs,
+            otb_bs_items=otb_bs_items
         )
     finally:
         db.close()
@@ -4104,6 +4129,25 @@ def pdf_apply():
             mcr.beginning_wip = pi('mc_beginning_wip')
             mcr.ending_wip = pi('mc_ending_wip')
             mcr.total_manufacturing_cost = pi('mc_total_manufacturing_cost')
+
+        # オリジナル試算表データの保存（生科目JSONをそのまま保存）
+        import json as json_module
+        otb_pl_items = request.form.get('otb_pl_items', '')
+        otb_bs_items = request.form.get('otb_bs_items', '')
+        otb_mcr_items = request.form.get('otb_mcr_items', '')
+        otb_unit = request.form.get('otb_unit', '円')
+        if otb_pl_items or otb_bs_items or otb_mcr_items:
+            otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
+            if not otb:
+                otb = OriginalTrialBalance(fiscal_year_id=fiscal_year_id)
+                db.add(otb)
+            if otb_pl_items:
+                otb.pl_items = otb_pl_items
+            if otb_bs_items:
+                otb.bs_items = otb_bs_items
+            if otb_mcr_items:
+                otb.mcr_items = otb_mcr_items
+            otb.unit = otb_unit
 
         db.commit()
 
