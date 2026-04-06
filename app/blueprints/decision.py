@@ -4373,3 +4373,37 @@ def debug_restructured_pl():
         return jsonify({'error': str(e)}), 500
     finally:
         db.close()
+
+
+@bp.route('/debug-tables', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def debug_tables():
+    """データベースのテーブル一覧を確認するデバッグ"""
+    from sqlalchemy import text as sa_text
+    db = SessionLocal()
+    try:
+        result = db.execute(sa_text("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            ORDER BY table_name
+        """))
+        tables = [row[0] for row in result.fetchall()]
+        
+        # restructured_plのカラムも確認
+        try:
+            result2 = db.execute(sa_text("""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'restructured_pl'
+                ORDER BY ordinal_position
+            """))
+            rpl_columns = [{'name': row[0], 'type': row[1]} for row in result2.fetchall()]
+        except Exception as e:
+            rpl_columns = {'error': str(e)}
+        
+        return jsonify({'tables': tables, 'restructured_pl_columns': rpl_columns})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
