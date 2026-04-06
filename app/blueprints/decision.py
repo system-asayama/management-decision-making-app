@@ -21,7 +21,7 @@ def index():
     if not tenant_id:
         return render_template('decision_no_tenant.html')
     
-    return render_template('decision_index.html', tenant_id=tenant_id)
+    return redirect(url_for('decision.company_list'))
 
 
 @bp.route('/dashboard')
@@ -219,12 +219,17 @@ def fiscal_year_new():
                 )
                 db.add(fiscal_year)
                 db.commit()
-                return redirect(url_for('decision.fiscal_year_list'))
+                # 企業詳細ページにリダイレクト
+                cid = fiscal_year.company_id
+                return redirect(url_for('decision.company_detail_or_delete', company_id=cid))
             except Exception as e:
                 db.rollback()
-                return render_template('fiscal_year_form.html', companies=companies, error=str(e))
+                preselect_company_id = request.form.get('company_id')
+                return render_template('fiscal_year_form.html', companies=companies, error=str(e), preselect_company_id=preselect_company_id)
         
-        return render_template('fiscal_year_form.html', companies=companies)
+        # GETパラメータからcompany_idを受け取る
+        preselect_company_id = request.args.get('company_id')
+        return render_template('fiscal_year_form.html', companies=companies, preselect_company_id=preselect_company_id)
     finally:
         db.close()
 

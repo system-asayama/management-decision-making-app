@@ -1,128 +1,429 @@
 {% extends "base.html" %}
-
-{% block title %}企業詳細{% endblock %}
-
+{% block title %}{{ company.name }} - 企業ダッシュボード{% endblock %}
 {% block content %}
-<div class="container mt-5">
-  <div class="row mb-4">
-    <div class="col-md-8">
-      <h2><i class="fas fa-building me-2"></i>企業詳細</h2>
-      <p class="text-muted">企業情報の詳細を確認できます。</p>
-    </div>
-    <div class="col-md-4 text-end">
-      <a href="/decision/companies/{{ company.id }}/edit" class="btn btn-warning">
-        <i class="fas fa-edit me-2"></i>編集
-      </a>
-    </div>
-  </div>
+<div class="container mt-4">
 
-  <div class="card shadow-sm mb-4">
-    <div class="card-header bg-light">
-      <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>基本情報</h5>
-    </div>
-    <div class="card-body">
-      <div class="row">
-        <div class="col-md-6">
-          <p class="mb-2"><strong>企業ID:</strong> {{ company.id }}</p>
-          <p class="mb-2"><strong>企業名:</strong> {{ company.name }}</p>
-          <p class="mb-2"><strong>業種:</strong> {{ company.industry or '-' }}</p>
-          <p class="mb-2"><strong>資本金:</strong> {{ company.capital|comma }} 円</p>
-          <p class="mb-2"><strong>従業員数:</strong> {{ company.employee_count|comma }} 人</p>
-        </div>
-        <div class="col-md-6">
-          <p class="mb-2"><strong>設立年月日:</strong> {{ company.established_date.strftime('%Y年%m月%d日') if company.established_date else '-' }}</p>
-          <p class="mb-2"><strong>住所:</strong> {{ company.address or '-' }}</p>
-          <p class="mb-2"><strong>電話番号:</strong> {{ company.phone or '-' }}</p>
-          <p class="mb-2"><strong>メール:</strong> {{ company.email or '-' }}</p>
-          <p class="mb-2"><strong>Webサイト:</strong>
-            {% if company.website %}
-              <a href="{{ company.website }}" target="_blank" rel="noopener noreferrer">{{ company.website }}</a>
-            {% else %}
-              -
-            {% endif %}
-          </p>
+  <!-- 企業ヘッダー -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #1a3a5c 0%, #2d6a9f 100%);">
+        <div class="card-body text-white py-4">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <h2 class="mb-1 fw-bold">
+                <i class="fas fa-building me-2"></i>{{ company.name }}
+              </h2>
+              <p class="mb-0 opacity-75">
+                {% if company.industry %}{{ company.industry }}{% endif %}
+                {% if company.employee_count %} &nbsp;|&nbsp; 従業員 {{ company.employee_count }}名{% endif %}
+                {% if company.capital %} &nbsp;|&nbsp; 資本金 {{ company.capital|comma }}円{% endif %}
+              </p>
+            </div>
+            <div class="d-flex gap-2">
+              <a href="/decision/companies/{{ company.id }}/edit" class="btn btn-outline-light btn-sm">
+                <i class="fas fa-edit me-1"></i>編集
+              </a>
+              <a href="/decision/" class="btn btn-outline-light btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>企業一覧
+              </a>
+            </div>
+          </div>
         </div>
       </div>
-
-      {% if company.representative %}
-      <p class="mt-3 mb-0"><strong>代表者:</strong> {{ company.representative }}</p>
-      {% endif %}
-
-      {% if company.notes %}
-      <hr>
-      <p class="mb-0"><strong>備考:</strong><br>{{ company.notes }}</p>
-      {% endif %}
     </div>
   </div>
 
-  <div class="card shadow-sm mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-      <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>会計年度</h5>
-      <a href="/decision/fiscal-years/new" class="btn btn-primary btn-sm">
-        <i class="fas fa-plus me-2"></i>会計年度を追加
-      </a>
-    </div>
-    <div class="card-body">
-      {% if fiscal_years %}
-        <div class="table-responsive">
-          <table class="table table-striped align-middle">
-            <thead>
-              <tr>
-                <th>年度</th>
-                <th>開始日</th>
-                <th>終了日</th>
-                <th>月数</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for fy in fiscal_years %}
-              <tr>
-                <td>{{ fy.year_name }}</td>
-                <td>{{ fy.start_date.strftime('%Y-%m-%d') if fy.start_date else '-' }}</td>
-                <td>{{ fy.end_date.strftime('%Y-%m-%d') if fy.end_date else '-' }}</td>
-                <td>{{ fy.months|comma }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+  <!-- 会計年度セクション -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center py-3" style="background-color: #f8f9fa;">
+          <h5 class="mb-0 fw-bold">
+            <i class="fas fa-calendar-alt me-2 text-success"></i>会計年度
+          </h5>
+          <a href="/decision/fiscal-years/new?company_id={{ company.id }}" class="btn btn-success btn-sm">
+            <i class="fas fa-plus me-1"></i>会計年度を追加
+          </a>
         </div>
-      {% else %}
-        <p class="text-muted mb-0">会計年度が登録されていません。</p>
-      {% endif %}
+        <div class="card-body">
+          {% if fiscal_years %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>年度名</th>
+                  <th>開始日</th>
+                  <th>終了日</th>
+                  <th>月数</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for fy in fiscal_years %}
+                <tr>
+                  <td class="fw-bold">{{ fy.year_name }}</td>
+                  <td>{{ fy.start_date.strftime('%Y/%m/%d') if fy.start_date else '-' }}</td>
+                  <td>{{ fy.end_date.strftime('%Y/%m/%d') if fy.end_date else '-' }}</td>
+                  <td>{{ fy.months }}ヶ月</td>
+                  <td>
+                    <a href="/decision/fiscal-years/{{ fy.id }}/edit" class="btn btn-outline-warning btn-sm me-1">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                    <button class="btn btn-outline-danger btn-sm" onclick="deleteFiscalYear({{ fy.id }}, '{{ fy.year_name }}')">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center py-4">
+            <i class="fas fa-calendar-alt fa-2x text-muted mb-2"></i>
+            <p class="text-muted mb-2">会計年度が登録されていません</p>
+            <a href="/decision/fiscal-years/new?company_id={{ company.id }}" class="btn btn-success btn-sm">
+              <i class="fas fa-plus me-1"></i>会計年度を追加
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="d-flex justify-content-between">
-    <a href="/decision/companies" class="btn btn-outline-secondary">
-      <i class="fas fa-arrow-left me-2"></i>企業一覧へ戻る
-    </a>
-
-    <button class="btn btn-danger" onclick="deleteCompany({{ company.id }}, '{{ company.name }}')">
-      <i class="fas fa-trash me-2"></i>削除
-    </button>
+  <!-- 財務データ入力セクション -->
+  <div class="row mb-3">
+    <div class="col-12">
+      <h5 class="fw-bold text-muted mb-3">
+        <i class="fas fa-file-invoice-dollar me-2"></i>財務データ入力
+      </h5>
+    </div>
   </div>
+  <div class="row mb-4">
+    <!-- PDFアップロード -->
+    <div class="col-md-4 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-4">
+          <div class="mb-3">
+            <i class="fas fa-file-pdf fa-3x" style="color: #e74c3c;"></i>
+          </div>
+          <h6 class="card-title fw-bold">PDF財務諸表読み取り</h6>
+          <p class="card-text text-muted small">会計ソフトのPDFをAIで自動読み取り</p>
+          <a href="/decision/pdf-upload?company_id={{ company.id }}" class="btn btn-danger btn-sm">
+            <i class="fas fa-upload me-1"></i>PDFをアップロード
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- PL組換え -->
+    <div class="col-md-4 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-4">
+          <div class="mb-3">
+            <i class="fas fa-exchange-alt fa-3x text-primary"></i>
+          </div>
+          <h6 class="card-title fw-bold">PL組換え</h6>
+          <p class="card-text text-muted small">損益計算書の組換え入力</p>
+          <a href="/decision/pl-restructuring?company_id={{ company.id }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-edit me-1"></i>入力する
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- BS組換え -->
+    <div class="col-md-4 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-4">
+          <div class="mb-3">
+            <i class="fas fa-balance-scale fa-3x text-warning"></i>
+          </div>
+          <h6 class="card-title fw-bold">BS組換え</h6>
+          <p class="card-text text-muted small">貸借対照表の組換え入力</p>
+          <a href="/decision/bs-restructuring?company_id={{ company.id }}" class="btn btn-warning btn-sm">
+            <i class="fas fa-edit me-1"></i>入力する
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 分析・シミュレーションセクション -->
+  <div class="row mb-3">
+    <div class="col-12">
+      <h5 class="fw-bold text-muted mb-3">
+        <i class="fas fa-chart-line me-2"></i>分析・シミュレーション
+      </h5>
+    </div>
+  </div>
+  <div class="row mb-4">
+    <!-- ダッシュボード分析 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-tachometer-alt fa-2x text-info mb-2"></i>
+          <h6 class="card-title fw-bold small">ダッシュボード分析</h6>
+          <a href="/decision/dashboard-analysis?company_id={{ company.id }}" class="btn btn-info btn-sm mt-1">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 損益分岐点分析 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-chart-area fa-2x text-success mb-2"></i>
+          <h6 class="card-title fw-bold small">損益分岐点分析</h6>
+          <a href="/decision/breakeven-analysis?company_id={{ company.id }}" class="btn btn-success btn-sm mt-1">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 財務詳細分析 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-search-dollar fa-2x text-primary mb-2"></i>
+          <h6 class="card-title fw-bold small">財務詳細分析</h6>
+          <a href="/decision/financial-analysis-detailed?company_id={{ company.id }}" class="btn btn-primary btn-sm mt-1">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- シミュレーション -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-sliders-h fa-2x text-warning mb-2"></i>
+          <h6 class="card-title fw-bold small">シミュレーション</h6>
+          <a href="/decision/simulation?company_id={{ company.id }}" class="btn btn-warning btn-sm mt-1">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 予算管理 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-clipboard-list fa-2x text-secondary mb-2"></i>
+          <h6 class="card-title fw-bold small">予算管理</h6>
+          <a href="/decision/budget?company_id={{ company.id }}" class="btn btn-secondary btn-sm mt-1">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 借入余力分析 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-university fa-2x mb-2" style="color: #8e44ad;"></i>
+          <h6 class="card-title fw-bold small">借入余力分析</h6>
+          <a href="/decision/debt-capacity?company_id={{ company.id }}" class="btn btn-sm mt-1" style="background-color:#8e44ad; color:white;">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 資金繰り計画 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-coins fa-2x mb-2" style="color: #16a085;"></i>
+          <h6 class="card-title fw-bold small">資金繰り計画</h6>
+          <a href="/decision/cash-flow-planning?company_id={{ company.id }}" class="btn btn-sm mt-1" style="background-color:#16a085; color:white;">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 内部留保シミュレーション -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-piggy-bank fa-2x mb-2" style="color: #d35400;"></i>
+          <h6 class="card-title fw-bold small">内部留保シミュレーション</h6>
+          <a href="/decision/retained-earnings-simulation?company_id={{ company.id }}" class="btn btn-sm mt-1" style="background-color:#d35400; color:white;">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 貢献利益分析 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-chart-pie fa-2x text-info mb-2"></i>
+          <h6 class="card-title fw-bold small">貢献利益分析</h6>
+          <a href="/decision/contribution-analysis?company_id={{ company.id }}" class="btn btn-info btn-sm mt-1">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 最小二乗法予測 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-project-diagram fa-2x text-success mb-2"></i>
+          <h6 class="card-title fw-bold small">最小二乗法予測</h6>
+          <a href="/decision/least-squares-forecast?company_id={{ company.id }}" class="btn btn-success btn-sm mt-1">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 差額原価分析 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-not-equal fa-2x text-warning mb-2"></i>
+          <h6 class="card-title fw-bold small">差額原価分析</h6>
+          <a href="/decision/differential-analysis?company_id={{ company.id }}" class="btn btn-warning btn-sm mt-1">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 人件費計画 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-users fa-2x text-secondary mb-2"></i>
+          <h6 class="card-title fw-bold small">人件費計画</h6>
+          <a href="/decision/labor-cost-planning?company_id={{ company.id }}" class="btn btn-secondary btn-sm mt-1">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 設備投資分析 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-industry fa-2x text-primary mb-2"></i>
+          <h6 class="card-title fw-bold small">設備投資分析</h6>
+          <a href="/decision/capital-investment?company_id={{ company.id }}" class="btn btn-primary btn-sm mt-1">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 運転資金計画 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-sync-alt fa-2x mb-2" style="color: #2980b9;"></i>
+          <h6 class="card-title fw-bold small">運転資金計画</h6>
+          <a href="/decision/working-capital-planning?company_id={{ company.id }}" class="btn btn-sm mt-1" style="background-color:#2980b9; color:white;">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- 資金調達・返済計画 -->
+    <div class="col-md-3 mb-3">
+      <div class="card h-100 shadow-sm border-0 hover-card">
+        <div class="card-body text-center py-3">
+          <i class="fas fa-hand-holding-usd fa-2x mb-2" style="color: #27ae60;"></i>
+          <h6 class="card-title fw-bold small">資金調達・返済計画</h6>
+          <a href="/decision/financing-repayment?company_id={{ company.id }}" class="btn btn-sm mt-1" style="background-color:#27ae60; color:white;">
+            <i class="fas fa-arrow-right me-1"></i>開く
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 企業情報詳細（折りたたみ） -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header py-2" style="background-color: #f8f9fa; cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#companyInfoCollapse">
+          <h6 class="mb-0 fw-bold">
+            <i class="fas fa-info-circle me-2 text-muted"></i>企業基本情報
+            <i class="fas fa-chevron-down float-end text-muted"></i>
+          </h6>
+        </div>
+        <div class="collapse" id="companyInfoCollapse">
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-6">
+                <p class="mb-2"><strong>業種:</strong> {{ company.industry or '-' }}</p>
+                <p class="mb-2"><strong>資本金:</strong> {{ company.capital|comma if company.capital else '-' }} 円</p>
+                <p class="mb-2"><strong>従業員数:</strong> {{ company.employee_count|comma if company.employee_count else '-' }} 人</p>
+                <p class="mb-2"><strong>設立年月日:</strong> {{ company.established_date.strftime('%Y年%m月%d日') if company.established_date else '-' }}</p>
+              </div>
+              <div class="col-md-6">
+                <p class="mb-2"><strong>住所:</strong> {{ company.address or '-' }}</p>
+                <p class="mb-2"><strong>電話番号:</strong> {{ company.phone or '-' }}</p>
+                <p class="mb-2"><strong>メール:</strong> {{ company.email or '-' }}</p>
+                <p class="mb-2"><strong>Webサイト:</strong>
+                  {% if company.website %}
+                    <a href="{{ company.website }}" target="_blank" rel="noopener noreferrer">{{ company.website }}</a>
+                  {% else %}-{% endif %}
+                </p>
+              </div>
+            </div>
+            {% if company.notes %}
+            <hr>
+            <p class="mb-0"><strong>備考:</strong><br>{{ company.notes }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 削除ボタン -->
+  <div class="row mb-4">
+    <div class="col-12 text-end">
+      <button class="btn btn-outline-danger btn-sm" onclick="deleteCompany({{ company.id }}, '{{ company.name }}')">
+        <i class="fas fa-trash me-1"></i>この企業を削除
+      </button>
+    </div>
+  </div>
+
 </div>
 
 <script>
 function deleteCompany(id, name) {
-  if (confirm(`企業「${name}」を削除してもよろしいですか？`)) {
+  if (confirm(`企業「${name}」を削除してもよろしいですか？\n※関連する全データも削除されます。`)) {
     fetch(`/decision/companies/${id}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json' }
     })
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
       if (data.success) {
-        window.location.href = '/decision/companies';
+        window.location.href = '/decision/';
       } else {
         alert('削除に失敗しました: ' + data.error);
       }
     })
-    .catch(error => {
-      alert('削除に失敗しました: ' + error);
-    });
+    .catch(e => alert('削除に失敗しました: ' + e));
+  }
+}
+
+function deleteFiscalYear(id, name) {
+  if (confirm(`会計年度「${name}」を削除してもよろしいですか？`)) {
+    fetch(`/decision/fiscal-years/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      } else {
+        alert('削除に失敗しました: ' + data.error);
+      }
+    })
+    .catch(e => alert('削除に失敗しました: ' + e));
   }
 }
 </script>
