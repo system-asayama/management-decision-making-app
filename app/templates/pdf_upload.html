@@ -347,6 +347,19 @@
   </a>
 </div>
 
+<div id="parseProgressArea" class="card shadow-sm mb-4" style="display:none;">
+  <div class="card-header bg-warning text-dark">
+    <h5 class="mb-0"><i class="bi bi-cpu me-2"></i>AIが財務諸表を読み取り中...</h5>
+  </div>
+  <div class="card-body">
+    <p class="text-muted mb-3">AIが試算表を解析しています。1〜2分かかる場合があります。このページを閉じないでください。</p>
+    <div class="progress" style="height: 24px;">
+      <div id="parseProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" role="progressbar" style="width: 0%">0%</div>
+    </div>
+    <div id="parseProgressMsg" class="text-muted mt-2 small">接続中...</div>
+  </div>
+</div>
+
 <script>
 // 企業選択時に会計年度を動的ロード
 document.getElementById('company_select').addEventListener('change', function() {
@@ -356,11 +369,110 @@ document.getElementById('company_select').addEventListener('change', function() 
   }
 });
 
-// アップロード中のローディング表示
-document.getElementById('uploadForm').addEventListener('submit', function() {
+// AJAX非同期PDF読み取り
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+
   const btn = document.getElementById('submitBtn');
+  const progressArea = document.getElementById('parseProgressArea');
+  const progressBar = document.getElementById('parseProgressBar');
+  const progressMsg = document.getElementById('parseProgressMsg');
+
+  // バリデーション
+  const fyId = document.getElementById('fy_select').value;
+  const pdfFile = document.getElementById('pdf_input').files[0];
+  if (!fyId) { alert('会計年度を選択してください'); return; }
+  if (!pdfFile) { alert('PDFファイルを選択してください'); return; }
+
+  // UI更新
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>AIが読み取り中... しばらくお待ちください';
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>送信中...';
+  progressArea.style.display = 'block';
+  progressBar.style.width = '10%';
+  progressBar.textContent = '10%';
+  progressMsg.textContent = 'PDFをサーバーに送信中...';
+
+  // FormDataを構築
+  const formData = new FormData(document.getElementById('uploadForm'));
+
+  // 非同期でPDF送信
+  fetch('{{ url_for("decision.pdf_parse_async") }}', {
+    method: 'POST',
+    body: formData
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) {
+      alert('エラー: ' + data.error);
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-cpu me-2"></i>AIで読み取る';
+      progressArea.style.display = 'none';
+      return;
+    }
+    const jobId = data.job_id;
+    progressBar.style.width = '20%';
+    progressBar.textContent = '20%';
+    progressMsg.textContent = 'AIが読み取り中... (1〜2分かかります)';
+
+    // ポーリングで進捗確認
+    let progress = 20;
+    const pollInterval = setInterval(() => {
+      // プログレスバーをゆっくり進める（最大90%まで）
+      if (progress < 85) {
+        progress += 3;
+        progressBar.style.width = progress + '%';
+        progressBar.textContent = progress + '%';
+      }
+
+      fetch('{{ url_for("decision.pdf_parse_status", job_id="__JOB_ID__") }}'.replace('__JOB_ID__', jobId))
+      .then(r => r.json())
+      .then(statusData => {
+        if (statusData.status === 'done') {
+          clearInterval(pollInterval);
+          progressBar.style.width = '100%';
+          progressBar.textContent = '完了';
+          progressBar.classList.remove('progress-bar-animated', 'bg-warning');
+          progressBar.classList.add('bg-success');
+          progressMsg.textContent = '読み取り完了！結果を表示します...';
+
+          // 結果をサーバーに保存してページをリロード
+          const result = statusData.result;
+          // 結果をhidden formで送信してページ再表示
+          const resultForm = document.createElement('form');
+          resultForm.method = 'POST';
+          resultForm.action = window.location.pathname;
+          const addHidden = (name, val) => {
+            const inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = name;
+            inp.value = val;
+            resultForm.appendChild(inp);
+          };
+          addHidden('parse_result_json', JSON.stringify(result));
+          addHidden('company_id', document.querySelector('[name=company_id]').value);
+          addHidden('fiscal_year_id', fyId);
+          document.body.appendChild(resultForm);
+          resultForm.submit();
+
+        } else if (statusData.status === 'error') {
+          clearInterval(pollInterval);
+          alert('読み取りエラー: ' + statusData.error);
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-cpu me-2"></i>AIで読み取る';
+          progressArea.style.display = 'none';
+        }
+      })
+      .catch(() => {
+        // ネットワークエラーは無視して継続
+      });
+    }, 3000); // 3秒ごとにポーリング
+  })
+  .catch(err => {
+    alert('送信エラー: ' + err);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-cpu me-2"></i>AIで読み取る';
+    progressArea.style.display = 'none';
+  });
 });
 </script>
 {% endblock %}

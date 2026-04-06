@@ -3968,31 +3968,43 @@ def pdf_upload():
         if fiscal_year_id:
             selected_fy = db.query(FiscalYear).filter_by(id=fiscal_year_id).first()
 
-        if request.method == 'POST' and 'pdf_file' in request.files:
-            pdf_file = request.files['pdf_file']
-            target_types = request.form.getlist('target_types')
-
-            if not pdf_file or pdf_file.filename == '':
-                error_message = 'PDFファイルを選択してください。'
-            elif not pdf_file.filename.lower().endswith('.pdf'):
-                error_message = 'PDFファイルのみアップロード可能です。'
-            elif not fiscal_year_id:
-                error_message = '企業と会計年度を選択してください。'
-            else:
-                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
-                    pdf_file.save(tmp.name)
-                    tmp_path = tmp.name
+        if request.method == 'POST':
+            # AJAX非同期読み取りの結果をJSONで受け取る場合
+            parse_result_json = request.form.get('parse_result_json', '')
+            if parse_result_json:
+                import json as _json
                 try:
-                    parse_result = parse_financial_pdf(
-                        tmp_path,
-                        target_types=target_types if target_types else None,
-                        api_key=openai_api_key
-                    )
-                finally:
-                    os.unlink(tmp_path)
+                    parse_result = _json.loads(parse_result_json)
+                    if 'error' in parse_result:
+                        error_message = parse_result['error']
+                except Exception:
+                    error_message = '読み取り結果の解析に失敗しました'
+            elif 'pdf_file' in request.files:
+                # 従来の同期処理（フォールバック）
+                pdf_file = request.files['pdf_file']
+                target_types = request.form.getlist('target_types')
 
-                if 'error' in parse_result:
-                    error_message = parse_result['error']
+                if not pdf_file or pdf_file.filename == '':
+                    error_message = 'PDFファイルを選択してください。'
+                elif not pdf_file.filename.lower().endswith('.pdf'):
+                    error_message = 'PDFファイルのみアップロード可能です。'
+                elif not fiscal_year_id:
+                    error_message = '企業と会計年度を選択してください。'
+                else:
+                    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+                        pdf_file.save(tmp.name)
+                        tmp_path = tmp.name
+                    try:
+                        parse_result = parse_financial_pdf(
+                            tmp_path,
+                            target_types=target_types if target_types else None,
+                            api_key=openai_api_key
+                        )
+                    finally:
+                        os.unlink(tmp_path)
+
+                    if 'error' in parse_result:
+                        error_message = parse_result['error']
 
         return render_template(
             'pdf_upload.html',
@@ -4159,3 +4171,107 @@ def pdf_apply():
             return redirect(url_for('decision.pdf_upload', company_id=company_id, fiscal_year_id=fiscal_year_id))
     finally:
         db.close()
+
+
+# ==================== PDF非同期読み取り（AJAX） ====================
+import threading
+import uuid
+
+# ジョブ管理（メモリ内）
+_pdf_jobs = {}  # {job_id: {'status': 'pending'|'running'|'done'|'error', 'result': ..., 'error': ...}}
+_pdf_jobs_lock = threading.Lock()
+
+
+@bp.route('/pdf-parse-async', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def pdf_parse_async():
+    """PDFをバックグラウンドで非同期読み取り開始"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        # APIキー取得
+        openai_api_key = None
+        current_user_id = session.get('user_id')
+        if current_user_id:
+            current_user = db.query(TKanrisha).filter(TKanrisha.id == current_user_id).first()
+            if current_user and current_user.openai_api_key and current_user.openai_api_key.strip():
+                openai_api_key = current_user.openai_api_key.strip()
+        if not openai_api_key:
+            sys_admin = db.query(TKanrisha).filter(
+                TKanrisha.openai_api_key != None,
+                TKanrisha.openai_api_key != ''
+            ).first()
+            if sys_admin and sys_admin.openai_api_key:
+                openai_api_key = sys_admin.openai_api_key.strip()
+    finally:
+        db.close()
+
+    if not openai_api_key:
+        return jsonify({'error': 'OpenAI APIキーが設定されていません'}), 400
+
+    pdf_file = request.files.get('pdf_file')
+    if not pdf_file or pdf_file.filename == '':
+        return jsonify({'error': 'PDFファイルを選択してください'}), 400
+    if not pdf_file.filename.lower().endswith('.pdf'):
+        return jsonify({'error': 'PDFファイルのみアップロード可能です'}), 400
+
+    target_types = request.form.getlist('target_types')
+
+    # 一時ファイルに保存
+    tmp = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+    pdf_file.save(tmp.name)
+    tmp_path = tmp.name
+    tmp.close()
+
+    # ジョブID生成
+    job_id = str(uuid.uuid4())
+    with _pdf_jobs_lock:
+        _pdf_jobs[job_id] = {'status': 'running', 'result': None, 'error': None}
+
+    def run_parse():
+        try:
+            result = parse_financial_pdf(
+                tmp_path,
+                target_types=target_types if target_types else None,
+                api_key=openai_api_key
+            )
+            with _pdf_jobs_lock:
+                _pdf_jobs[job_id]['status'] = 'done'
+                _pdf_jobs[job_id]['result'] = result
+        except Exception as e:
+            with _pdf_jobs_lock:
+                _pdf_jobs[job_id]['status'] = 'error'
+                _pdf_jobs[job_id]['error'] = str(e)
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+    t = threading.Thread(target=run_parse, daemon=True)
+    t.start()
+
+    return jsonify({'job_id': job_id})
+
+
+@bp.route('/pdf-parse-status/<job_id>', methods=['GET'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def pdf_parse_status(job_id):
+    """PDF非同期読み取りの進捗確認"""
+    with _pdf_jobs_lock:
+        job = _pdf_jobs.get(job_id)
+    if not job:
+        return jsonify({'status': 'not_found'}), 404
+    if job['status'] == 'done':
+        result = job['result']
+        # ジョブをメモリから削除（取得後）
+        with _pdf_jobs_lock:
+            _pdf_jobs.pop(job_id, None)
+        return jsonify({'status': 'done', 'result': result})
+    elif job['status'] == 'error':
+        error = job['error']
+        with _pdf_jobs_lock:
+            _pdf_jobs.pop(job_id, None)
+        return jsonify({'status': 'error', 'error': error})
+    else:
+        return jsonify({'status': 'running'})
