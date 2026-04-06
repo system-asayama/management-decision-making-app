@@ -4410,3 +4410,41 @@ def debug_tables():
         return jsonify({'error': str(e)}), 500
     finally:
         db.close()
+
+
+@bp.route('/debug-otb-raw', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def debug_otb_raw():
+    """otb.pl_itemsの生データを確認するデバッグ"""
+    db = SessionLocal()
+    try:
+        fiscal_year_id = request.args.get('fiscal_year_id', type=int, default=1)
+        otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
+        if not otb:
+            return jsonify({'error': 'OTB not found'})
+        
+        pl_raw = otb.pl_items
+        bs_raw = otb.bs_items
+        
+        result = {
+            'pl_items_type': type(pl_raw).__name__,
+            'pl_items_len': len(pl_raw) if pl_raw else 0,
+            'pl_items_first_10': pl_raw[:50] if pl_raw else None,
+            'pl_items_last_10': pl_raw[-50:] if pl_raw else None,
+            'bs_items_type': type(bs_raw).__name__,
+            'bs_items_len': len(bs_raw) if bs_raw else 0,
+            'bs_items_first_10': bs_raw[:50] if bs_raw else None,
+        }
+        
+        # JSONパースを試みる
+        import json as jm
+        try:
+            parsed = jm.loads(pl_raw)
+            result['pl_parse_ok'] = True
+            result['pl_parsed_len'] = len(parsed)
+        except Exception as e:
+            result['pl_parse_error'] = str(e)
+        
+        return jsonify(result)
+    finally:
+        db.close()
