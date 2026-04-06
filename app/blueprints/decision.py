@@ -4275,3 +4275,44 @@ def pdf_parse_status(job_id):
         return jsonify({'status': 'error', 'error': error})
     else:
         return jsonify({'status': 'running'})
+
+
+@bp.route('/run-migration-otb', methods=['GET'])
+@require_roles(ROLES["SYSTEM_ADMIN"])
+def run_migration_otb():
+    """original_trial_balancesテーブルを作成するマイグレーション"""
+    from sqlalchemy import text as sa_text
+    db = SessionLocal()
+    try:
+        # テーブルが存在するか確認
+        result = db.execute(sa_text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'original_trial_balances'
+            )
+        """))
+        exists = result.fetchone()[0]
+        
+        if exists:
+            return jsonify({'status': 'ok', 'message': 'original_trial_balancesテーブルは既に存在します'})
+        
+        # テーブルを作成
+        db.execute(sa_text("""
+            CREATE TABLE original_trial_balances (
+                id SERIAL PRIMARY KEY,
+                fiscal_year_id INTEGER NOT NULL REFERENCES fiscal_years(id),
+                pl_items TEXT,
+                bs_items TEXT,
+                mcr_items TEXT,
+                unit VARCHAR(10) NOT NULL DEFAULT '円',
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        db.commit()
+        return jsonify({'status': 'ok', 'message': 'original_trial_balancesテーブルを作成しました'})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        db.close()
