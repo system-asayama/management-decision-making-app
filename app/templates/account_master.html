@@ -1,12 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ company.name }} - 勘定科目マスタ管理{% endblock %}
+{% block title %}勘定科目マスタ管理{% endblock %}
 {% block content %}
 <div class="container-fluid mt-4 px-3 px-md-4">
   <!-- パンくずナビ -->
   <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
       <li class="breadcrumb-item"><a href="/decision/">企業一覧</a></li>
-      <li class="breadcrumb-item"><a href="/decision/companies/{{ company.id }}">{{ company.name }}</a></li>
       <li class="breadcrumb-item active">勘定科目マスタ管理</li>
     </ol>
   </nav>
@@ -17,13 +16,13 @@
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
           <h4 class="mb-1 fw-bold"><i class="fas fa-list-alt me-2"></i>勘定科目マスタ管理</h4>
-          <p class="mb-0 opacity-75 small">{{ company.name }} &nbsp;|&nbsp; PDFから読み取った勘定科目の一覧・編集・マッピング管理</p>
+          <p class="mb-0 opacity-75 small">テナント共通 &nbsp;|&nbsp; PDFから読み取った勘定科目の一覧・編集・マッピング管理</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-          <a href="/decision/companies/{{ company.id }}/mapping-confirm{% if fiscal_year_id %}?fiscal_year_id={{ fiscal_year_id }}{% endif %}" class="btn btn-outline-light btn-sm">
+          <a href="/decision/pdf-upload" class="btn btn-outline-light btn-sm">
             <i class="fas fa-project-diagram me-1"></i>マッピング確認
           </a>
-          <a href="/decision/pdf-upload?company_id={{ company.id }}" class="btn btn-light btn-sm text-success fw-bold">
+          <a href="/decision/pdf-upload" class="btn btn-light btn-sm text-success fw-bold">
             <i class="fas fa-file-pdf me-1"></i>PDFアップロード
           </a>
         </div>
@@ -501,7 +500,7 @@
 
 <script>
 const allFields = {{ all_fields | tojson | safe }};
-const companyId = {{ company.id }};
+
 
 // ===== 組換え先帳票変更時に組換え先科目を動的更新 =====
 document.querySelectorAll('.stmt-select').forEach(function(sel) {
@@ -533,7 +532,7 @@ document.querySelectorAll('.save-btn').forEach(function(btn) {
     const targetStatement = stmtSel ? stmtSel.value : '';
     const targetField = fieldSel ? fieldSel.value : '';
 
-    fetch(`/decision/companies/${companyId}/account-master/${type}/${id}`, {
+    fetch(`/decision/account-master/${type}/${id}`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
       body: JSON.stringify({
@@ -577,7 +576,7 @@ document.querySelectorAll('.delete-btn').forEach(function(btn) {
 document.getElementById('deleteConfirmBtn').addEventListener('click', function() {
   if (!deleteTarget) return;
   const {id, type} = deleteTarget;
-  fetch(`/decision/companies/${companyId}/account-master/${type}/${id}/delete`, {
+  fetch(`/decision/account-master/${type}/${id}/delete`, {
     method: 'POST',
     headers: {'X-Requested-With': 'XMLHttpRequest'}
   })
@@ -633,7 +632,7 @@ document.getElementById('addItemSubmit').addEventListener('click', function() {
     alert('科目名を入力してください');
     return;
   }
-  fetch(`/decision/companies/${companyId}/account-master/${type}/add`, {
+  fetch(`/decision/account-master/${type}/add`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
     body: JSON.stringify({

@@ -20,7 +20,7 @@
           <p class="mb-0 opacity-75 small">{{ company.name }} &nbsp;|&nbsp; AIが推定した組換え先を確認・修正して確定してください</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-          <a href="/decision/companies/{{ company.id }}/account-master{% if fiscal_year_id %}?fiscal_year_id={{ fiscal_year_id }}{% endif %}" class="btn btn-success btn-sm">
+          <a href="/decision/account-master" class="btn btn-success btn-sm">
             <i class="fas fa-list-alt me-1"></i>科目マスタ管理
           </a>
           <a href="/decision/companies/{{ company.id }}/financial-statements" class="btn btn-outline-light btn-sm">

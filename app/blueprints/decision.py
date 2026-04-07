@@ -4772,18 +4772,13 @@ def mapping_confirm_post(company_id):
 # 科目マスタ管理画面
 # ============================================================
 
-@bp.route('/companies/<int:company_id>/account-master', methods=['GET'])
+@bp.route('/account-master', methods=['GET'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
-def account_master(company_id):
+def account_master():
     """勘定科目マスタ管理画面（GET）"""
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
-        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
-        if not company:
-            return redirect(url_for('decision.company_list'))
-        fiscal_year_id = request.args.get('fiscal_year_id', type=int)
-
         pl_rows = db.query(PlAccountItem).filter_by(tenant_id=tenant_id).order_by(PlAccountItem.display_order).all()
         pl_items = [{'id': ai.id, 'account_name': ai.account_name, 'is_auto_created': ai.is_auto_created,
                      'target_statement': ai.target_statement, 'target_field': ai.target_field,
@@ -4799,7 +4794,7 @@ def account_master(company_id):
                       'target_statement': ai.target_statement, 'target_field': ai.target_field,
                       'mapping_status': ai.mapping_status, 'ai_confidence': ai.ai_confidence} for ai in mcr_rows]
 
-        return render_template('account_master.html', company=company, fiscal_year_id=fiscal_year_id,
+        return render_template('account_master.html',
                                pl_items=pl_items, bs_items=bs_items, mcr_items=mcr_items,
                                pl_fields=_PL_FIELDS, bs_fields=_BS_FIELDS, mcr_fields=_MCR_FIELDS,
                                all_fields=_ALL_FIELDS)
@@ -4807,16 +4802,13 @@ def account_master(company_id):
         db.close()
 
 
-@bp.route('/companies/<int:company_id>/account-master/<string:stmt_type>/<int:item_id>', methods=['POST'])
+@bp.route('/account-master/<string:stmt_type>/<int:item_id>', methods=['POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
-def account_master_update(company_id, stmt_type, item_id):
+def account_master_update(stmt_type, item_id):
     """科目マスタ 1件更新（AJAX）"""
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
-        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
-        if not company:
-            return jsonify({'success': False, 'error': '企業が見つかりません'}), 404
         model_map = {'pl': PlAccountItem, 'bs': BsAccountItem, 'mcr': McrAccountItem}
         model = model_map.get(stmt_type)
         if not model:
@@ -4837,16 +4829,13 @@ def account_master_update(company_id, stmt_type, item_id):
         db.close()
 
 
-@bp.route('/companies/<int:company_id>/account-master/<string:stmt_type>/<int:item_id>/delete', methods=['POST'])
+@bp.route('/account-master/<string:stmt_type>/<int:item_id>/delete', methods=['POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
-def account_master_delete(company_id, stmt_type, item_id):
+def account_master_delete(stmt_type, item_id):
     """科目マスタ 1件削除（AJAX）"""
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
-        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
-        if not company:
-            return jsonify({'success': False, 'error': '企業が見つかりません'}), 404
         model_map = {'pl': PlAccountItem, 'bs': BsAccountItem, 'mcr': McrAccountItem}
         model = model_map.get(stmt_type)
         if not model:
@@ -4864,16 +4853,13 @@ def account_master_delete(company_id, stmt_type, item_id):
         db.close()
 
 
-@bp.route('/companies/<int:company_id>/account-master/<string:stmt_type>/add', methods=['POST'])
+@bp.route('/account-master/<string:stmt_type>/add', methods=['POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
-def account_master_add(company_id, stmt_type):
+def account_master_add(stmt_type):
     """科目マスタ 1件追加（AJAX）"""
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
-        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
-        if not company:
-            return jsonify({'success': False, 'error': '企業が見つかりません'}), 404
         model_map = {'pl': PlAccountItem, 'bs': BsAccountItem, 'mcr': McrAccountItem}
         model = model_map.get(stmt_type)
         if not model:
