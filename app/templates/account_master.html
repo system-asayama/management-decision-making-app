@@ -127,11 +127,11 @@
               </td>
               <td>
                 {% if item.category_status == 'confirmed' %}
-                  <span class="badge bg-success">確定済</span>
+                  <span class="badge bg-success category-badge">確定済</span>
                 {% elif item.category_status == 'pending' %}
-                  <span class="badge bg-warning text-dark">AI推定</span>
+                  <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
-                  <span class="badge bg-light text-muted border">未分類</span>
+                  <span class="badge bg-light text-muted border category-badge">未分類</span>
                 {% endif %}
               </td>
               <td>
@@ -230,11 +230,11 @@
               </td>
               <td>
                 {% if item.category_status == 'confirmed' %}
-                  <span class="badge bg-success">確定済</span>
+                  <span class="badge bg-success category-badge">確定済</span>
                 {% elif item.category_status == 'pending' %}
-                  <span class="badge bg-warning text-dark">AI推定</span>
+                  <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
-                  <span class="badge bg-light text-muted border">未分類</span>
+                  <span class="badge bg-light text-muted border category-badge">未分類</span>
                 {% endif %}
               </td>
               <td>
@@ -344,11 +344,11 @@
               </td>
               <td>
                 {% if item.category_status == 'confirmed' %}
-                  <span class="badge bg-success">確定済</span>
+                  <span class="badge bg-success category-badge">確定済</span>
                 {% elif item.category_status == 'pending' %}
-                  <span class="badge bg-warning text-dark">AI推定</span>
+                  <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
-                  <span class="badge bg-light text-muted border">未分類</span>
+                  <span class="badge bg-light text-muted border category-badge">未分類</span>
                 {% endif %}
               </td>
               <td>
@@ -750,9 +750,9 @@ function runBulkSave(stmtType) {
     rows.forEach(function(row) {
       row.className = row.className.replace(/table-(success|warning|secondary|light)/g, '').trim();
       row.classList.add('table-success');
-      const badge = row.querySelector('.badge');
+      const badge = row.querySelector('.category-badge');
       if (badge) {
-        badge.className = 'badge bg-success';
+        badge.className = 'badge bg-success category-badge';
         badge.textContent = '確定済';
       }
     });
@@ -868,9 +868,9 @@ document.querySelectorAll('.save-btn').forEach(function(btn) {
           row.className = row.className.replace(/table-(success|warning|secondary|light)/g, '').trim();
           row.classList.add('table-success');
           // バッジを「確定済」に更新
-          const badge = row.querySelector('.badge');
+          const badge = row.querySelector('.category-badge');
           if (badge) {
-            badge.className = 'badge bg-success';
+            badge.className = 'badge bg-success category-badge';
             badge.textContent = '確定済';
           }
         }
