@@ -4,7 +4,7 @@
 Node.js版（management-decision-making-app）の全テーブルをPythonに移植
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, BigInteger, String, Float, Date, DateTime, ForeignKey, Text, Boolean, Enum as SQLEnum, JSON, Numeric
+from sqlalchemy import Column, Integer, BigInteger, String, Float, Date, DateTime, ForeignKey, Text, Boolean, Enum as SQLEnum, JSON, Numeric, UniqueConstraint
 from sqlalchemy.orm import relationship
 import enum
 
@@ -42,6 +42,9 @@ class Company(Base):
     differential_analyses = relationship("DifferentialAnalysis", back_populates="company", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="company", cascade="all, delete-orphan")
     account_mappings = relationship("AccountMapping", back_populates="company", cascade="all, delete-orphan")
+    pl_account_items = relationship("PlAccountItem", back_populates="company", cascade="all, delete-orphan")
+    bs_account_items = relationship("BsAccountItem", back_populates="company", cascade="all, delete-orphan")
+    mcr_account_items = relationship("McrAccountItem", back_populates="company", cascade="all, delete-orphan")
 
 
 class FiscalYear(Base):
@@ -79,6 +82,9 @@ class FiscalYear(Base):
     cash_flow_plans = relationship("CashFlowPlan", back_populates="fiscal_year", cascade="all, delete-orphan")
     labor_plans = relationship("LaborPlan", back_populates="fiscal_year", cascade="all, delete-orphan")
     capital_investment_plans = relationship("CapitalInvestmentPlan", back_populates="fiscal_year", cascade="all, delete-orphan")
+    pl_statement_values = relationship("PlStatementValue", back_populates="fiscal_year", cascade="all, delete-orphan")
+    bs_statement_values = relationship("BsStatementValue", back_populates="fiscal_year", cascade="all, delete-orphan")
+    mcr_statement_values = relationship("McrStatementValue", back_populates="fiscal_year", cascade="all, delete-orphan")
 
 
 # ==================== 財務諸表（簡易版） ====================
@@ -1207,3 +1213,165 @@ class RawManufacturingCostReport(Base):
 
     # リレーション
     fiscal_year = relationship("FiscalYear", back_populates="raw_manufacturing_cost_report")
+
+
+
+# ==================== 勘定科目マスタ（PL / BS / MCR 独立テーブル） ====================
+
+class PlAccountItem(Base):
+    """損益計算書 勘定科目マスタ
+    
+    企業ごとに損益計算書の勘定科目を管理する。
+    PDFから読み取った科目が未登録の場合は自動的に新規登録される。
+    """
+    __tablename__ = 'pl_account_items'
+
+    __table_args__ = (
+        UniqueConstraint('company_id', 'account_name',
+                         name='uq_pl_account_items_company_name'),
+        {'extend_existing': True},
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
+    account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
+    display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
+    is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+    # リレーション
+    company = relationship("Company", back_populates="pl_account_items")
+    values = relationship("PlStatementValue", back_populates="account_item",
+                          cascade="all, delete-orphan")
+
+
+class PlStatementValue(Base):
+    """損益計算書 実績値
+    
+    会計年度 × 勘定科目 の組み合わせで金額を保存する。
+    """
+    __tablename__ = 'pl_statement_values'
+
+    __table_args__ = (
+        UniqueConstraint('fiscal_year_id', 'account_item_id',
+                         name='uq_pl_sv_fiscal_year_account_item'),
+        {'extend_existing': True},
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fiscal_year_id = Column(Integer, ForeignKey('fiscal_years.id'), nullable=False)
+    account_item_id = Column(Integer, ForeignKey('pl_account_items.id'), nullable=False)
+    amount = Column(BigInteger, default=0, nullable=False)           # 金額（円単位）
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+    # リレーション
+    fiscal_year = relationship("FiscalYear", back_populates="pl_statement_values")
+    account_item = relationship("PlAccountItem", back_populates="values")
+
+
+class BsAccountItem(Base):
+    """貸借対照表 勘定科目マスタ
+    
+    企業ごとに貸借対照表の勘定科目を管理する。
+    PDFから読み取った科目が未登録の場合は自動的に新規登録される。
+    """
+    __tablename__ = 'bs_account_items'
+
+    __table_args__ = (
+        UniqueConstraint('company_id', 'account_name',
+                         name='uq_bs_account_items_company_name'),
+        {'extend_existing': True},
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
+    account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
+    display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
+    is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+    # リレーション
+    company = relationship("Company", back_populates="bs_account_items")
+    values = relationship("BsStatementValue", back_populates="account_item",
+                          cascade="all, delete-orphan")
+
+
+class BsStatementValue(Base):
+    """貸借対照表 実績値
+    
+    会計年度 × 勘定科目 の組み合わせで金額を保存する。
+    """
+    __tablename__ = 'bs_statement_values'
+
+    __table_args__ = (
+        UniqueConstraint('fiscal_year_id', 'account_item_id',
+                         name='uq_bs_sv_fiscal_year_account_item'),
+        {'extend_existing': True},
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fiscal_year_id = Column(Integer, ForeignKey('fiscal_years.id'), nullable=False)
+    account_item_id = Column(Integer, ForeignKey('bs_account_items.id'), nullable=False)
+    amount = Column(BigInteger, default=0, nullable=False)           # 金額（円単位）
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+    # リレーション
+    fiscal_year = relationship("FiscalYear", back_populates="bs_statement_values")
+    account_item = relationship("BsAccountItem", back_populates="values")
+
+
+class McrAccountItem(Base):
+    """製造原価報告書 勘定科目マスタ
+    
+    企業ごとに製造原価報告書の勘定科目を管理する。
+    PDFから読み取った科目が未登録の場合は自動的に新規登録される。
+    """
+    __tablename__ = 'mcr_account_items'
+
+    __table_args__ = (
+        UniqueConstraint('company_id', 'account_name',
+                         name='uq_mcr_account_items_company_name'),
+        {'extend_existing': True},
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
+    account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
+    display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
+    is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+    # リレーション
+    company = relationship("Company", back_populates="mcr_account_items")
+    values = relationship("McrStatementValue", back_populates="account_item",
+                          cascade="all, delete-orphan")
+
+
+class McrStatementValue(Base):
+    """製造原価報告書 実績値
+    
+    会計年度 × 勘定科目 の組み合わせで金額を保存する。
+    """
+    __tablename__ = 'mcr_statement_values'
+
+    __table_args__ = (
+        UniqueConstraint('fiscal_year_id', 'account_item_id',
+                         name='uq_mcr_sv_fiscal_year_account_item'),
+        {'extend_existing': True},
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fiscal_year_id = Column(Integer, ForeignKey('fiscal_years.id'), nullable=False)
+    account_item_id = Column(Integer, ForeignKey('mcr_account_items.id'), nullable=False)
+    amount = Column(BigInteger, default=0, nullable=False)           # 金額（円単位）
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+    # リレーション
+    fiscal_year = relationship("FiscalYear", back_populates="mcr_statement_values")
+    account_item = relationship("McrAccountItem", back_populates="values")

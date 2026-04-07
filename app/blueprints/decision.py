@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, redirect, url_for, session, reques
 from ..utils.decorators import require_roles, ROLES
 from ..utils.formatting import parse_int, parse_int_or_none
 from ..db import SessionLocal
-from ..models_decision import Company, FiscalYear, ProfitLossStatement, BalanceSheet, RestructuredPL, RestructuredBS, ManufacturingCostReport, OriginalTrialBalance, RawProfitLossStatement, RawBalanceSheet, RawManufacturingCostReport, AccountMapping, StatementType
+from ..models_decision import Company, FiscalYear, ProfitLossStatement, BalanceSheet, RestructuredPL, RestructuredBS, ManufacturingCostReport, OriginalTrialBalance, RawProfitLossStatement, RawBalanceSheet, RawManufacturingCostReport, AccountMapping, StatementType, PlAccountItem, PlStatementValue, BsAccountItem, BsStatementValue, McrAccountItem, McrStatementValue
 from datetime import datetime
 
 bp = Blueprint('decision', __name__, url_prefix='/decision')
@@ -221,32 +221,61 @@ def company_financial_statements(company_id):
 
         fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
 
-        import json as json_module
         fiscal_year_data = []
         for fy in fiscal_years:
-            otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fy.id).first()
-            mcr = db.query(ManufacturingCostReport).filter_by(fiscal_year_id=fy.id).first()
-            if otb or mcr:
-                # JSONをパース（不正なJSONの場合は空リストとして扱う）
-                def _safe_json_loads(s):
-                    if not s:
-                        return []
-                    try:
-                        result = json_module.loads(s)
-                        return result if isinstance(result, list) else []
-                    except (json_module.JSONDecodeError, ValueError):
-                        return []
-                pl_items = _safe_json_loads(otb.pl_items) if otb else []
-                bs_items = _safe_json_loads(otb.bs_items) if otb else []
-                mcr_items = _safe_json_loads(otb.mcr_items) if otb else []
-                unit = otb.unit if otb else '円'
+            # 新テーブル（PlStatementValue / BsStatementValue / McrStatementValue）から読み込む
+            pl_values = (
+                db.query(PlStatementValue, PlAccountItem)
+                  .join(PlAccountItem, PlStatementValue.account_item_id == PlAccountItem.id)
+                  .filter(PlStatementValue.fiscal_year_id == fy.id)
+                  .order_by(PlAccountItem.display_order)
+                  .all()
+            )
+            bs_values = (
+                db.query(BsStatementValue, BsAccountItem)
+                  .join(BsAccountItem, BsStatementValue.account_item_id == BsAccountItem.id)
+                  .filter(BsStatementValue.fiscal_year_id == fy.id)
+                  .order_by(BsAccountItem.display_order)
+                  .all()
+            )
+            mcr_values = (
+                db.query(McrStatementValue, McrAccountItem)
+                  .join(McrAccountItem, McrStatementValue.account_item_id == McrAccountItem.id)
+                  .filter(McrStatementValue.fiscal_year_id == fy.id)
+                  .order_by(McrAccountItem.display_order)
+                  .all()
+            )
+            # テンプレート向けに {'name': ..., 'amount': ...} 形式に変換
+            pl_items  = [{'name': ai.account_name, 'amount': sv.amount} for sv, ai in pl_values]
+            bs_items  = [{'name': ai.account_name, 'amount': sv.amount} for sv, ai in bs_values]
+            mcr_items = [{'name': ai.account_name, 'amount': sv.amount} for sv, ai in mcr_values]
+
+            # 旧データ（OriginalTrialBalance）からのフォールバック（新テーブルにデータがない場合）
+            if not (pl_items or bs_items or mcr_items):
+                import json as json_module
+                otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fy.id).first()
+                if otb:
+                    def _safe_json_loads(s):
+                        if not s:
+                            return []
+                        try:
+                            result = json_module.loads(s)
+                            return result if isinstance(result, list) else []
+                        except (json_module.JSONDecodeError, ValueError):
+                            return []
+                    pl_items  = _safe_json_loads(otb.pl_items)
+                    bs_items  = _safe_json_loads(otb.bs_items)
+                    mcr_items = _safe_json_loads(otb.mcr_items)
+
+            unit = '円'
+            if pl_items or bs_items or mcr_items:
                 fiscal_year_data.append({
                     'fiscal_year': fy,
                     'pl_items': pl_items,
                     'bs_items': bs_items,
                     'mcr_items': mcr_items,
                     'unit': unit,
-                    'has_data': bool(pl_items or bs_items or mcr_items)
+                    'has_data': True
                 })
 
         return render_template('financial_statements_view.html',
@@ -4198,12 +4227,12 @@ def pdf_apply():
             otb.unit = otb_unit
 
         # ============================================================
-        # 科目マスタ（AccountMapping）自動登録
-        # PDFから読み取った科目名が未登録の場合は新規追加する
+        # 勘定科目マスタ自動登録 + 財務諸表実績値保存
+        # PDFから読み取った科目名が未登録の場合は新規追加し、金額を保存する
         # ============================================================
         if company_id:
-            def register_accounts(items_json, stmt_type):
-                """JSON文字列から科目名を取り出し、未登録のものをAccountMappingに追加"""
+            def upsert_statement_values(items_json, account_model, value_model, order_start=0):
+                """JSON文字列から科目名・金額を取り出し、科目マスタ登録＋実績値upsertを行う"""
                 if not items_json:
                     return
                 try:
@@ -4212,14 +4241,16 @@ def pdf_apply():
                     return
                 if not isinstance(items, list):
                     return
-                # 既存の科目名セットを取得
-                existing = set(
-                    row.source_account
-                    for row in db.query(AccountMapping.source_account)
-                        .filter_by(company_id=company_id, statement_type=stmt_type)
+
+                # 既存の科目マスタをname→idのdictで取得
+                existing = {
+                    row.account_name: row.id
+                    for row in db.query(account_model)
+                        .filter_by(company_id=company_id)
                         .all()
-                )
-                for item in items:
+                }
+
+                for order_idx, item in enumerate(items):
                     if not isinstance(item, dict):
                         continue
                     # 科目名キーは 'name' または 'account_name' を想定
@@ -4227,21 +4258,46 @@ def pdf_apply():
                     account_name = str(account_name).strip()
                     if not account_name:
                         continue
-                    if account_name not in existing:
-                        # 未登録の場合のみ新規追加
-                        new_mapping = AccountMapping(
-                            company_id=company_id,
-                            source_account=account_name,
-                            target_category='',  # 組換え時にユーザーが設定
-                            statement_type=stmt_type,
-                            is_default=False
-                        )
-                        db.add(new_mapping)
-                        existing.add(account_name)
 
-            register_accounts(otb_pl_items, StatementType.PL)
-            register_accounts(otb_bs_items, StatementType.BS)
-            register_accounts(otb_mcr_items, StatementType.MCR)
+                    # 金額取得
+                    raw_amount = item.get('amount') or item.get('value') or 0
+                    try:
+                        amount = int(str(raw_amount).replace(',', '').replace('\u3000', '').strip())
+                    except (ValueError, TypeError):
+                        amount = 0
+
+                    # 科目マスタに未登録なら新規追加
+                    if account_name not in existing:
+                        new_item = account_model(
+                            company_id=company_id,
+                            account_name=account_name,
+                            display_order=order_start + order_idx,
+                            is_auto_created=True
+                        )
+                        db.add(new_item)
+                        db.flush()  # IDを確定させる
+                        existing[account_name] = new_item.id
+
+                    account_item_id = existing[account_name]
+
+                    # 実績値をupsert（既存なら更新、なければ新規）
+                    sv = db.query(value_model).filter_by(
+                        fiscal_year_id=fiscal_year_id,
+                        account_item_id=account_item_id
+                    ).first()
+                    if sv:
+                        sv.amount = amount
+                    else:
+                        sv = value_model(
+                            fiscal_year_id=fiscal_year_id,
+                            account_item_id=account_item_id,
+                            amount=amount
+                        )
+                        db.add(sv)
+
+            upsert_statement_values(otb_pl_items,  PlAccountItem,  PlStatementValue,  order_start=0)
+            upsert_statement_values(otb_bs_items,  BsAccountItem,  BsStatementValue,  order_start=0)
+            upsert_statement_values(otb_mcr_items, McrAccountItem, McrStatementValue, order_start=0)
 
         db.commit()
 
