@@ -5275,3 +5275,45 @@ def account_master_ai_suggest():
         return jsonify({'success': False, 'error': f'AI応答のパースに失敗: {str(e)}', 'raw': raw}), 500
 
     return jsonify({'success': True, 'suggestions': suggestions})
+
+
+@bp.route('/account-master/bulk-save', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def account_master_bulk_save():
+    """科目マスタ 一括保存（AJAX）"""
+    tenant_id = session.get('tenant_id')
+    data = request.get_json() or {}
+    items = data.get('items', [])  # [{id, stmt_type, major_category, mid_category, sub_category, target_statement, target_field}, ...]
+    if not items:
+        return jsonify({'success': False, 'error': '保存する科目がありません'}), 400
+
+    db = SessionLocal()
+    try:
+        model_map = {'pl': PlAccountItem, 'bs': BsAccountItem, 'mcr': McrAccountItem}
+        saved_count = 0
+        errors = []
+        for it in items:
+            stmt_type = it.get('stmt_type', '').lower()
+            item_id = it.get('id')
+            model = model_map.get(stmt_type)
+            if not model or not item_id:
+                errors.append(f'不正なデータ: {it}')
+                continue
+            item = db.query(model).filter_by(id=item_id, tenant_id=tenant_id).first()
+            if not item:
+                errors.append(f'科目ID {item_id} が見つかりません')
+                continue
+            item.major_category = it.get('major_category') or None
+            item.mid_category = it.get('mid_category') or None
+            item.sub_category = it.get('sub_category') or None
+            item.target_statement = it.get('target_statement') or None
+            item.target_field = it.get('target_field') or None
+            item.mapping_status = 'confirmed'
+            saved_count += 1
+        db.commit()
+        return jsonify({'success': True, 'saved_count': saved_count, 'errors': errors})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        db.close()

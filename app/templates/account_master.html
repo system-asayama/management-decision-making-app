@@ -93,6 +93,9 @@
           <button class="btn btn-sm btn-warning fw-bold" id="ai-suggest-pl" onclick="runAiSuggest('pl')">
             <i class="fas fa-robot me-1"></i>AI一括推定
           </button>
+          <button class="btn btn-sm btn-success fw-bold" id="bulk-save-pl" onclick="runBulkSave('pl')" style="display:none">
+            <i class="fas fa-save me-1"></i>一括保存
+          </button>
           <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addItemModal" data-type="pl">
             <i class="fas fa-plus me-1"></i>科目を追加
           </button>
@@ -106,11 +109,9 @@
               <th style="width:4%">順</th>
               <th style="width:18%">科目名（PDFの表記）</th>
               <th style="width:9%">分類状態</th>
-              <th style="width:11%">大分類</th>
-              <th style="width:14%">中分類</th>
-              <th style="width:14%">小分類</th>
-              <th style="width:13%">組換え先帳票</th>
-              <th style="width:12%">組換え先科目</th>
+              <th style="width:13%">大分類</th>
+              <th style="width:18%">中分類</th>
+              <th style="width:20%">組換え先科目（PL）</th>
               <th style="width:5%">操作</th>
             </tr>
           </thead>
@@ -151,40 +152,13 @@
                   {% endif %}
                 </select>
               </td>
-              <td>
-                <select class="form-select form-select-sm sub-select" data-id="{{ item.id }}" data-type="pl">
-                  <option value="">（未設定）</option>
-                  {% if item.major_category and item.mid_category and item.major_category in category_tree and item.mid_category in category_tree[item.major_category] %}
-                    {% for sub in category_tree[item.major_category][item.mid_category] %}
-                      <option value="{{ sub }}" {% if item.sub_category == sub %}selected{% endif %}>{{ sub }}</option>
-                    {% endfor %}
-                  {% endif %}
-                </select>
-              </td>
-              <td>
-                <select class="form-select form-select-sm stmt-select" data-id="{{ item.id }}" data-type="pl">
-                  <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
-                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL</option>
-                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS</option>
-                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR</option>
-                </select>
-              </td>
+              <input type="hidden" class="stmt-select" data-id="{{ item.id }}" data-type="pl" value="PL">
               <td>
                 <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="pl">
                   <option value="">（選択）</option>
-                  {% if item.target_statement == 'PL' %}
-                    {% for k, v in pl_fields.items() %}
-                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                    {% endfor %}
-                  {% elif item.target_statement == 'BS' %}
-                    {% for k, v in bs_fields.items() %}
-                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                    {% endfor %}
-                  {% elif item.target_statement == 'MCR' %}
-                    {% for k, v in mcr_fields.items() %}
-                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                    {% endfor %}
-                  {% endif %}
+                  {% for k, v in pl_fields.items() %}
+                    <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                  {% endfor %}
                 </select>
               </td>
               <td>
@@ -221,6 +195,9 @@
           <button class="btn btn-sm btn-warning fw-bold" id="ai-suggest-bs" onclick="runAiSuggest('bs')">
             <i class="fas fa-robot me-1"></i>AI一括推定
           </button>
+          <button class="btn btn-sm btn-success fw-bold" id="bulk-save-bs" onclick="runBulkSave('bs')" style="display:none">
+            <i class="fas fa-save me-1"></i>一括保存
+          </button>
           <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#addItemModal" data-type="bs">
             <i class="fas fa-plus me-1"></i>科目を追加
           </button>
@@ -237,8 +214,7 @@
               <th style="width:11%">大分類</th>
               <th style="width:14%">中分類</th>
               <th style="width:14%">小分類</th>
-              <th style="width:13%">組換え先帳票</th>
-              <th style="width:12%">組換え先科目</th>
+              <th style="width:20%">組換え先科目（BS）</th>
               <th style="width:5%">操作</th>
             </tr>
           </thead>
@@ -289,30 +265,13 @@
                   {% endif %}
                 </select>
               </td>
-              <td>
-                <select class="form-select form-select-sm stmt-select" data-id="{{ item.id }}" data-type="bs">
-                  <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
-                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL</option>
-                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS</option>
-                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR</option>
-                </select>
-              </td>
+              <input type="hidden" class="stmt-select" data-id="{{ item.id }}" data-type="bs" value="BS">
               <td>
                 <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="bs">
                   <option value="">（選択）</option>
-                  {% if item.target_statement == 'PL' %}
-                    {% for k, v in pl_fields.items() %}
-                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                    {% endfor %}
-                  {% elif item.target_statement == 'BS' %}
-                    {% for k, v in bs_fields.items() %}
-                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                    {% endfor %}
-                  {% elif item.target_statement == 'MCR' %}
-                    {% for k, v in mcr_fields.items() %}
-                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                    {% endfor %}
-                  {% endif %}
+                  {% for k, v in bs_fields.items() %}
+                    <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                  {% endfor %}
                 </select>
               </td>
               <td>
@@ -348,6 +307,9 @@
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-warning fw-bold" id="ai-suggest-mcr" onclick="runAiSuggest('mcr')">
             <i class="fas fa-robot me-1"></i>AI一括推定
+          </button>
+          <button class="btn btn-sm btn-success fw-bold" id="bulk-save-mcr" onclick="runBulkSave('mcr')" style="display:none">
+            <i class="fas fa-save me-1"></i>一括保存
           </button>
           <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#addItemModal" data-type="mcr">
             <i class="fas fa-plus me-1"></i>科目を追加
@@ -675,11 +637,80 @@ function runAiSuggest(stmtType) {
       }, 50);
     });
 
-    showToast('AI推定が完了しました。内容を確認して「保存・確定」ボタンで確定してください', 'success');
+    // 一括保存ボタンを表示
+    const bulkBtn = document.getElementById('bulk-save-' + stmtType);
+    if (bulkBtn) bulkBtn.style.display = '';
+    showToast('AI推定が完了しました。「一括保存」ボタンで一括確定できます', 'success');
   })
   .catch(e => {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-robot me-1"></i>AI一括推定';
+    showToast('エラー: ' + (e.message || '通信エラーが発生しました'), 'danger');
+  });
+}
+
+// ===== AI一括保存 =====
+function runBulkSave(stmtType) {
+  const btn = document.getElementById('bulk-save-' + stmtType);
+  const rows = document.querySelectorAll(`[id^="${stmtType}-row-"]`);
+  if (!rows.length) { showToast('科目データがありません', 'warning'); return; }
+
+  const items = [];
+  rows.forEach(function(row) {
+    const id = parseInt(row.id.replace(stmtType + '-row-', ''));
+    const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${stmtType}"]`);
+    const midSel = document.querySelector(`.mid-select[data-id="${id}"][data-type="${stmtType}"]`);
+    const subSel = document.querySelector(`.sub-select[data-id="${id}"][data-type="${stmtType}"]`);
+    const stmtSel = document.querySelector(`.stmt-select[data-id="${id}"][data-type="${stmtType}"]`);
+    const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${stmtType}"]`);
+    items.push({
+      id: id,
+      stmt_type: stmtType,
+      major_category: majorSel ? majorSel.value || null : null,
+      mid_category: midSel ? midSel.value || null : null,
+      sub_category: subSel ? subSel.value || null : null,
+      target_statement: stmtSel ? stmtSel.value || null : null,
+      target_field: fieldSel ? fieldSel.value || null : null
+    });
+  });
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>保存中...';
+
+  fetch('/decision/account-master/bulk-save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+    body: JSON.stringify({items: items})
+  })
+  .then(r => {
+    if (!r.ok) {
+      return r.text().then(t => {
+        let msg = 'サーバーエラー (HTTP ' + r.status + ')';
+        try { const j = JSON.parse(t); msg = j.error || msg; } catch(e) {}
+        throw new Error(msg);
+      });
+    }
+    return r.json();
+  })
+  .then(data => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save me-1"></i>一括保存';
+    if (!data.success) { showToast('保存失敗: ' + (data.error || ''), 'danger'); return; }
+    // 全行のバッジを「確定済」に更新
+    rows.forEach(function(row) {
+      row.className = row.className.replace(/table-(success|warning|secondary|light)/g, '').trim();
+      row.classList.add('table-success');
+      const badge = row.querySelector('.badge');
+      if (badge) {
+        badge.className = 'badge bg-success';
+        badge.textContent = '確定済';
+      }
+    });
+    showToast(data.saved_count + '件の科目を保存・確定しました', 'success');
+  })
+  .catch(e => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save me-1"></i>一括保存';
     showToast('エラー: ' + (e.message || '通信エラーが発生しました'), 'danger');
   });
 }
