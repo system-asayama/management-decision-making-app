@@ -84,7 +84,7 @@
   <!-- Step 2: 読み取り結果の確認・修正 -->
   <div class="card shadow-sm mb-4">
     <div class="card-header bg-success text-white">
-      <h5 class="mb-0"><i class="bi bi-check2-circle me-2"></i>Step 2: 読み取り結果を確認して保存</h5>
+      <h5 class="mb-0"><i class="bi bi-check2-circle me-2"></i>Step 2: 読み取り結果を確認・修正して保存</h5>
     </div>
     <div class="card-body">
       <div class="alert alert-info mb-3">
@@ -95,29 +95,46 @@
           {% if t == 'profit_loss' %}<span class="badge bg-success me-1">損益計算書</span>{% endif %}
           {% if t == 'manufacturing_cost' %}<span class="badge bg-warning text-dark me-1">製造原価報告書</span>{% endif %}
         {% endfor %}
-        <br><small class="text-muted mt-1 d-block">PDFから読み取った生データです。内容を確認してから「データを保存」ボタンを押してください。</small>
+        <br><small class="text-muted mt-1 d-block">科目名・金額を直接編集できます。読み取り不足がある場合は「追加指示で再読み取り」をご利用ください。</small>
       </div>
 
+      <!-- 追加指示で再読み取りパネル -->
+      {% if parse_result.raw_text or (parse_result.original_trial_balance) %}
+      <div class="card border-warning mb-4">
+        <div class="card-header bg-warning text-dark">
+          <h6 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>追加指示で再読み取り</h6>
+        </div>
+        <div class="card-body">
+          <p class="text-muted small mb-2">読み取り不足や誤読があった場合、指示を入力してAIに再読み取りさせることができます。</p>
+          <div class="mb-2">
+            <label class="form-label fw-bold small">追加指示</label>
+            <textarea id="additionalInstruction" class="form-control" rows="3" placeholder="例：工具器具備品と車両運搬具が抜けています。有形固定資産の明細科目をすべて読み取ってください。&#10;例：土地の金額が誤っています。PDFの土地の行の金額を正確に読み取ってください。&#10;例：受取利息が抜けています。営業外収益の科目をすべて含めてください。"></textarea>
+          </div>
+          <button type="button" class="btn btn-warning" id="reparseBtn">
+            <i class="bi bi-arrow-repeat me-2"></i>この指示で再読み取り
+          </button>
+          <div id="reparseProgressArea" class="mt-3" style="display:none;">
+            <div class="progress" style="height:20px;">
+              <div id="reparseProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" style="width:20%">読み取り中...</div>
+            </div>
+            <small class="text-muted">AIが再読み取り中です。しばらくお待ちください...</small>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- 保存フォーム（科目名・金額を直接編集可能） -->
       <form method="POST" action="{{ url_for('decision.pdf_apply') }}" id="applyForm">
         <input type="hidden" name="fiscal_year_id" value="{{ fiscal_year_id }}">
         <input type="hidden" name="company_id" value="{{ company_id }}">
         <!-- オリジナル試算表データ（生科目JSON） -->
-        {% if parse_result.original_trial_balance %}
         <input type="hidden" name="otb_pl_items" id="otb_pl_items_field">
         <input type="hidden" name="otb_bs_items" id="otb_bs_items_field">
         <input type="hidden" name="otb_mcr_items" id="otb_mcr_items_field">
         <input type="hidden" name="otb_unit" value="{{ parse_result.unit }}">
-        <script>
-        (function(){
-          var otbData = {{ parse_result.original_trial_balance | tojson | safe }};
-          document.getElementById('otb_pl_items_field').value = JSON.stringify(otbData.pl_items || []);
-          document.getElementById('otb_bs_items_field').value = JSON.stringify(otbData.bs_items || []);
-          document.getElementById('otb_mcr_items_field').value = JSON.stringify(otbData.mcr_items || []);
-        })();
-        </script>
-        {% endif %}
+        <input type="hidden" name="raw_text" id="raw_text_field" value="{{ parse_result.raw_text | default('') | e }}">
 
-        {# ===================== 貸借対照表（生データ表示） ===================== #}
+        {# ===================== 貸借対照表（生データ表示・編集可能） ===================== #}
         {% if parse_result.original_trial_balance and parse_result.original_trial_balance.bs_items %}
         {% set bs_items = parse_result.original_trial_balance.bs_items %}
         <div class="mb-4">
@@ -126,29 +143,36 @@
             <label class="form-check-label fw-bold fs-5 text-primary" for="apply_bs">
               <i class="bi bi-table me-1"></i>貸借対照表
             </label>
+            <button type="button" class="btn btn-sm btn-outline-primary ms-3" onclick="addRow('bs_table_body', '流動資産')">
+              <i class="bi bi-plus-circle me-1"></i>行を追加
+            </button>
           </div>
           <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover">
+            <table class="table table-sm table-bordered table-hover" id="bs_table">
               <thead class="table-primary">
                 <tr>
-                  <th style="width:60%">科目名</th>
-                  <th style="width:40%" class="text-end">金額（{{ parse_result.unit }}）</th>
+                  <th style="width:35%">科目名</th>
+                  <th style="width:25%">セクション</th>
+                  <th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th>
+                  <th style="width:10%"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="bs_table_body">
                 {# sectionフィールドでグループ化して表示 #}
                 {% set ns = namespace(current_section='') %}
                 {% for item in bs_items %}
                   {% set sec = item.get('section', '') %}
                   {% if sec and sec != ns.current_section %}
                     {% set ns.current_section = sec %}
-                    <tr style="background:#ecf0f1; font-weight:700;">
-                      <td colspan="2" class="ps-2">【{{ sec }}】</td>
+                    <tr style="background:#ecf0f1; font-weight:700;" class="section-header-row">
+                      <td colspan="4" class="ps-2">【{{ sec }}】</td>
                     </tr>
                   {% endif %}
-                  <tr>
-                    <td class="ps-4">{{ item.name }}</td>
-                    <td class="text-end pe-3">{{ "{:,}".format(item.amount | int) }}</td>
+                  <tr class="item-row">
+                    <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}" placeholder="科目名"></td>
+                    <td><input type="text" class="form-control form-control-sm item-section" value="{{ sec }}" placeholder="セクション"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ item.amount | int }}"></td>
+                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -156,7 +180,7 @@
           </div>
         </div>
         {% elif parse_result.balance_sheet %}
-        {# フォールバック：original_trial_balanceがない場合は組換え後フィールドで表示 #}
+        {# フォールバック：original_trial_balanceがない場合 #}
         {% set bs = parse_result.balance_sheet %}
         <div class="mb-4">
           <div class="d-flex align-items-center mb-2">
@@ -166,25 +190,15 @@
             </label>
           </div>
           <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover">
+            <table class="table table-sm table-bordered table-hover" id="bs_table">
               <thead class="table-primary">
-                <tr><th style="width:60%">項目</th><th style="width:40%" class="text-end">金額（{{ parse_result.unit }}）</th></tr>
+                <tr><th style="width:35%">科目名</th><th style="width:25%">セクション</th><th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th><th style="width:10%"></th></tr>
               </thead>
-              <tbody>
-                <tr style="background:#ecf0f1; font-weight:700;"><td colspan="2" class="ps-2">【資産の部】</td></tr>
-                {% for key, label in [('cash_on_hand','手許現預金'),('investment_deposits','運用預金'),('marketable_securities','有価証券'),('trade_receivables','売掛債権'),('inventory_assets','棚卸資産'),('current_assets','流動資産 合計'),('tangible_fixed_assets','有形固定資産'),('intangible_fixed_assets','無形固定資産'),('investments_and_other','投資その他の資産'),('deferred_assets','繰延資産'),('fixed_assets','固定資産 合計'),('total_assets','資産 合計')] %}
+              <tbody id="bs_table_body">
+                <tr style="background:#ecf0f1; font-weight:700;" class="section-header-row"><td colspan="4" class="ps-2">【資産の部】</td></tr>
+                {% for key, label, sec in [('cash_on_hand','手許現預金','流動資産'),('investment_deposits','運用預金','流動資産'),('marketable_securities','有価証券','流動資産'),('trade_receivables','売掛債権','流動資産'),('inventory_assets','棚卸資産','流動資産'),('current_assets','流動資産 合計','流動資産'),('tangible_fixed_assets','有形固定資産','固定資産'),('intangible_fixed_assets','無形固定資産','固定資産'),('investments_and_other','投資その他の資産','固定資産'),('deferred_assets','繰延資産','固定資産'),('fixed_assets','固定資産 合計','固定資産'),('total_assets','資産 合計','資産の部')] %}
                 {% set val = bs.get(key, 0) or 0 %}
-                <tr><td class="ps-4">{{ label }}</td><td class="text-end pe-3">{{ "{:,}".format(val) }}</td></tr>
-                {% endfor %}
-                <tr style="background:#ecf0f1; font-weight:700;"><td colspan="2" class="ps-2">【負債の部】</td></tr>
-                {% for key, label in [('trade_payables','買掛債務'),('short_term_borrowings','短期借入金'),('current_portion_long_term','1年以内返済長期借入金'),('discounted_notes','割引手形'),('other_current_liabilities','その他流動負債'),('current_liabilities','流動負債 合計'),('long_term_borrowings','長期借入金'),('executive_borrowings','役員等借入金'),('retirement_benefit_liability','退職給付引当金'),('other_fixed_liabilities','その他固定負債'),('fixed_liabilities','固定負債 合計'),('total_liabilities','負債 合計')] %}
-                {% set val = bs.get(key, 0) or 0 %}
-                <tr><td class="ps-4">{{ label }}</td><td class="text-end pe-3">{{ "{:,}".format(val) }}</td></tr>
-                {% endfor %}
-                <tr style="background:#ecf0f1; font-weight:700;"><td colspan="2" class="ps-2">【純資産の部】</td></tr>
-                {% for key, label in [('capital','資本金'),('capital_surplus','資本剰余金'),('retained_earnings','利益剰余金 合計'),('legal_reserve_bs','　利益準備金'),('voluntary_reserve_bs','　任意積立金'),('retained_earnings_carried','　繰越利益剰余金'),('treasury_stock','自己株式'),('net_assets','純資産 合計'),('total_liabilities_and_net_assets','負債純資産 合計')] %}
-                {% set val = bs.get(key, 0) or 0 %}
-                <tr><td class="ps-4">{{ label }}</td><td class="text-end pe-3">{{ "{:,}".format(val) }}</td></tr>
+                <tr class="item-row"><td><input type="text" class="form-control form-control-sm item-name" value="{{ label }}"></td><td><input type="text" class="form-control form-control-sm item-section" value="{{ sec }}"></td><td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ val }}"></td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -192,7 +206,7 @@
         </div>
         {% endif %}
 
-        {# ===================== 損益計算書（生データ表示） ===================== #}
+        {# ===================== 損益計算書（生データ表示・編集可能） ===================== #}
         {% if parse_result.original_trial_balance and parse_result.original_trial_balance.pl_items %}
         {% set pl_items = parse_result.original_trial_balance.pl_items %}
         <div class="mb-4">
@@ -201,29 +215,35 @@
             <label class="form-check-label fw-bold fs-5 text-success" for="apply_pl">
               <i class="bi bi-bar-chart me-1"></i>損益計算書
             </label>
+            <button type="button" class="btn btn-sm btn-outline-success ms-3" onclick="addRow('pl_table_body', '売上高')">
+              <i class="bi bi-plus-circle me-1"></i>行を追加
+            </button>
           </div>
           <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover">
+            <table class="table table-sm table-bordered table-hover" id="pl_table">
               <thead class="table-success">
                 <tr>
-                  <th style="width:60%">科目名</th>
-                  <th style="width:40%" class="text-end">金額（{{ parse_result.unit }}）</th>
+                  <th style="width:35%">科目名</th>
+                  <th style="width:25%">セクション</th>
+                  <th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th>
+                  <th style="width:10%"></th>
                 </tr>
               </thead>
-              <tbody>
-                {# sectionフィールドでグループ化して表示 #}
+              <tbody id="pl_table_body">
                 {% set ns2 = namespace(current_section='') %}
                 {% for item in pl_items %}
                   {% set sec = item.get('section', '') %}
                   {% if sec and sec != ns2.current_section %}
                     {% set ns2.current_section = sec %}
-                    <tr style="background:#ecf0f1; font-weight:700;">
-                      <td colspan="2" class="ps-2">【{{ sec }}】</td>
+                    <tr style="background:#ecf0f1; font-weight:700;" class="section-header-row">
+                      <td colspan="4" class="ps-2">【{{ sec }}】</td>
                     </tr>
                   {% endif %}
-                  <tr>
-                    <td class="ps-4">{{ item.name }}</td>
-                    <td class="text-end pe-3">{{ "{:,}".format(item.amount | int) }}</td>
+                  <tr class="item-row">
+                    <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}" placeholder="科目名"></td>
+                    <td><input type="text" class="form-control form-control-sm item-section" value="{{ sec }}" placeholder="セクション"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ item.amount | int }}"></td>
+                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -231,7 +251,6 @@
           </div>
         </div>
         {% elif parse_result.profit_loss %}
-        {# フォールバック：original_trial_balanceがない場合は組換え後フィールドで表示 #}
         {% set pl = parse_result.profit_loss %}
         <div class="mb-4">
           <div class="d-flex align-items-center mb-2">
@@ -241,14 +260,14 @@
             </label>
           </div>
           <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover">
+            <table class="table table-sm table-bordered table-hover" id="pl_table">
               <thead class="table-success">
-                <tr><th style="width:60%">項目</th><th style="width:40%" class="text-end">金額（{{ parse_result.unit }}）</th></tr>
+                <tr><th style="width:35%">科目名</th><th style="width:25%">セクション</th><th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th><th style="width:10%"></th></tr>
               </thead>
-              <tbody>
-                {% for key, label in [('sales','売上高'),('beginning_inventory','期首棚卸高'),('manufacturing_cost','当期製造（工事）原価'),('ending_inventory','期末棚卸高'),('cost_of_sales','売上原価 合計'),('gross_profit','売上総利益'),('labor_cost','人件費'),('executive_compensation','役員報酬'),('capital_regeneration_cost','資本再生費'),('research_development_expenses','研究開発費'),('general_expenses','一般経費'),('selling_general_admin_expenses','販管費 合計'),('operating_income','営業利益'),('financial_profit_loss','金融損益'),('other_non_operating','その他営業外損益'),('ordinary_income','経常利益'),('extraordinary_profit_loss','特別損益'),('income_before_tax','税引前当期純利益'),('income_taxes','法人税等'),('net_income','当期純利益')] %}
+              <tbody id="pl_table_body">
+                {% for key, label, sec in [('sales','売上高','売上高'),('cost_of_sales','売上原価 合計','売上原価'),('gross_profit','売上総利益','売上高'),('selling_general_admin_expenses','販管費 合計','販売費及び一般管理費'),('operating_income','営業利益','営業利益'),('ordinary_income','経常利益','経常利益'),('net_income','当期純利益','当期純利益')] %}
                 {% set val = pl.get(key, 0) or 0 %}
-                <tr><td class="ps-4">{{ label }}</td><td class="text-end pe-3">{{ "{:,}".format(val) }}</td></tr>
+                <tr class="item-row"><td><input type="text" class="form-control form-control-sm item-name" value="{{ label }}"></td><td><input type="text" class="form-control form-control-sm item-section" value="{{ sec }}"></td><td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ val }}"></td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -256,7 +275,7 @@
         </div>
         {% endif %}
 
-        {# ===================== 製造原価報告書（生データ表示） ===================== #}
+        {# ===================== 製造原価報告書（生データ表示・編集可能） ===================== #}
         {% if parse_result.original_trial_balance and parse_result.original_trial_balance.mcr_items %}
         {% set mcr_items = parse_result.original_trial_balance.mcr_items %}
         <div class="mb-4">
@@ -265,29 +284,35 @@
             <label class="form-check-label fw-bold fs-5 text-warning" for="apply_mfg">
               <i class="bi bi-gear me-1"></i>製造原価報告書
             </label>
+            <button type="button" class="btn btn-sm btn-outline-warning ms-3" onclick="addRow('mcr_table_body', '製造原価')">
+              <i class="bi bi-plus-circle me-1"></i>行を追加
+            </button>
           </div>
           <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover">
+            <table class="table table-sm table-bordered table-hover" id="mcr_table">
               <thead class="table-warning">
                 <tr>
-                  <th style="width:60%">科目名</th>
-                  <th style="width:40%" class="text-end">金額（{{ parse_result.unit }}）</th>
+                  <th style="width:35%">科目名</th>
+                  <th style="width:25%">セクション</th>
+                  <th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th>
+                  <th style="width:10%"></th>
                 </tr>
               </thead>
-              <tbody>
-                {# sectionフィールドでグループ化して表示 #}
+              <tbody id="mcr_table_body">
                 {% set ns3 = namespace(current_section='') %}
                 {% for item in mcr_items %}
                   {% set sec = item.get('section', '') %}
                   {% if sec and sec != ns3.current_section %}
                     {% set ns3.current_section = sec %}
-                    <tr style="background:#ecf0f1; font-weight:700;">
-                      <td colspan="2" class="ps-2">【{{ sec }}】</td>
+                    <tr style="background:#ecf0f1; font-weight:700;" class="section-header-row">
+                      <td colspan="4" class="ps-2">【{{ sec }}】</td>
                     </tr>
                   {% endif %}
-                  <tr>
-                    <td class="ps-4">{{ item.name }}</td>
-                    <td class="text-end pe-3">{{ "{:,}".format(item.amount | int) }}</td>
+                  <tr class="item-row">
+                    <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}" placeholder="科目名"></td>
+                    <td><input type="text" class="form-control form-control-sm item-section" value="{{ sec }}" placeholder="セクション"></td>
+                    <td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ item.amount | int }}"></td>
+                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -295,7 +320,6 @@
           </div>
         </div>
         {% elif parse_result.manufacturing_cost %}
-        {# フォールバック：original_trial_balanceがない場合は組換え後フィールドで表示 #}
         {% set mfg = parse_result.manufacturing_cost %}
         <div class="mb-4">
           <div class="d-flex align-items-center mb-2">
@@ -305,14 +329,14 @@
             </label>
           </div>
           <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover">
+            <table class="table table-sm table-bordered table-hover" id="mcr_table">
               <thead class="table-warning">
-                <tr><th style="width:60%">項目</th><th style="width:40%" class="text-end">金額（{{ parse_result.unit }}）</th></tr>
+                <tr><th style="width:35%">科目名</th><th style="width:25%">セクション</th><th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th><th style="width:10%"></th></tr>
               </thead>
-              <tbody>
-                {% for key, label in [('beginning_raw_material','期首原材料棚卸高'),('raw_material_purchase','当期原材料仕入高'),('ending_raw_material','期末原材料棚卸高'),('material_cost','材料費計'),('labor_cost_manufacturing','労務費計'),('outsourcing_cost','外注加工費'),('manufacturing_expenses_total','製造経費計'),('total_manufacturing_cost_current','総製造費用'),('beginning_wip','期首仕掛品棚卸高'),('ending_wip','期末仕掛品棚卸高'),('total_manufacturing_cost','製造原価合計')] %}
+              <tbody id="mcr_table_body">
+                {% for key, label in [('material_cost','材料費計'),('labor_cost_manufacturing','労務費計'),('outsourcing_cost','外注加工費'),('manufacturing_expenses_total','製造経費計'),('total_manufacturing_cost_current','総製造費用'),('total_manufacturing_cost','製造原価合計')] %}
                 {% set val = mfg.get(key, 0) or 0 %}
-                <tr><td class="ps-4">{{ label }}</td><td class="text-end pe-3">{{ "{:,}".format(val) }}</td></tr>
+                <tr class="item-row"><td><input type="text" class="form-control form-control-sm item-name" value="{{ label }}"></td><td><input type="text" class="form-control form-control-sm item-section" value="製造原価"></td><td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ val }}"></td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -320,24 +344,14 @@
         </div>
         {% endif %}
 
-        {% if parse_result.original_trial_balance or parse_result.profit_loss or parse_result.balance_sheet or parse_result.manufacturing_cost %}
         <div class="d-flex gap-2 mt-3">
-          <button type="submit" class="btn btn-success btn-lg">
+          <button type="submit" class="btn btn-success btn-lg" id="saveBtn">
             <i class="bi bi-save me-2"></i>データを保存してフォームに反映
           </button>
           <a href="{{ url_for('decision.pdf_upload', company_id=company_id, fiscal_year_id=fiscal_year_id) }}" class="btn btn-outline-secondary btn-lg">
             <i class="bi bi-arrow-counterclockwise me-2"></i>やり直す
           </a>
         </div>
-        {% else %}
-        <div class="alert alert-warning">
-          <i class="bi bi-exclamation-triangle me-2"></i>
-          財務諸表のデータを読み取れませんでした。PDFの内容を確認してください。
-        </div>
-        <a href="{{ url_for('decision.pdf_upload', company_id=company_id, fiscal_year_id=fiscal_year_id) }}" class="btn btn-outline-secondary">
-          <i class="bi bi-arrow-counterclockwise me-2"></i>やり直す
-        </a>
-        {% endif %}
       </form>
     </div>
   </div>
@@ -348,12 +362,13 @@
   </a>
 </div>
 
-<div id="parseProgressArea" class="card shadow-sm mb-4" style="display:none;">
+<!-- 読み取り中プログレスエリア -->
+<div id="parseProgressArea" class="card shadow-sm mb-4" style="display:none; position:fixed; bottom:20px; right:20px; width:350px; z-index:9999;">
   <div class="card-header bg-warning text-dark">
     <h5 class="mb-0"><i class="bi bi-cpu me-2"></i>AIが財務諸表を読み取り中...</h5>
   </div>
   <div class="card-body">
-    <p class="text-muted mb-3">AIが試算表を解析しています。1〜2分かかる場合があります。このページを閉じないでください。</p>
+    <p class="text-muted mb-3 small">1〜2分かかる場合があります。このページを閉じないでください。</p>
     <div class="progress" style="height: 24px;">
       <div id="parseProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" role="progressbar" style="width: 0%">0%</div>
     </div>
@@ -362,7 +377,180 @@
 </div>
 
 <script>
-// 企業選択時に会計年度を動的ロード
+// ===================== 初期データ設定 =====================
+{% if parse_result and parse_result.original_trial_balance %}
+var _otbData = {{ parse_result.original_trial_balance | tojson | safe }};
+{% else %}
+var _otbData = {bs_items: [], pl_items: [], mcr_items: []};
+{% endif %}
+var _rawText = {{ (parse_result.raw_text if parse_result and parse_result.raw_text else '') | tojson | safe }};
+var _unit = {{ (parse_result.unit if parse_result and parse_result.unit else '円') | tojson | safe }};
+
+// ===================== 行の追加・削除 =====================
+function addRow(tbodyId, defaultSection) {
+  var tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  var tr = document.createElement('tr');
+  tr.className = 'item-row';
+  tr.innerHTML = '<td><input type="text" class="form-control form-control-sm item-name" value="" placeholder="科目名"></td>' +
+    '<td><input type="text" class="form-control form-control-sm item-section" value="' + (defaultSection || '') + '" placeholder="セクション"></td>' +
+    '<td><input type="number" class="form-control form-control-sm text-end item-amount" value="0"></td>' +
+    '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>';
+  tbody.appendChild(tr);
+}
+
+function removeRow(btn) {
+  var tr = btn.closest('tr');
+  if (tr) tr.remove();
+}
+
+// ===================== テーブルからJSONを収集 =====================
+function collectItemsFromTable(tbodyId) {
+  var tbody = document.getElementById(tbodyId);
+  if (!tbody) return [];
+  var items = [];
+  tbody.querySelectorAll('tr.item-row').forEach(function(tr) {
+    var nameInput = tr.querySelector('.item-name');
+    var sectionInput = tr.querySelector('.item-section');
+    var amountInput = tr.querySelector('.item-amount');
+    if (!nameInput) return;
+    var name = nameInput.value.trim();
+    if (!name) return;
+    items.push({
+      name: name,
+      section: sectionInput ? sectionInput.value.trim() : '',
+      amount: amountInput ? (parseInt(amountInput.value) || 0) : 0
+    });
+  });
+  return items;
+}
+
+// ===================== フォーム送信前にhiddenフィールドを更新 =====================
+document.getElementById('applyForm').addEventListener('submit', function(e) {
+  var bsItems = collectItemsFromTable('bs_table_body');
+  var plItems = collectItemsFromTable('pl_table_body');
+  var mcrItems = collectItemsFromTable('mcr_table_body');
+  document.getElementById('otb_bs_items_field').value = JSON.stringify(bsItems);
+  document.getElementById('otb_pl_items_field').value = JSON.stringify(plItems);
+  document.getElementById('otb_mcr_items_field').value = JSON.stringify(mcrItems);
+  document.getElementById('raw_text_field').value = _rawText;
+});
+
+// ===================== テーブルを再描画（再読み取り後） =====================
+function renderTable(tbodyId, items) {
+  var tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  var currentSection = '';
+  items.forEach(function(item) {
+    var sec = item.section || '';
+    if (sec && sec !== currentSection) {
+      currentSection = sec;
+      var headerTr = document.createElement('tr');
+      headerTr.style.background = '#ecf0f1';
+      headerTr.style.fontWeight = '700';
+      headerTr.className = 'section-header-row';
+      headerTr.innerHTML = '<td colspan="4" class="ps-2">【' + sec + '】</td>';
+      tbody.appendChild(headerTr);
+    }
+    var tr = document.createElement('tr');
+    tr.className = 'item-row';
+    tr.innerHTML = '<td><input type="text" class="form-control form-control-sm item-name" value="' + escHtml(item.name) + '" placeholder="科目名"></td>' +
+      '<td><input type="text" class="form-control form-control-sm item-section" value="' + escHtml(sec) + '" placeholder="セクション"></td>' +
+      '<td><input type="number" class="form-control form-control-sm text-end item-amount" value="' + (item.amount || 0) + '"></td>' +
+      '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ===================== 追加指示で再読み取り =====================
+var _reparseJobId = null;
+var _reparsePollInterval = null;
+
+document.getElementById('reparseBtn') && document.getElementById('reparseBtn').addEventListener('click', function() {
+  var instruction = document.getElementById('additionalInstruction').value.trim();
+  if (!instruction) {
+    alert('追加指示を入力してください');
+    return;
+  }
+  var btn = document.getElementById('reparseBtn');
+  var progressArea = document.getElementById('reparseProgressArea');
+  var progressBar = document.getElementById('reparseProgressBar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>送信中...';
+  progressArea.style.display = 'block';
+
+  // 現在のテーブルのデータを収集
+  var currentItems = {
+    bs_items: collectItemsFromTable('bs_table_body'),
+    pl_items: collectItemsFromTable('pl_table_body'),
+    mcr_items: collectItemsFromTable('mcr_table_body')
+  };
+
+  var formData = new FormData();
+  formData.append('additional_instruction', instruction);
+  formData.append('raw_text', _rawText);
+  formData.append('current_items', JSON.stringify(currentItems));
+
+  fetch('{{ url_for("decision.pdf_reparse_async") }}', {
+    method: 'POST',
+    body: formData
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) {
+      alert('エラー: ' + data.error);
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>この指示で再読み取り';
+      progressArea.style.display = 'none';
+      return;
+    }
+    _reparseJobId = data.job_id;
+    var progress = 20;
+    _reparsePollInterval = setInterval(function() {
+      if (progress < 85) { progress += 5; progressBar.style.width = progress + '%'; }
+      fetch('{{ url_for("decision.pdf_parse_status", job_id="__JOB_ID__") }}'.replace('__JOB_ID__', _reparseJobId))
+      .then(r => r.json())
+      .then(statusData => {
+        if (statusData.status === 'done') {
+          clearInterval(_reparsePollInterval);
+          progressBar.style.width = '100%';
+          progressBar.textContent = '完了';
+          progressBar.classList.remove('bg-warning', 'progress-bar-animated');
+          progressBar.classList.add('bg-success');
+          // テーブルを再描画
+          var result = statusData.result;
+          if (result.bs_items) renderTable('bs_table_body', result.bs_items);
+          if (result.pl_items) renderTable('pl_table_body', result.pl_items);
+          if (result.mcr_items) renderTable('mcr_table_body', result.mcr_items);
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>この指示で再読み取り';
+          setTimeout(function() { progressArea.style.display = 'none'; progressBar.style.width = '20%'; progressBar.textContent = '読み取り中...'; progressBar.classList.remove('bg-success'); progressBar.classList.add('bg-warning', 'progress-bar-animated'); }, 2000);
+          alert('再読み取りが完了しました。内容を確認して保存してください。');
+        } else if (statusData.status === 'error') {
+          clearInterval(_reparsePollInterval);
+          alert('再読み取りエラー: ' + statusData.error);
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>この指示で再読み取り';
+          progressArea.style.display = 'none';
+        }
+      })
+      .catch(function() {});
+    }, 3000);
+  })
+  .catch(function(err) {
+    alert('送信エラー: ' + err);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>この指示で再読み取り';
+    progressArea.style.display = 'none';
+  });
+});
+
+// ===================== 企業選択時に会計年度を動的ロード =====================
 document.getElementById('company_select').addEventListener('change', function() {
   const companyId = this.value;
   if (companyId) {
@@ -370,7 +558,7 @@ document.getElementById('company_select').addEventListener('change', function() 
   }
 });
 
-// AJAX非同期PDF読み取り
+// ===================== AJAX非同期PDF読み取り =====================
 document.getElementById('uploadForm').addEventListener('submit', function(e) {
   e.preventDefault();
 
@@ -379,13 +567,11 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
   const progressBar = document.getElementById('parseProgressBar');
   const progressMsg = document.getElementById('parseProgressMsg');
 
-  // バリデーション
   const fyId = document.getElementById('fy_select').value;
   const pdfFile = document.getElementById('pdf_input').files[0];
   if (!fyId) { alert('会計年度を選択してください'); return; }
   if (!pdfFile) { alert('PDFファイルを選択してください'); return; }
 
-  // UI更新
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>送信中...';
   progressArea.style.display = 'block';
@@ -393,10 +579,8 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
   progressBar.textContent = '10%';
   progressMsg.textContent = 'PDFをサーバーに送信中...';
 
-  // FormDataを構築
   const formData = new FormData(document.getElementById('uploadForm'));
 
-  // 非同期でPDF送信
   fetch('{{ url_for("decision.pdf_parse_async") }}', {
     method: 'POST',
     body: formData
@@ -415,16 +599,13 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
     progressBar.textContent = '20%';
     progressMsg.textContent = 'AIが読み取り中... (1〜2分かかります)';
 
-    // ポーリングで進捗確認
     let progress = 20;
     const pollInterval = setInterval(() => {
-      // プログレスバーをゆっくり進める（最大90%まで）
       if (progress < 85) {
         progress += 3;
         progressBar.style.width = progress + '%';
         progressBar.textContent = progress + '%';
       }
-
       fetch('{{ url_for("decision.pdf_parse_status", job_id="__JOB_ID__") }}'.replace('__JOB_ID__', jobId))
       .then(r => r.json())
       .then(statusData => {
@@ -435,10 +616,7 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
           progressBar.classList.remove('progress-bar-animated', 'bg-warning');
           progressBar.classList.add('bg-success');
           progressMsg.textContent = '読み取り完了！結果を表示します...';
-
-          // 結果をサーバーに保存してページをリロード
           const result = statusData.result;
-          // 結果をhidden formで送信してページ再表示
           const resultForm = document.createElement('form');
           resultForm.method = 'POST';
           resultForm.action = window.location.pathname;
@@ -454,7 +632,6 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
           addHidden('fiscal_year_id', fyId);
           document.body.appendChild(resultForm);
           resultForm.submit();
-
         } else if (statusData.status === 'error') {
           clearInterval(pollInterval);
           alert('読み取りエラー: ' + statusData.error);
@@ -463,10 +640,8 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
           progressArea.style.display = 'none';
         }
       })
-      .catch(() => {
-        // ネットワークエラーは無視して継続
-      });
-    }, 3000); // 3秒ごとにポーリング
+      .catch(() => {});
+    }, 3000);
   })
   .catch(err => {
     alert('送信エラー: ' + err);
