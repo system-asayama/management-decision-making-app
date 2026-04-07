@@ -4259,16 +4259,25 @@ def pdf_apply():
                     if not account_name:
                         continue
 
-                    # 区分項目（合計・小計・利益・損失など）は科目マスタに登録しない
-                    # ※「繰越利益剰余金」「利益準備金」などは適切な勘定科目なので例外とする
-                    _EXCLUDE_SUFFIXES = ('合計', '小計', '計', '利益', '損失', '損益')
-                    _EXCLUDE_KEYWORDS = ('合計額', '差引', '税引前', '内部留保', '粗付加価値')
-                    # 例外: 「繰越利益剰余金」「利益準備金」「当期純損失金額」などは登録する
-                    _EXCLUDE_EXCEPTIONS = ('繰越利益剰余金', '利益準備金', '当期純損失金額', '繰越損失', '評価差額')
-                    if account_name not in _EXCLUDE_EXCEPTIONS and (
-                        any(account_name.endswith(s) for s in _EXCLUDE_SUFFIXES)
-                        or any(k in account_name for k in _EXCLUDE_KEYWORDS)
-                    ):
+                    # 会計システムの大分類・中分類・小分類名と完全一致する項目は区分名なので科目マスタに登録しない
+                    _ACCOUNT_SECTION_NAMES = {
+                        # 大分類
+                        '資産', '負債', '純資産', '損益', '収益', '費用', '口座',
+                        # 中分類
+                        '流動資産', '固定資産', '繰延資産',
+                        '流動負債', '固定負債',
+                        '資本金', '資本剰余金', '利益剰余金', '自己株式', '評価換算差額等', '新株予約権',
+                        '売上高', '売上原価', '販売費及び一般管理費', '営業外収益', '営業外費用', '特別利益', '特別損失', '法人税等',
+                        # 小分類
+                        '現金及び預金', '売上債権', '棚卸資産', '有価証券', '投資その他の資産',
+                        '有形固定資産', '無形固定資産',
+                        '仕入債務', 'その他流動負債', 'その他流動資産',
+                        '売上高', '売上原価', '販売費', '一般管理費',
+                        '営業外収益', '営業外費用', '特別利益', '特別損失', '法人税等',
+                        # その他区分名
+                        '販管費', '販売費及び一般管理費',
+                    }
+                    if account_name in _ACCOUNT_SECTION_NAMES:
                         continue
                     # 金額取得
                     raw_amount = item.get('amount') or item.get('value') or 0
@@ -4320,7 +4329,8 @@ def pdf_apply():
                 from ..services.mapping_service import (
                     estimate_mappings_for_pl,
                     estimate_mappings_for_bs,
-                    estimate_mappings_for_mcr
+                    estimate_mappings_for_mcr,
+                    estimate_categories
                 )
                 db2 = SessionLocal()
                 try:
@@ -4356,6 +4366,34 @@ def pdf_apply():
                             item.target_field = r.get('target_field') if r.get('target_field') else None
                             item.ai_confidence = r.get('confidence')
                             item.mapping_status = 'pending'
+
+                    # 分類推定（uncategorized科目のみ対象）
+                    pl_cat_results = estimate_categories(pl_items_all, 'PL')
+                    for r in pl_cat_results:
+                        item = db2.query(PlAccountItem).get(r.get('id'))
+                        if item and item.category_status in ('uncategorized', None):
+                            item.major_category = r.get('major_category')
+                            item.mid_category = r.get('mid_category')
+                            item.sub_category = r.get('sub_category')
+                            item.category_status = 'pending'
+
+                    bs_cat_results = estimate_categories(bs_items_all, 'BS')
+                    for r in bs_cat_results:
+                        item = db2.query(BsAccountItem).get(r.get('id'))
+                        if item and item.category_status in ('uncategorized', None):
+                            item.major_category = r.get('major_category')
+                            item.mid_category = r.get('mid_category')
+                            item.sub_category = r.get('sub_category')
+                            item.category_status = 'pending'
+
+                    mcr_cat_results = estimate_categories(mcr_items_all, 'MCR')
+                    for r in mcr_cat_results:
+                        item = db2.query(McrAccountItem).get(r.get('id'))
+                        if item and item.category_status in ('uncategorized', None):
+                            item.major_category = r.get('major_category')
+                            item.mid_category = r.get('mid_category')
+                            item.sub_category = r.get('sub_category')
+                            item.category_status = 'pending'
 
                     db2.commit()
                 finally:
@@ -4787,28 +4825,44 @@ def mapping_confirm_post(company_id):
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def account_master():
     """勘定科目マスタ管理画面（GET）"""
+    import json, os
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
+        # 分類ツリーを読み込む
+        cat_json_path = os.path.join(os.path.dirname(__file__), 'account_item_categories.json')
+        with open(cat_json_path, 'r', encoding='utf-8') as f:
+            category_tree = json.load(f)
+
+        def _row_to_dict(ai):
+            return {
+                'id': ai.id,
+                'account_name': ai.account_name,
+                'is_auto_created': ai.is_auto_created,
+                'target_statement': ai.target_statement,
+                'target_field': ai.target_field,
+                'mapping_status': ai.mapping_status,
+                'ai_confidence': ai.ai_confidence,
+                'major_category': getattr(ai, 'major_category', None),
+                'mid_category': getattr(ai, 'mid_category', None),
+                'sub_category': getattr(ai, 'sub_category', None),
+                'category_status': getattr(ai, 'category_status', None),
+            }
+
         pl_rows = db.query(PlAccountItem).filter_by(tenant_id=tenant_id).order_by(PlAccountItem.display_order).all()
-        pl_items = [{'id': ai.id, 'account_name': ai.account_name, 'is_auto_created': ai.is_auto_created,
-                     'target_statement': ai.target_statement, 'target_field': ai.target_field,
-                     'mapping_status': ai.mapping_status, 'ai_confidence': ai.ai_confidence} for ai in pl_rows]
+        pl_items = [_row_to_dict(ai) for ai in pl_rows]
 
         bs_rows = db.query(BsAccountItem).filter_by(tenant_id=tenant_id).order_by(BsAccountItem.display_order).all()
-        bs_items = [{'id': ai.id, 'account_name': ai.account_name, 'is_auto_created': ai.is_auto_created,
-                     'target_statement': ai.target_statement, 'target_field': ai.target_field,
-                     'mapping_status': ai.mapping_status, 'ai_confidence': ai.ai_confidence} for ai in bs_rows]
+        bs_items = [_row_to_dict(ai) for ai in bs_rows]
 
         mcr_rows = db.query(McrAccountItem).filter_by(tenant_id=tenant_id).order_by(McrAccountItem.display_order).all()
-        mcr_items = [{'id': ai.id, 'account_name': ai.account_name, 'is_auto_created': ai.is_auto_created,
-                      'target_statement': ai.target_statement, 'target_field': ai.target_field,
-                      'mapping_status': ai.mapping_status, 'ai_confidence': ai.ai_confidence} for ai in mcr_rows]
+        mcr_items = [_row_to_dict(ai) for ai in mcr_rows]
 
         return render_template('account_master.html',
                                pl_items=pl_items, bs_items=bs_items, mcr_items=mcr_items,
                                pl_fields=_PL_FIELDS, bs_fields=_BS_FIELDS, mcr_fields=_MCR_FIELDS,
-                               all_fields=_ALL_FIELDS)
+                               all_fields=_ALL_FIELDS,
+                               category_tree=category_tree)
     finally:
         db.close()
 
@@ -4831,6 +4885,14 @@ def account_master_update(stmt_type, item_id):
         item.target_statement = data.get('target_statement') or None
         item.target_field = data.get('target_field') or None
         item.mapping_status = data.get('mapping_status', 'confirmed')
+        if 'major_category' in data:
+            item.major_category = data.get('major_category') or None
+        if 'mid_category' in data:
+            item.mid_category = data.get('mid_category') or None
+        if 'sub_category' in data:
+            item.sub_category = data.get('sub_category') or None
+        if 'category_status' in data:
+            item.category_status = data.get('category_status') or None
         db.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -4890,6 +4952,10 @@ def account_master_add(stmt_type):
             target_statement=data.get('target_statement') or None,
             target_field=data.get('target_field') or None,
             mapping_status=data.get('mapping_status', 'confirmed'),
+            major_category=data.get('major_category') or None,
+            mid_category=data.get('mid_category') or None,
+            sub_category=data.get('sub_category') or None,
+            category_status=data.get('category_status', 'uncategorized'),
         )
         db.add(new_item)
         db.commit()

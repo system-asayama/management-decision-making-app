@@ -410,6 +410,20 @@ def run_migrations():
         print("\n[マイグレーション] 科目マスタの区分項目クリーンアップ...")
         try:
             if _is_pg(conn):
+                # 会計システムの大分類・中分類・小分類名（区分名）のリスト
+                section_names = (
+                    '資産', '負債', '純資産', '損益', '収益', '費用', '口座',
+                    '流動資産', '固定資産', '繰延資産',
+                    '流動負債', '固定負債',
+                    '資本金', '資本剰余金', '利益剰余金', '自己株式', '評価換算差額等', '新株予約権',
+                    '売上高', '売上原価', '販売費及び一般管理費', '営業外収益', '営業外費用', '特別利益', '特別損失', '法人税等',
+                    '現金及び預金', '売上債権', '棚卸資産', '有価証券', '投資その他の資産',
+                    '有形固定資産', '無形固定資産',
+                    '仕入債務', 'その他流動負債', 'その他流動資産',
+                    '販売費', '一般管理費', '営業外収益', '営業外費用', '特別利益', '特別損失', '法人税等',
+                    '販管費',
+                )
+                placeholders = ','.join(["'" + s + "'" for s in section_names])
                 for table in ['pl_account_items', 'bs_account_items', 'mcr_account_items']:
                     value_table = table.replace('_account_items', '_statement_values')
                     # 関連する値テーブルも先に削除
@@ -417,41 +431,13 @@ def run_migrations():
                         DELETE FROM {value_table}
                         WHERE account_item_id IN (
                             SELECT id FROM {table}
-                            WHERE (
-                                account_name LIKE '%合計'
-                                OR account_name LIKE '%小計'
-                                OR account_name LIKE '%計'
-                                OR account_name LIKE '%利益'
-                                OR account_name LIKE '%損失'
-                                OR account_name LIKE '%損益'
-                                OR account_name LIKE '%差引%'
-                                OR account_name LIKE '%税引前%'
-                                OR account_name LIKE '%内部留保%'
-                                OR account_name LIKE '%粗付加価値%'
-                            )
-                            AND account_name NOT IN (
-                                '繰越利益剰余金', '利益準備金', '当期純損失金額', '繰越損失', '評価差額'
-                            )
+                            WHERE account_name IN ({placeholders})
                         )
                     """)
                     conn.commit()
                     cur.execute(f"""
                         DELETE FROM {table}
-                        WHERE (
-                            account_name LIKE '%合計'
-                            OR account_name LIKE '%小計'
-                            OR account_name LIKE '%計'
-                            OR account_name LIKE '%利益'
-                            OR account_name LIKE '%損失'
-                            OR account_name LIKE '%損益'
-                            OR account_name LIKE '%差引%'
-                            OR account_name LIKE '%税引前%'
-                            OR account_name LIKE '%内部留保%'
-                            OR account_name LIKE '%粗付加価値%'
-                        )
-                        AND account_name NOT IN (
-                            '繰越利益剰余金', '利益準備金', '当期純損失金額', '繰越損失', '評価差額'
-                        )
+                        WHERE account_name IN ({placeholders})
                     """)
                     conn.commit()
                     print(f"  ✅ {table}の区分項目を削除しました")
@@ -459,6 +445,32 @@ def run_migrations():
                 print("  ℹ️  SQLite環境はスキップ")
         except Exception as e:
             print(f"  ⚠️  区分項目クリーンアップエラー: {e}")
+            conn.rollback()
+
+        # 科目マスタに大分類・中分類・小分類・category_statusカラムを追加
+        print("\n[マイグレーション] 科目マスタに分類カラムを追加...")
+        try:
+            if _is_pg(conn):
+                for table in ['pl_account_items', 'bs_account_items', 'mcr_account_items']:
+                    for col, coltype, default in [
+                        ('major_category', 'VARCHAR(50)', None),
+                        ('mid_category', 'VARCHAR(100)', None),
+                        ('sub_category', 'VARCHAR(100)', None),
+                        ('category_status', "VARCHAR(20) DEFAULT 'uncategorized' NOT NULL", None),
+                    ]:
+                        try:
+                            if default:
+                                cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {coltype} DEFAULT '{default}'")
+                            else:
+                                cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {coltype}")
+                            conn.commit()
+                        except Exception as col_e:
+                            conn.rollback()
+                    print(f"  ✅ {table}に分類カラムを追加しました")
+            else:
+                print("  ℹ️  SQLite環境はスキップ")
+        except Exception as e:
+            print(f"  ⚠️  分類カラム追加エラー: {e}")
             conn.rollback()
 
         conn.close()

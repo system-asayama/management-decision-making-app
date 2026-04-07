@@ -1235,6 +1235,11 @@ class PlAccountItem(Base):
     account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
     display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
     is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
+    # 会計システム分類（大分類・中分類・小分類）
+    major_category = Column(String(50), nullable=True)               # 大分類（資産/負債/純資産/損益）
+    mid_category = Column(String(100), nullable=True)                # 中分類（流動資産/固定資産/売上原価など）
+    sub_category = Column(String(100), nullable=True)                # 小分類（現金及び預金/棚卸資産など）
+    category_status = Column(String(20), default='uncategorized', nullable=False)  # uncategorized/pending/confirmed
     # マッピング設定
     target_statement = Column(String(10), nullable=True)             # 組換え先帳票（PL/BS/MCR）
     target_field = Column(String(100), nullable=True)                # 組換え先フィールド名
@@ -1292,6 +1297,11 @@ class BsAccountItem(Base):
     account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
     display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
     is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
+    # 会計システム分類（大分類・中分類・小分類）
+    major_category = Column(String(50), nullable=True)               # 大分類（資産/負債/純資産/損益）
+    mid_category = Column(String(100), nullable=True)                # 中分類（流動資産/固定資産/売上原価など）
+    sub_category = Column(String(100), nullable=True)                # 小分類（現金及び預金/棚卸資産など）
+    category_status = Column(String(20), default='uncategorized', nullable=False)  # uncategorized/pending/confirmed
     # マッピング設定
     target_statement = Column(String(10), nullable=True)             # 組換え先帳票（PL/BS/MCR）
     target_field = Column(String(100), nullable=True)                # 組換え先フィールド名
@@ -1349,6 +1359,11 @@ class McrAccountItem(Base):
     account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
     display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
     is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
+    # 会計システム分類（大分類・中分類・小分類）
+    major_category = Column(String(50), nullable=True)               # 大分類（資産/負債/純資産/損益）
+    mid_category = Column(String(100), nullable=True)                # 中分類（流動資産/固定資産/売上原価など）
+    sub_category = Column(String(100), nullable=True)                # 小分類（現金及び預金/棚卸資産など）
+    category_status = Column(String(20), default='uncategorized', nullable=False)  # uncategorized/pending/confirmed
     # マッピング設定
     target_statement = Column(String(10), nullable=True)             # 組換え先帳票（PL/BS/MCR）
     target_field = Column(String(100), nullable=True)                # 組換え先フィールド名

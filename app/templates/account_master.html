@@ -16,12 +16,9 @@
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
           <h4 class="mb-1 fw-bold"><i class="fas fa-list-alt me-2"></i>勘定科目マスタ管理</h4>
-          <p class="mb-0 opacity-75 small">テナント共通 &nbsp;|&nbsp; PDFから読み取った勘定科目の一覧・編集・マッピング管理</p>
+          <p class="mb-0 opacity-75 small">テナント共通 &nbsp;|&nbsp; PDFから読み取った勘定科目の分類・マッピング管理</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-          <a href="/decision/pdf-upload" class="btn btn-outline-light btn-sm">
-            <i class="fas fa-project-diagram me-1"></i>マッピング確認
-          </a>
           <a href="/decision/pdf-upload" class="btn btn-light btn-sm text-success fw-bold">
             <i class="fas fa-file-pdf me-1"></i>PDFアップロード
           </a>
@@ -52,10 +49,10 @@
     </div>
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center py-3">
-        {% set confirmed_count = (pl_items + bs_items + mcr_items) | selectattr('mapping_status', 'equalto', 'confirmed') | list | length %}
+        {% set cat_confirmed = (pl_items + bs_items + mcr_items) | selectattr('category_status', 'equalto', 'confirmed') | list | length %}
         {% set total_count = pl_items|length + bs_items|length + mcr_items|length %}
-        <div class="fs-3 fw-bold text-info">{{ confirmed_count }}/{{ total_count }}</div>
-        <div class="text-muted small">マッピング確定済</div>
+        <div class="fs-3 fw-bold text-info">{{ cat_confirmed }}/{{ total_count }}</div>
+        <div class="text-muted small">分類確定済</div>
       </div>
     </div>
   </div>
@@ -97,18 +94,20 @@
         <table class="table table-sm table-hover align-middle">
           <thead class="table-light">
             <tr>
-              <th style="width:5%">順</th>
-              <th style="width:28%">科目名（PDFの表記）</th>
-              <th style="width:12%">ステータス</th>
-              <th style="width:18%">組換え先帳票</th>
-              <th style="width:25%">組換え先科目</th>
-              <th style="width:7%">信頼度</th>
+              <th style="width:4%">順</th>
+              <th style="width:18%">科目名（PDFの表記）</th>
+              <th style="width:9%">分類状態</th>
+              <th style="width:11%">大分類</th>
+              <th style="width:14%">中分類</th>
+              <th style="width:14%">小分類</th>
+              <th style="width:13%">組換え先帳票</th>
+              <th style="width:12%">組換え先科目</th>
               <th style="width:5%">操作</th>
             </tr>
           </thead>
           <tbody>
             {% for item in pl_items %}
-            <tr class="{% if item.mapping_status == 'confirmed' %}table-success{% elif item.mapping_status == 'pending' %}table-warning{% elif item.mapping_status == 'ignored' %}table-secondary{% endif %}" id="pl-row-{{ item.id }}">
+            <tr class="{% if item.category_status == 'confirmed' %}table-success{% elif item.category_status == 'pending' %}table-warning{% endif %}" id="pl-row-{{ item.id }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <span class="fw-medium">{{ item.account_name }}</span>
@@ -117,22 +116,48 @@
                 {% endif %}
               </td>
               <td>
-                {% if item.mapping_status == 'confirmed' %}
+                {% if item.category_status == 'confirmed' %}
                   <span class="badge bg-success">確定済</span>
-                {% elif item.mapping_status == 'pending' %}
+                {% elif item.category_status == 'pending' %}
                   <span class="badge bg-warning text-dark">AI推定</span>
-                {% elif item.mapping_status == 'ignored' %}
-                  <span class="badge bg-secondary">対象外</span>
                 {% else %}
-                  <span class="badge bg-light text-muted border">未設定</span>
+                  <span class="badge bg-light text-muted border">未分類</span>
                 {% endif %}
+              </td>
+              <td>
+                <select class="form-select form-select-sm major-select" data-id="{{ item.id }}" data-type="pl">
+                  <option value="">（未設定）</option>
+                  {% for major in category_tree.keys() %}
+                    <option value="{{ major }}" {% if item.major_category == major %}selected{% endif %}>{{ major }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="pl">
+                  <option value="">（未設定）</option>
+                  {% if item.major_category and item.major_category in category_tree %}
+                    {% for mid in category_tree[item.major_category].keys() %}
+                      <option value="{{ mid }}" {% if item.mid_category == mid %}selected{% endif %}>{{ mid }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm sub-select" data-id="{{ item.id }}" data-type="pl">
+                  <option value="">（未設定）</option>
+                  {% if item.major_category and item.mid_category and item.major_category in category_tree and item.mid_category in category_tree[item.major_category] %}
+                    {% for sub in category_tree[item.major_category][item.mid_category] %}
+                      <option value="{{ sub }}" {% if item.sub_category == sub %}selected{% endif %}>{{ sub }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
               </td>
               <td>
                 <select class="form-select form-select-sm stmt-select" data-id="{{ item.id }}" data-type="pl">
                   <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
-                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL（損益計算書）</option>
-                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS（貸借対照表）</option>
-                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR（製造原価）</option>
+                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL</option>
+                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS</option>
+                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR</option>
                 </select>
               </td>
               <td>
@@ -153,19 +178,10 @@
                   {% endif %}
                 </select>
               </td>
-              <td class="text-center">
-                {% if item.ai_confidence is not none %}
-                  <span class="badge {% if item.ai_confidence >= 0.8 %}bg-success{% elif item.ai_confidence >= 0.5 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-                    {{ "%.0f"|format(item.ai_confidence * 100) }}%
-                  </span>
-                {% else %}
-                  <span class="text-muted">-</span>
-                {% endif %}
-              </td>
               <td>
                 <div class="d-flex gap-1">
-                  <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="pl" title="保存">
-                    <i class="fas fa-save"></i>
+                  <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="pl" title="保存・確定">
+                    <i class="fas fa-check"></i>
                   </button>
                   <button class="btn btn-xs btn-outline-danger delete-btn" data-id="{{ item.id }}" data-type="pl" data-name="{{ item.account_name }}" title="削除">
                     <i class="fas fa-trash"></i>
@@ -187,7 +203,8 @@
       </div>
       {% endif %}
     </div>
-    <!-- ===== BS タブ ===== -->>
+
+    <!-- ===== BS タブ ===== -->
     <div class="tab-pane fade" id="bs-pane" role="tabpanel">
       <div class="d-flex justify-content-between align-items-center my-3">
         <h6 class="fw-bold mb-0 text-success"><i class="fas fa-balance-scale me-1"></i>貸借対照表 勘定科目マスタ</h6>
@@ -200,18 +217,20 @@
         <table class="table table-sm table-hover align-middle">
           <thead class="table-light">
             <tr>
-              <th style="width:5%">順</th>
-              <th style="width:28%">科目名（PDFの表記）</th>
-              <th style="width:12%">ステータス</th>
-              <th style="width:18%">組換え先帳票</th>
-              <th style="width:25%">組換え先科目</th>
-              <th style="width:7%">信頼度</th>
+              <th style="width:4%">順</th>
+              <th style="width:18%">科目名（PDFの表記）</th>
+              <th style="width:9%">分類状態</th>
+              <th style="width:11%">大分類</th>
+              <th style="width:14%">中分類</th>
+              <th style="width:14%">小分類</th>
+              <th style="width:13%">組換え先帳票</th>
+              <th style="width:12%">組換え先科目</th>
               <th style="width:5%">操作</th>
             </tr>
           </thead>
           <tbody>
             {% for item in bs_items %}
-            <tr class="{% if item.mapping_status == 'confirmed' %}table-success{% elif item.mapping_status == 'pending' %}table-warning{% elif item.mapping_status == 'ignored' %}table-secondary{% endif %}" id="bs-row-{{ item.id }}">
+            <tr class="{% if item.category_status == 'confirmed' %}table-success{% elif item.category_status == 'pending' %}table-warning{% endif %}" id="bs-row-{{ item.id }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <span class="fw-medium">{{ item.account_name }}</span>
@@ -220,22 +239,48 @@
                 {% endif %}
               </td>
               <td>
-                {% if item.mapping_status == 'confirmed' %}
+                {% if item.category_status == 'confirmed' %}
                   <span class="badge bg-success">確定済</span>
-                {% elif item.mapping_status == 'pending' %}
+                {% elif item.category_status == 'pending' %}
                   <span class="badge bg-warning text-dark">AI推定</span>
-                {% elif item.mapping_status == 'ignored' %}
-                  <span class="badge bg-secondary">対象外</span>
                 {% else %}
-                  <span class="badge bg-light text-muted border">未設定</span>
+                  <span class="badge bg-light text-muted border">未分類</span>
                 {% endif %}
+              </td>
+              <td>
+                <select class="form-select form-select-sm major-select" data-id="{{ item.id }}" data-type="bs">
+                  <option value="">（未設定）</option>
+                  {% for major in category_tree.keys() %}
+                    <option value="{{ major }}" {% if item.major_category == major %}selected{% endif %}>{{ major }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="bs">
+                  <option value="">（未設定）</option>
+                  {% if item.major_category and item.major_category in category_tree %}
+                    {% for mid in category_tree[item.major_category].keys() %}
+                      <option value="{{ mid }}" {% if item.mid_category == mid %}selected{% endif %}>{{ mid }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm sub-select" data-id="{{ item.id }}" data-type="bs">
+                  <option value="">（未設定）</option>
+                  {% if item.major_category and item.mid_category and item.major_category in category_tree and item.mid_category in category_tree[item.major_category] %}
+                    {% for sub in category_tree[item.major_category][item.mid_category] %}
+                      <option value="{{ sub }}" {% if item.sub_category == sub %}selected{% endif %}>{{ sub }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
               </td>
               <td>
                 <select class="form-select form-select-sm stmt-select" data-id="{{ item.id }}" data-type="bs">
                   <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
-                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL（損益計算書）</option>
-                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS（貸借対照表）</option>
-                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR（製造原価）</option>
+                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL</option>
+                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS</option>
+                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR</option>
                 </select>
               </td>
               <td>
@@ -256,19 +301,10 @@
                   {% endif %}
                 </select>
               </td>
-              <td class="text-center">
-                {% if item.ai_confidence is not none %}
-                  <span class="badge {% if item.ai_confidence >= 0.8 %}bg-success{% elif item.ai_confidence >= 0.5 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-                    {{ "%.0f"|format(item.ai_confidence * 100) }}%
-                  </span>
-                {% else %}
-                  <span class="text-muted">-</span>
-                {% endif %}
-              </td>
               <td>
                 <div class="d-flex gap-1">
-                  <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="bs" title="保存">
-                    <i class="fas fa-save"></i>
+                  <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="bs" title="保存・確定">
+                    <i class="fas fa-check"></i>
                   </button>
                   <button class="btn btn-xs btn-outline-danger delete-btn" data-id="{{ item.id }}" data-type="bs" data-name="{{ item.account_name }}" title="削除">
                     <i class="fas fa-trash"></i>
@@ -290,7 +326,8 @@
       </div>
       {% endif %}
     </div>
-    <!-- ===== MCR タブ ====== -->
+
+    <!-- ===== MCR タブ ===== -->
     <div class="tab-pane fade" id="mcr-pane" role="tabpanel">
       <div class="d-flex justify-content-between align-items-center my-3">
         <h6 class="fw-bold mb-0 text-warning"><i class="fas fa-industry me-1"></i>製造原価報告書 勘定科目マスタ</h6>
@@ -303,18 +340,20 @@
         <table class="table table-sm table-hover align-middle">
           <thead class="table-light">
             <tr>
-              <th style="width:5%">順</th>
-              <th style="width:28%">科目名（PDFの表記）</th>
-              <th style="width:12%">ステータス</th>
-              <th style="width:18%">組換え先帳票</th>
-              <th style="width:25%">組換え先科目</th>
-              <th style="width:7%">信頼度</th>
+              <th style="width:4%">順</th>
+              <th style="width:18%">科目名（PDFの表記）</th>
+              <th style="width:9%">分類状態</th>
+              <th style="width:11%">大分類</th>
+              <th style="width:14%">中分類</th>
+              <th style="width:14%">小分類</th>
+              <th style="width:13%">組換え先帳票</th>
+              <th style="width:12%">組換え先科目</th>
               <th style="width:5%">操作</th>
             </tr>
           </thead>
           <tbody>
             {% for item in mcr_items %}
-            <tr class="{% if item.mapping_status == 'confirmed' %}table-success{% elif item.mapping_status == 'pending' %}table-warning{% elif item.mapping_status == 'ignored' %}table-secondary{% endif %}" id="mcr-row-{{ item.id }}">
+            <tr class="{% if item.category_status == 'confirmed' %}table-success{% elif item.category_status == 'pending' %}table-warning{% endif %}" id="mcr-row-{{ item.id }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <span class="fw-medium">{{ item.account_name }}</span>
@@ -323,22 +362,48 @@
                 {% endif %}
               </td>
               <td>
-                {% if item.mapping_status == 'confirmed' %}
+                {% if item.category_status == 'confirmed' %}
                   <span class="badge bg-success">確定済</span>
-                {% elif item.mapping_status == 'pending' %}
+                {% elif item.category_status == 'pending' %}
                   <span class="badge bg-warning text-dark">AI推定</span>
-                {% elif item.mapping_status == 'ignored' %}
-                  <span class="badge bg-secondary">対象外</span>
                 {% else %}
-                  <span class="badge bg-light text-muted border">未設定</span>
+                  <span class="badge bg-light text-muted border">未分類</span>
                 {% endif %}
+              </td>
+              <td>
+                <select class="form-select form-select-sm major-select" data-id="{{ item.id }}" data-type="mcr">
+                  <option value="">（未設定）</option>
+                  {% for major in category_tree.keys() %}
+                    <option value="{{ major }}" {% if item.major_category == major %}selected{% endif %}>{{ major }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="mcr">
+                  <option value="">（未設定）</option>
+                  {% if item.major_category and item.major_category in category_tree %}
+                    {% for mid in category_tree[item.major_category].keys() %}
+                      <option value="{{ mid }}" {% if item.mid_category == mid %}selected{% endif %}>{{ mid }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm sub-select" data-id="{{ item.id }}" data-type="mcr">
+                  <option value="">（未設定）</option>
+                  {% if item.major_category and item.mid_category and item.major_category in category_tree and item.mid_category in category_tree[item.major_category] %}
+                    {% for sub in category_tree[item.major_category][item.mid_category] %}
+                      <option value="{{ sub }}" {% if item.sub_category == sub %}selected{% endif %}>{{ sub }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
               </td>
               <td>
                 <select class="form-select form-select-sm stmt-select" data-id="{{ item.id }}" data-type="mcr">
                   <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
-                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL（損益計算書）</option>
-                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS（貸借対照表）</option>
-                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR（製造原価）</option>
+                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL</option>
+                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS</option>
+                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR</option>
                 </select>
               </td>
               <td>
@@ -359,19 +424,10 @@
                   {% endif %}
                 </select>
               </td>
-              <td class="text-center">
-                {% if item.ai_confidence is not none %}
-                  <span class="badge {% if item.ai_confidence >= 0.8 %}bg-success{% elif item.ai_confidence >= 0.5 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-                    {{ "%.0f"|format(item.ai_confidence * 100) }}%
-                  </span>
-                {% else %}
-                  <span class="text-muted">-</span>
-                {% endif %}
-              </td>
               <td>
                 <div class="d-flex gap-1">
-                  <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="mcr" title="保存">
-                    <i class="fas fa-save"></i>
+                  <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="mcr" title="保存・確定">
+                    <i class="fas fa-check"></i>
                   </button>
                   <button class="btn btn-xs btn-outline-danger delete-btn" data-id="{{ item.id }}" data-type="mcr" data-name="{{ item.account_name }}" title="削除">
                     <i class="fas fa-trash"></i>
@@ -393,7 +449,7 @@
       </div>
       {% endif %}
     </div>
-  </div><!-- /tab-content -->>
+  </div><!-- /tab-content -->
 
   <!-- 下部ボタン -->
   <div class="d-flex justify-content-between align-items-center mb-5">
@@ -401,14 +457,14 @@
       <i class="fas fa-arrow-left me-1"></i>企業一覧に戻る
     </a>
     <a href="/decision/pdf-upload" class="btn btn-primary">
-      <i class="fas fa-project-diagram me-1"></i>PDFアップロードへ
+      <i class="fas fa-file-pdf me-1"></i>PDFアップロードへ
     </a>
   </div>
 </div>
 
 <!-- 科目追加モーダル -->
 <div class="modal fade" id="addItemModal" tabindex="-1">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>科目を追加</h5>
@@ -422,23 +478,47 @@
         </div>
         <div class="mb-3">
           <label for="addItemName" class="form-label fw-bold">科目名 <span class="text-danger">*</span></label>
-          <input type="text" class="form-control" id="addItemName" placeholder="例：売上高、給料手当" maxlength="255">
-          <div class="form-text">PDFに記載されている科目名をそのまま入力してください</div>
+          <input type="text" class="form-control" id="addItemName" placeholder="例：三井住友銀行、売掛金" maxlength="255">
         </div>
-        <div class="mb-3">
-          <label for="addItemStatement" class="form-label fw-bold">組換え先帳票</label>
-          <select class="form-select" id="addItemStatement">
-            <option value="">（対象外）</option>
-            <option value="PL">PL（損益計算書）</option>
-            <option value="BS">BS（貸借対照表）</option>
-            <option value="MCR">MCR（製造原価報告書）</option>
-          </select>
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label for="addMajorCategory" class="form-label fw-bold">大分類</label>
+            <select class="form-select" id="addMajorCategory">
+              <option value="">（未設定）</option>
+              {% for major in category_tree.keys() %}
+                <option value="{{ major }}">{{ major }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label for="addMidCategory" class="form-label fw-bold">中分類</label>
+            <select class="form-select" id="addMidCategory">
+              <option value="">（未設定）</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label for="addSubCategory" class="form-label fw-bold">小分類</label>
+            <select class="form-select" id="addSubCategory">
+              <option value="">（未設定）</option>
+            </select>
+          </div>
         </div>
-        <div class="mb-3">
-          <label for="addItemField" class="form-label fw-bold">組換え先科目</label>
-          <select class="form-select" id="addItemField">
-            <option value="">（選択してください）</option>
-          </select>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="addItemStatement" class="form-label fw-bold">組換え先帳票</label>
+            <select class="form-select" id="addItemStatement">
+              <option value="">（対象外）</option>
+              <option value="PL">PL（損益計算書）</option>
+              <option value="BS">BS（貸借対照表）</option>
+              <option value="MCR">MCR（製造原価報告書）</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label for="addItemField" class="form-label fw-bold">組換え先科目</label>
+            <select class="form-select" id="addItemField">
+              <option value="">（選択してください）</option>
+            </select>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -497,7 +577,53 @@
 
 <script>
 const allFields = {{ all_fields | tojson | safe }};
+const categoryTree = {{ category_tree | tojson | safe }};
 
+// ===== 大分類変更時に中分類を動的更新 =====
+document.querySelectorAll('.major-select').forEach(function(sel) {
+  sel.addEventListener('change', function() {
+    const id = this.dataset.id;
+    const type = this.dataset.type;
+    const major = this.value;
+    const midSel = document.querySelector(`.mid-select[data-id="${id}"][data-type="${type}"]`);
+    const subSel = document.querySelector(`.sub-select[data-id="${id}"][data-type="${type}"]`);
+    if (midSel) {
+      midSel.innerHTML = '<option value="">（未設定）</option>';
+      if (major && categoryTree[major]) {
+        Object.keys(categoryTree[major]).forEach(function(mid) {
+          const opt = document.createElement('option');
+          opt.value = mid;
+          opt.textContent = mid;
+          midSel.appendChild(opt);
+        });
+      }
+    }
+    if (subSel) subSel.innerHTML = '<option value="">（未設定）</option>';
+  });
+});
+
+// ===== 中分類変更時に小分類を動的更新 =====
+document.querySelectorAll('.mid-select').forEach(function(sel) {
+  sel.addEventListener('change', function() {
+    const id = this.dataset.id;
+    const type = this.dataset.type;
+    const mid = this.value;
+    const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${type}"]`);
+    const major = majorSel ? majorSel.value : '';
+    const subSel = document.querySelector(`.sub-select[data-id="${id}"][data-type="${type}"]`);
+    if (subSel) {
+      subSel.innerHTML = '<option value="">（未設定）</option>';
+      if (major && mid && categoryTree[major] && categoryTree[major][mid]) {
+        categoryTree[major][mid].forEach(function(sub) {
+          const opt = document.createElement('option');
+          opt.value = sub;
+          opt.textContent = sub;
+          subSel.appendChild(opt);
+        });
+      }
+    }
+  });
+});
 
 // ===== 組換え先帳票変更時に組換え先科目を動的更新 =====
 document.querySelectorAll('.stmt-select').forEach(function(sel) {
@@ -519,37 +645,45 @@ document.querySelectorAll('.stmt-select').forEach(function(sel) {
   });
 });
 
-// ===== 保存ボタン =====
+// ===== 保存・確定ボタン =====
 document.querySelectorAll('.save-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     const id = this.dataset.id;
     const type = this.dataset.type;
+    const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${type}"]`);
+    const midSel = document.querySelector(`.mid-select[data-id="${id}"][data-type="${type}"]`);
+    const subSel = document.querySelector(`.sub-select[data-id="${id}"][data-type="${type}"]`);
     const stmtSel = document.querySelector(`.stmt-select[data-id="${id}"][data-type="${type}"]`);
     const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
-    const targetStatement = stmtSel ? stmtSel.value : '';
-    const targetField = fieldSel ? fieldSel.value : '';
+
+    const payload = {
+      major_category: majorSel ? majorSel.value || null : null,
+      mid_category: midSel ? midSel.value || null : null,
+      sub_category: subSel ? subSel.value || null : null,
+      category_status: 'confirmed',
+      target_statement: stmtSel ? stmtSel.value || null : null,
+      target_field: fieldSel ? fieldSel.value || null : null,
+      mapping_status: (stmtSel && stmtSel.value) ? 'confirmed' : 'ignored'
+    };
 
     fetch(`/decision/account-master/${type}/${id}`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
-      body: JSON.stringify({
-        target_statement: targetStatement || null,
-        target_field: targetField || null,
-        mapping_status: targetStatement ? 'confirmed' : 'ignored'
-      })
+      body: JSON.stringify(payload)
     })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        showToast('保存しました', 'success');
-        // 行の色を更新
+        showToast('確定しました', 'success');
         const row = document.getElementById(`${type}-row-${id}`);
         if (row) {
-          row.className = row.className.replace(/table-(success|warning|secondary|light)/g, '');
-          if (targetStatement) {
-            row.classList.add('table-success');
-          } else {
-            row.classList.add('table-secondary');
+          row.className = row.className.replace(/table-(success|warning|secondary|light)/g, '').trim();
+          row.classList.add('table-success');
+          // バッジを「確定済」に更新
+          const badge = row.querySelector('.badge');
+          if (badge) {
+            badge.className = 'badge bg-success';
+            badge.textContent = '確定済';
           }
         }
       } else {
@@ -601,9 +735,43 @@ document.querySelectorAll('[data-bs-target="#addItemModal"]').forEach(function(b
     document.getElementById('addItemTypeLabel').className = 'form-control-plaintext fw-bold ' +
       (type === 'pl' ? 'text-primary' : type === 'bs' ? 'text-success' : 'text-warning');
     document.getElementById('addItemName').value = '';
+    document.getElementById('addMajorCategory').value = '';
+    document.getElementById('addMidCategory').innerHTML = '<option value="">（未設定）</option>';
+    document.getElementById('addSubCategory').innerHTML = '<option value="">（未設定）</option>';
     document.getElementById('addItemStatement').value = '';
     document.getElementById('addItemField').innerHTML = '<option value="">（選択してください）</option>';
   });
+});
+
+document.getElementById('addMajorCategory').addEventListener('change', function() {
+  const major = this.value;
+  const midSel = document.getElementById('addMidCategory');
+  const subSel = document.getElementById('addSubCategory');
+  midSel.innerHTML = '<option value="">（未設定）</option>';
+  subSel.innerHTML = '<option value="">（未設定）</option>';
+  if (major && categoryTree[major]) {
+    Object.keys(categoryTree[major]).forEach(function(mid) {
+      const opt = document.createElement('option');
+      opt.value = mid;
+      opt.textContent = mid;
+      midSel.appendChild(opt);
+    });
+  }
+});
+
+document.getElementById('addMidCategory').addEventListener('change', function() {
+  const major = document.getElementById('addMajorCategory').value;
+  const mid = this.value;
+  const subSel = document.getElementById('addSubCategory');
+  subSel.innerHTML = '<option value="">（未設定）</option>';
+  if (major && mid && categoryTree[major] && categoryTree[major][mid]) {
+    categoryTree[major][mid].forEach(function(sub) {
+      const opt = document.createElement('option');
+      opt.value = sub;
+      opt.textContent = sub;
+      subSel.appendChild(opt);
+    });
+  }
 });
 
 document.getElementById('addItemStatement').addEventListener('change', function() {
@@ -623,6 +791,9 @@ document.getElementById('addItemStatement').addEventListener('change', function(
 document.getElementById('addItemSubmit').addEventListener('click', function() {
   const type = document.getElementById('addItemType').value;
   const name = document.getElementById('addItemName').value.trim();
+  const major = document.getElementById('addMajorCategory').value;
+  const mid = document.getElementById('addMidCategory').value;
+  const sub = document.getElementById('addSubCategory').value;
   const stmt = document.getElementById('addItemStatement').value;
   const field = document.getElementById('addItemField').value;
   if (!name) {
@@ -634,6 +805,10 @@ document.getElementById('addItemSubmit').addEventListener('click', function() {
     headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
     body: JSON.stringify({
       account_name: name,
+      major_category: major || null,
+      mid_category: mid || null,
+      sub_category: sub || null,
+      category_status: (major || mid || sub) ? 'confirmed' : 'uncategorized',
       target_statement: stmt || null,
       target_field: field || null,
       mapping_status: stmt ? 'confirmed' : 'ignored'

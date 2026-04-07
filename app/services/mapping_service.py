@@ -304,3 +304,115 @@ def get_all_target_fields():
         "BS": BS_FIELDS,
         "MCR": MCR_FIELDS,
     }
+
+
+# ===== 会計システム分類体系 =====
+
+# 大分類・中分類・小分類の階層定義（会計システムと同じ体系）
+ACCOUNTING_CATEGORY_TREE = {
+    "資産": {
+        "流動資産": ["現金及び預金", "売上債権", "棚卸資産", "その他流動資産"],
+        "固定資産": ["有形固定資産", "無形固定資産", "投資その他の資産"],
+        "繰延資産": ["繰延資産"],
+    },
+    "負債": {
+        "流動負債": ["仕入債務", "その他流動負債"],
+        "固定負債": ["固定負債"],
+    },
+    "純資産": {
+        "資本金": ["資本金"],
+        "資本剰余金": ["資本剰余金"],
+        "利益剰余金": ["利益剰余金"],
+        "自己株式": ["自己株式"],
+        "評価換算差額等": ["評価換算差額等"],
+        "新株予約権": ["新株予約権"],
+    },
+    "損益": {
+        "売上高": ["売上高"],
+        "売上原価": ["売上原価"],
+        "販売費及び一般管理費": ["販売費", "一般管理費"],
+        "営業外収益": ["営業外収益"],
+        "営業外費用": ["営業外費用"],
+        "特別利益": ["特別利益"],
+        "特別損失": ["特別損失"],
+        "法人税等": ["法人税等"],
+    },
+}
+
+
+def build_category_tree_description():
+    """AIプロンプト用の分類体系説明文を生成"""
+    lines = []
+    for major, mids in ACCOUNTING_CATEGORY_TREE.items():
+        lines.append(f"【大分類: {major}】")
+        for mid, subs in mids.items():
+            sub_str = "、".join(subs)
+            lines.append(f"  中分類: {mid} → 小分類: {sub_str}")
+    return "\n".join(lines)
+
+
+def estimate_categories(account_items: list, statement_type: str) -> list:
+    """
+    勘定科目の大分類・中分類・小分類をAIで推定する
+
+    Args:
+        account_items: AccountItemオブジェクトのリスト（category_statusが'uncategorized'または'pending'のもの）
+        statement_type: 'PL', 'BS', 'MCR' のいずれか（コンテキスト情報として使用）
+
+    Returns:
+        分類結果のリスト [{id, major_category, mid_category, sub_category, confidence}, ...]
+    """
+    uncategorized_items = [
+        item for item in account_items
+        if item.category_status in ('uncategorized', None)
+    ]
+    if not uncategorized_items:
+        return []
+
+    category_desc = build_category_tree_description()
+    account_names = [{"id": item.id, "name": item.account_name} for item in uncategorized_items]
+
+    prompt = f"""あなたは日本の会計・財務の専門家です。
+以下の勘定科目名を、指定された会計分類体系（大分類・中分類・小分類）に分類してください。
+この科目は{statement_type}（{'損益計算書' if statement_type == 'PL' else '貸借対照表' if statement_type == 'BS' else '製造原価報告書'}）から読み取られた科目です。
+
+【会計分類体系】
+{category_desc}
+
+【分類ルール】
+- 各科目を最も適切な大分類・中分類・小分類に分類してください
+- 銀行口座名（「三井住友銀行」「みずほ銀行」など）は 大分類:資産、中分類:流動資産、小分類:現金及び預金
+- 「売掛金」「受取手形」は 大分類:資産、中分類:流動資産、小分類:売上債権
+- 「買掛金」「支払手形」は 大分類:負債、中分類:流動負債、小分類:仕入債務
+- 「給料手当」「賞与」「法定福利費」などの人件費は 大分類:損益、中分類:販売費及び一般管理費、小分類:一般管理費
+- 製造業の人件費（製造部門）は 大分類:損益、中分類:売上原価、小分類:売上原価
+- confidence は 0.0〜1.0 の信頼度（確信が高いほど1.0に近い）
+
+【分類対象科目】
+{json.dumps(account_names, ensure_ascii=False)}
+
+以下のJSON形式で回答してください（他のテキストは不要）:
+{{
+  "results": [
+    {{"id": 科目ID, "major_category": "大分類名", "mid_category": "中分類名", "sub_category": "小分類名", "confidence": 0.95}},
+    ...
+  ]
+}}"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+            response_format={"type": "json_object"},
+        )
+        content = response.choices[0].message.content
+        parsed = json.loads(content)
+        if isinstance(parsed, dict) and "results" in parsed:
+            return parsed["results"]
+        elif isinstance(parsed, list):
+            return parsed
+        return []
+    except Exception as e:
+        print(f"[mapping_service] category estimation error: {e}")
+        return []
