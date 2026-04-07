@@ -562,6 +562,66 @@ const allFields = {{ all_fields | tojson | safe }};
 const categoryTree = {{ category_tree | tojson | safe }};
 
 // ===== AI一括推定 =====
+function applyAiSuggestions(suggestions, stmtType) {
+  suggestions.forEach(function(s) {
+    const id = s.id;
+    const type = stmtType;
+
+    // 大分類をセット
+    const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${type}"]`);
+    if (majorSel && s.major_category) {
+      majorSel.value = s.major_category;
+      majorSel.dispatchEvent(new Event('change'));
+    }
+
+    // 中分類をセット（大分類のchange後に遅延実行）
+    setTimeout(function() {
+      const midSel = document.querySelector(`.mid-select[data-id="${id}"][data-type="${type}"]`);
+      if (midSel && s.mid_category) {
+        midSel.value = s.mid_category;
+        midSel.dispatchEvent(new Event('change'));
+      }
+
+      // 小分類をセット（中分類のchange後に遅延実行）
+      setTimeout(function() {
+        const subSel = document.querySelector(`.sub-select[data-id="${id}"][data-type="${type}"]`);
+        if (subSel && s.sub_category) subSel.value = s.sub_category;
+
+        // 組換え先帳票をセット
+        const stmtSel = document.querySelector(`.stmt-select[data-id="${id}"][data-type="${type}"]`);
+        if (stmtSel) {
+          stmtSel.value = s.target_statement || '';
+          // selectの場合はchangeイベントでfield-selectを更新、hidden inputの場合は直接更新
+          if (stmtSel.tagName === 'SELECT') {
+            stmtSel.dispatchEvent(new Event('change'));
+          } else {
+            // hidden inputの場合：field-selectを直接更新
+            const stmt = s.target_statement || '';
+            const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
+            if (fieldSel) {
+              fieldSel.innerHTML = '<option value="">（選択）</option>';
+              if (stmt && allFields[stmt]) {
+                Object.entries(allFields[stmt]).forEach(function([k, v]) {
+                  const opt = document.createElement('option');
+                  opt.value = k;
+                  opt.textContent = v;
+                  fieldSel.appendChild(opt);
+                });
+              }
+            }
+          }
+        }
+
+        // 組換え先科目をセット（帳票のchange後に遅延実行）
+        setTimeout(function() {
+          const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
+          if (fieldSel && s.target_field) fieldSel.value = s.target_field;
+        }, 50);
+      }, 50);
+    }, 50);
+  });
+}
+
 function runAiSuggest(stmtType) {
   const btn = document.getElementById('ai-suggest-' + stmtType);
   const rows = document.querySelectorAll(`[id^="${stmtType}-row-"]`);
@@ -577,94 +637,66 @@ function runAiSuggest(stmtType) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>AI推定中...';
 
-  fetch('/decision/account-master/ai-suggest', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
-    body: JSON.stringify({items: items})
-  })
-  .then(r => {
-    if (!r.ok) {
-      return r.text().then(t => {
-        let msg = 'サーバーエラー (HTTP ' + r.status + ')';
-        try { const j = JSON.parse(t); msg = j.error || msg; } catch(e) {}
-        throw new Error(msg);
-      });
+  // バッチサイズ15件に分割して順番に送信（Herokuの30秒タイムアウト対策）
+  const BATCH_SIZE = 15;
+  const batches = [];
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    batches.push(items.slice(i, i + BATCH_SIZE));
+  }
+
+  let allSuggestions = [];
+  let batchIndex = 0;
+
+  function sendNextBatch() {
+    if (batchIndex >= batches.length) {
+      // 全バッチ完了
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-robot me-1"></i>AI一括推定';
+      applyAiSuggestions(allSuggestions, stmtType);
+      const bulkBtn = document.getElementById('bulk-save-' + stmtType);
+      if (bulkBtn) bulkBtn.style.display = '';
+      showToast('AI推定が完了しました。「一括保存」ボタンで一括確定できます', 'success');
+      return;
     }
-    return r.json();
-  })
-  .then(data => {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-robot me-1"></i>AI一括推定';
-    if (!data.success) { showToast('AI推定失敗: ' + (data.error || ''), 'danger'); return; }
 
-    data.suggestions.forEach(function(s) {
-      const id = s.id;
-      const type = stmtType;
+    const batch = batches[batchIndex];
+    const progress = `(${batchIndex * BATCH_SIZE + 1}〜${Math.min((batchIndex + 1) * BATCH_SIZE, items.length)}/${items.length}件)`;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i>AI推定中... ${progress}`;
 
-      // 大分類をセット
-      const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${type}"]`);
-      if (majorSel && s.major_category) {
-        majorSel.value = s.major_category;
-        majorSel.dispatchEvent(new Event('change'));
+    fetch('/decision/account-master/ai-suggest', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+      body: JSON.stringify({items: batch})
+    })
+    .then(r => {
+      if (!r.ok) {
+        return r.text().then(t => {
+          let msg = 'サーバーエラー (HTTP ' + r.status + ')';
+          try { const j = JSON.parse(t); msg = j.error || msg; } catch(e) {}
+          throw new Error(msg);
+        });
       }
-
-      // 中分類をセット（大分類のchange後に遅延実行）
-      setTimeout(function() {
-        const midSel = document.querySelector(`.mid-select[data-id="${id}"][data-type="${type}"]`);
-        if (midSel && s.mid_category) {
-          midSel.value = s.mid_category;
-          midSel.dispatchEvent(new Event('change'));
-        }
-
-        // 小分類をセット（中分類のchange後に遅延実行）
-        setTimeout(function() {
-          const subSel = document.querySelector(`.sub-select[data-id="${id}"][data-type="${type}"]`);
-          if (subSel && s.sub_category) subSel.value = s.sub_category;
-
-          // 組換え先帳票をセット
-          const stmtSel = document.querySelector(`.stmt-select[data-id="${id}"][data-type="${type}"]`);
-          if (stmtSel) {
-            stmtSel.value = s.target_statement || '';
-            // selectの場合はchangeイベントでfield-selectを更新、hidden inputの場合は直接更新
-            if (stmtSel.tagName === 'SELECT') {
-              stmtSel.dispatchEvent(new Event('change'));
-            } else {
-              // hidden inputの場合：field-selectを直接更新
-              const stmt = s.target_statement || '';
-              const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
-              if (fieldSel) {
-                fieldSel.innerHTML = '<option value="">（選択）</option>';
-                if (stmt && allFields[stmt]) {
-                  Object.entries(allFields[stmt]).forEach(function([k, v]) {
-                    const opt = document.createElement('option');
-                    opt.value = k;
-                    opt.textContent = v;
-                    fieldSel.appendChild(opt);
-                  });
-                }
-              }
-            }
-          }
-
-          // 組換え先科目をセット（帳票のchange後に遅延実行）
-          setTimeout(function() {
-            const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
-            if (fieldSel && s.target_field) fieldSel.value = s.target_field;
-          }, 50);
-        }, 50);
-      }, 50);
+      return r.json();
+    })
+    .then(data => {
+      if (!data.success) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-robot me-1"></i>AI一括推定';
+        showToast('AI推定失敗: ' + (data.error || ''), 'danger');
+        return;
+      }
+      allSuggestions = allSuggestions.concat(data.suggestions || []);
+      batchIndex++;
+      sendNextBatch();
+    })
+    .catch(e => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-robot me-1"></i>AI一括推定';
+      showToast('エラー: ' + (e.message || '通信エラーが発生しました'), 'danger');
     });
+  }
 
-    // 一括保存ボタンを表示
-    const bulkBtn = document.getElementById('bulk-save-' + stmtType);
-    if (bulkBtn) bulkBtn.style.display = '';
-    showToast('AI推定が完了しました。「一括保存」ボタンで一括確定できます', 'success');
-  })
-  .catch(e => {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-robot me-1"></i>AI一括推定';
-    showToast('エラー: ' + (e.message || '通信エラーが発生しました'), 'danger');
-  });
+  sendNextBatch();
 }
 
 // ===== AI一括保存 =====
