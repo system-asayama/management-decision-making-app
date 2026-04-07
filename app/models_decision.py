@@ -68,6 +68,9 @@ class FiscalYear(Base):
     restructured_bs = relationship("RestructuredBS", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     manufacturing_cost_report = relationship("ManufacturingCostReport", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     original_trial_balance = relationship("OriginalTrialBalance", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
+    raw_profit_loss_statement = relationship("RawProfitLossStatement", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
+    raw_balance_sheet = relationship("RawBalanceSheet", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
+    raw_manufacturing_cost_report = relationship("RawManufacturingCostReport", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     labor_cost = relationship("LaborCost", back_populates="fiscal_year", uselist=False, cascade="all, delete-orphan")
     financial_indicators = relationship("FinancialIndicator", back_populates="fiscal_year", cascade="all, delete-orphan")
     business_segments = relationship("BusinessSegment", back_populates="fiscal_year", cascade="all, delete-orphan")
@@ -774,6 +777,7 @@ class StatementType(enum.Enum):
     """財務諸表タイプ"""
     PL = "PL"
     BS = "BS"
+    MCR = "MCR"  # 製造原価報告書
 
 
 class AccountMapping(Base):
@@ -1043,3 +1047,163 @@ class MonthlyCashFlowPlan(Base):
     
     def __repr__(self):
         return f"<MonthlyCashFlowPlan(id={self.id}, company_id={self.company_id}, fiscal_year_id={self.fiscal_year_id}, month={self.month})>"
+
+
+# ==================== PDF読み取り生データ（詳細版） ====================
+
+class RawProfitLossStatement(Base):
+    """損益計算書 生データ（PDF読み取り詳細版）"""
+    __tablename__ = 'raw_profit_loss_statements'
+
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fiscal_year_id = Column(Integer, ForeignKey('fiscal_years.id'), nullable=False)
+
+    # 売上・売上原価
+    sales = Column(BigInteger, default=0, nullable=False)                               # 売上高
+    beginning_inventory = Column(BigInteger, default=0, nullable=False)                 # 期首棚卸高
+    manufacturing_cost = Column(BigInteger, default=0, nullable=False)                  # 当期製造（工事）原価
+    ending_inventory = Column(BigInteger, default=0, nullable=False)                    # 期末棚卸高
+    cost_of_sales = Column(BigInteger, default=0, nullable=False)                       # 売上原価 合計
+    gross_profit = Column(BigInteger, default=0, nullable=False)                        # 売上総利益
+
+    # 販管費
+    labor_cost = Column(BigInteger, default=0, nullable=False)                          # 人件費
+    executive_compensation = Column(BigInteger, default=0, nullable=False)              # 役員報酬
+    capital_regeneration_cost = Column(BigInteger, default=0, nullable=False)           # 資本再生費
+    research_development_expenses = Column(BigInteger, default=0, nullable=False)       # 研究開発費
+    general_expenses = Column(BigInteger, default=0, nullable=False)                    # 一般経費
+    general_expenses_fixed = Column(BigInteger, default=0, nullable=False)              # 一般経費（固定費）
+    general_expenses_variable = Column(BigInteger, default=0, nullable=False)           # 一般経費（変動費）
+    selling_general_admin_expenses = Column(BigInteger, default=0, nullable=False)      # 販管費 合計
+
+    # 営業利益・営業外
+    operating_income = Column(BigInteger, default=0, nullable=False)                    # 営業利益
+    financial_profit_loss = Column(BigInteger, default=0, nullable=False)               # 金融損益
+    other_non_operating = Column(BigInteger, default=0, nullable=False)                 # その他営業外損益
+    ordinary_income = Column(BigInteger, default=0, nullable=False)                     # 経常利益
+
+    # 特別損益・税引後
+    extraordinary_profit_loss = Column(BigInteger, default=0, nullable=False)           # 特別損益
+    income_before_tax = Column(BigInteger, default=0, nullable=False)                   # 税引前当期純利益
+    income_taxes = Column(BigInteger, default=0, nullable=False)                        # 法人税等
+    net_income = Column(BigInteger, default=0, nullable=False)                          # 当期純利益
+
+    # 利益処分
+    dividend = Column(BigInteger, default=0, nullable=False)                            # 配当金
+    retained_profit = Column(BigInteger, default=0, nullable=False)                     # 内部留保
+    legal_reserve = Column(BigInteger, default=0, nullable=False)                       # 利益準備金積立額
+    voluntary_reserve = Column(BigInteger, default=0, nullable=False)                   # その他剰余金積立額
+    retained_earnings_increase = Column(BigInteger, default=0, nullable=False)          # 繰越利益剰余金増加
+
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+    # リレーション
+    fiscal_year = relationship("FiscalYear", back_populates="raw_profit_loss_statement")
+
+
+class RawBalanceSheet(Base):
+    """貸借対照表 生データ（PDF読み取り詳細版）"""
+    __tablename__ = 'raw_balance_sheets'
+
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fiscal_year_id = Column(Integer, ForeignKey('fiscal_years.id'), nullable=False)
+
+    # 資産の部（流動資産）
+    cash_on_hand = Column(BigInteger, default=0, nullable=False)                        # 手許現預金
+    investment_deposits = Column(BigInteger, default=0, nullable=False)                 # 運用預金
+    marketable_securities = Column(BigInteger, default=0, nullable=False)               # 有価証券
+    trade_receivables = Column(BigInteger, default=0, nullable=False)                   # 売掛債権
+    inventory_assets = Column(BigInteger, default=0, nullable=False)                    # 棚卸資産
+    current_assets = Column(BigInteger, default=0, nullable=False)                      # 流動資産 合計
+
+    # 資産の部（固定資産）
+    tangible_fixed_assets = Column(BigInteger, default=0, nullable=False)               # 有形固定資産
+    intangible_fixed_assets = Column(BigInteger, default=0, nullable=False)             # 無形固定資産
+    investments_and_other = Column(BigInteger, default=0, nullable=False)               # 投資その他の資産
+    deferred_assets = Column(BigInteger, default=0, nullable=False)                     # 繰延資産
+    fixed_assets = Column(BigInteger, default=0, nullable=False)                        # 固定資産 合計
+    total_assets = Column(BigInteger, default=0, nullable=False)                        # 資産 合計
+
+    # 負債の部（流動負債）
+    trade_payables = Column(BigInteger, default=0, nullable=False)                      # 買掛債務
+    short_term_borrowings = Column(BigInteger, default=0, nullable=False)               # 短期借入金
+    current_portion_long_term = Column(BigInteger, default=0, nullable=False)           # 1年以内返済長期借入金
+    discounted_notes = Column(BigInteger, default=0, nullable=False)                    # 割引手形
+    other_current_liabilities = Column(BigInteger, default=0, nullable=False)           # その他流動負債
+    current_liabilities = Column(BigInteger, default=0, nullable=False)                 # 流動負債 合計
+
+    # 負債の部（固定負債）
+    long_term_borrowings = Column(BigInteger, default=0, nullable=False)                # 長期借入金
+    executive_borrowings = Column(BigInteger, default=0, nullable=False)                # 役員等借入金
+    retirement_benefit_liability = Column(BigInteger, default=0, nullable=False)        # 退職給付引当金
+    other_fixed_liabilities = Column(BigInteger, default=0, nullable=False)             # その他固定負債
+    fixed_liabilities = Column(BigInteger, default=0, nullable=False)                   # 固定負債 合計
+    total_liabilities = Column(BigInteger, default=0, nullable=False)                   # 負債 合計
+
+    # 純資産の部
+    capital = Column(BigInteger, default=0, nullable=False)                             # 資本金
+    capital_surplus = Column(BigInteger, default=0, nullable=False)                     # 資本剰余金
+    retained_earnings = Column(BigInteger, default=0, nullable=False)                   # 利益剰余金 合計
+    legal_reserve_bs = Column(BigInteger, default=0, nullable=False)                    # 利益準備金
+    voluntary_reserve_bs = Column(BigInteger, default=0, nullable=False)                # 任意積立金
+    retained_earnings_carried = Column(BigInteger, default=0, nullable=False)           # 繰越利益剰余金
+    treasury_stock = Column(BigInteger, default=0, nullable=False)                      # 自己株式
+    net_assets = Column(BigInteger, default=0, nullable=False)                          # 純資産 合計
+    total_liabilities_and_net_assets = Column(BigInteger, default=0, nullable=False)    # 負債純資産 合計
+
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+    # リレーション
+    fiscal_year = relationship("FiscalYear", back_populates="raw_balance_sheet")
+
+
+class RawManufacturingCostReport(Base):
+    """製造原価報告書 生データ（PDF読み取り詳細版）"""
+    __tablename__ = 'raw_manufacturing_cost_reports'
+
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fiscal_year_id = Column(Integer, ForeignKey('fiscal_years.id'), nullable=False)
+
+    # 材料費
+    beginning_raw_material = Column(BigInteger, default=0, nullable=False)              # 期首原材料棚卸高
+    raw_material_purchase = Column(BigInteger, default=0, nullable=False)               # 当期原材料仕入高
+    ending_raw_material = Column(BigInteger, default=0, nullable=False)                 # 期末原材料棚卸高
+    material_cost = Column(BigInteger, default=0, nullable=False)                       # 材料費計
+
+    # 労務費
+    labor_cost_manufacturing = Column(BigInteger, default=0, nullable=False)            # 労務費計
+
+    # 製造経費
+    outsourcing_cost = Column(BigInteger, default=0, nullable=False)                    # 外注加工費
+    freight_manufacturing = Column(BigInteger, default=0, nullable=False)               # 荷造運賃（製造）
+    meeting_cost_manufacturing = Column(BigInteger, default=0, nullable=False)          # 会議費（製造）
+    travel_cost_manufacturing = Column(BigInteger, default=0, nullable=False)           # 旅費交通費（製造）
+    communication_cost_manufacturing = Column(BigInteger, default=0, nullable=False)    # 通信費（製造）
+    supplies_manufacturing = Column(BigInteger, default=0, nullable=False)              # 消耗品費（製造）
+    vehicle_cost_manufacturing = Column(BigInteger, default=0, nullable=False)          # 車両費（製造）
+    rent_manufacturing = Column(BigInteger, default=0, nullable=False)                  # 賃借料（製造）
+    insurance_manufacturing = Column(BigInteger, default=0, nullable=False)             # 保険料（製造）
+    depreciation_manufacturing = Column(BigInteger, default=0, nullable=False)          # 減価償却費（製造）
+    repair_cost_manufacturing = Column(BigInteger, default=0, nullable=False)           # 修繕費（製造）
+    other_manufacturing_cost = Column(BigInteger, default=0, nullable=False)            # その他製造経費
+    manufacturing_expenses_total = Column(BigInteger, default=0, nullable=False)        # 製造経費計
+
+    # 合計
+    total_manufacturing_cost_current = Column(BigInteger, default=0, nullable=False)    # 総製造費用
+    beginning_wip = Column(BigInteger, default=0, nullable=False)                       # 期首仕掛品棚卸高
+    ending_wip = Column(BigInteger, default=0, nullable=False)                          # 期末仕掛品棚卸高
+    total_manufacturing_cost = Column(BigInteger, default=0, nullable=False)            # 製造原価合計
+
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+    # リレーション
+    fiscal_year = relationship("FiscalYear", back_populates="raw_manufacturing_cost_report")

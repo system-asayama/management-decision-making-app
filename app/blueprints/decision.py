@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, redirect, url_for, session, reques
 from ..utils.decorators import require_roles, ROLES
 from ..utils.formatting import parse_int, parse_int_or_none
 from ..db import SessionLocal
-from ..models_decision import Company, FiscalYear, ProfitLossStatement, BalanceSheet, RestructuredPL, RestructuredBS, ManufacturingCostReport, OriginalTrialBalance
+from ..models_decision import Company, FiscalYear, ProfitLossStatement, BalanceSheet, RestructuredPL, RestructuredBS, ManufacturingCostReport, OriginalTrialBalance, RawProfitLossStatement, RawBalanceSheet, RawManufacturingCostReport, AccountMapping, StatementType
 from datetime import datetime
 
 bp = Blueprint('decision', __name__, url_prefix='/decision')
@@ -4063,105 +4063,120 @@ def pdf_apply():
             except (ValueError, TypeError):
                 return default
 
+        # ============================================================
+        # 損益計算書 生データ（RawProfitLossStatement）への upsert 保存
+        # ============================================================
         if 'profit_loss' in apply_types:
-            rpl = db.query(RestructuredPL).filter_by(fiscal_year_id=fiscal_year_id).first()
-            if not rpl:
-                rpl = RestructuredPL(fiscal_year_id=fiscal_year_id)
-                db.add(rpl)
-            rpl.sales = pi('pl_sales')
-            rpl.beginning_inventory = pi('pl_beginning_inventory')
-            rpl.manufacturing_cost = pi('pl_manufacturing_cost')
-            rpl.ending_inventory = pi('pl_ending_inventory')
-            rpl.cost_of_sales = pi('pl_cost_of_sales')
-            rpl.gross_profit = pi('pl_gross_profit')
-            rpl.labor_cost = pi('pl_labor_cost')
-            rpl.executive_compensation = pi('pl_executive_compensation')
-            rpl.capital_regeneration_cost = pi('pl_capital_regeneration_cost')
-            rpl.research_development_expenses = pi('pl_research_development_expenses')
-            rpl.general_expenses = pi('pl_general_expenses')
-            rpl.general_expenses_fixed = pi('pl_general_expenses_fixed')
-            rpl.general_expenses_variable = pi('pl_general_expenses_variable')
-            rpl.selling_general_admin_expenses = pi('pl_selling_general_admin_expenses')
-            rpl.operating_income = pi('pl_operating_income')
-            rpl.financial_profit_loss = pi('pl_financial_profit_loss')
-            rpl.other_non_operating = pi('pl_other_non_operating')
-            rpl.ordinary_income = pi('pl_ordinary_income')
-            rpl.extraordinary_profit_loss = pi('pl_extraordinary_profit_loss')
-            rpl.income_before_tax = pi('pl_income_before_tax')
-            rpl.income_taxes = pi('pl_income_taxes')
-            rpl.net_income = pi('pl_net_income')
-            rpl.dividend = pi('pl_dividend')
-            rpl.retained_profit = pi('pl_retained_profit')
-            rpl.legal_reserve = pi('pl_legal_reserve')
-            rpl.voluntary_reserve = pi('pl_voluntary_reserve')
-            rpl.retained_earnings_increase = pi('pl_retained_earnings_increase')
+            raw_pls = db.query(RawProfitLossStatement).filter_by(fiscal_year_id=fiscal_year_id).first()
+            if not raw_pls:
+                # レコードが存在しない場合は新規作成
+                raw_pls = RawProfitLossStatement(fiscal_year_id=fiscal_year_id)
+                db.add(raw_pls)
+            # 全項目を上書き保存
+            raw_pls.sales                          = pi('pl_sales')
+            raw_pls.beginning_inventory            = pi('pl_beginning_inventory')
+            raw_pls.manufacturing_cost             = pi('pl_manufacturing_cost')
+            raw_pls.ending_inventory               = pi('pl_ending_inventory')
+            raw_pls.cost_of_sales                  = pi('pl_cost_of_sales')
+            raw_pls.gross_profit                   = pi('pl_gross_profit')
+            raw_pls.labor_cost                     = pi('pl_labor_cost')
+            raw_pls.executive_compensation         = pi('pl_executive_compensation')
+            raw_pls.capital_regeneration_cost      = pi('pl_capital_regeneration_cost')
+            raw_pls.research_development_expenses  = pi('pl_research_development_expenses')
+            raw_pls.general_expenses               = pi('pl_general_expenses')
+            raw_pls.general_expenses_fixed         = pi('pl_general_expenses_fixed')
+            raw_pls.general_expenses_variable      = pi('pl_general_expenses_variable')
+            raw_pls.selling_general_admin_expenses = pi('pl_selling_general_admin_expenses')
+            raw_pls.operating_income               = pi('pl_operating_income')
+            raw_pls.financial_profit_loss          = pi('pl_financial_profit_loss')
+            raw_pls.other_non_operating            = pi('pl_other_non_operating')
+            raw_pls.ordinary_income                = pi('pl_ordinary_income')
+            raw_pls.extraordinary_profit_loss      = pi('pl_extraordinary_profit_loss')
+            raw_pls.income_before_tax              = pi('pl_income_before_tax')
+            raw_pls.income_taxes                   = pi('pl_income_taxes')
+            raw_pls.net_income                     = pi('pl_net_income')
+            raw_pls.dividend                       = pi('pl_dividend')
+            raw_pls.retained_profit                = pi('pl_retained_profit')
+            raw_pls.legal_reserve                  = pi('pl_legal_reserve')
+            raw_pls.voluntary_reserve              = pi('pl_voluntary_reserve')
+            raw_pls.retained_earnings_increase     = pi('pl_retained_earnings_increase')
 
+        # ============================================================
+        # 貸借対照表 生データ（RawBalanceSheet）への upsert 保存
+        # ============================================================
         if 'balance_sheet' in apply_types:
-            rbs = db.query(RestructuredBS).filter_by(fiscal_year_id=fiscal_year_id).first()
-            if not rbs:
-                rbs = RestructuredBS(fiscal_year_id=fiscal_year_id)
-                db.add(rbs)
-            rbs.cash_on_hand = pi('bs_cash_on_hand')
-            rbs.investment_deposits = pi('bs_investment_deposits')
-            rbs.marketable_securities = pi('bs_marketable_securities')
-            rbs.trade_receivables = pi('bs_trade_receivables')
-            rbs.inventory_assets = pi('bs_inventory_assets')
-            rbs.current_assets = pi('bs_current_assets')
-            rbs.tangible_fixed_assets = pi('bs_tangible_fixed_assets')
-            rbs.intangible_fixed_assets = pi('bs_intangible_fixed_assets')
-            rbs.investments_and_other = pi('bs_investments_and_other')
-            rbs.deferred_assets = pi('bs_deferred_assets')
-            rbs.fixed_assets = pi('bs_fixed_assets')
-            rbs.total_assets = pi('bs_total_assets')
-            rbs.trade_payables = pi('bs_trade_payables')
-            rbs.short_term_borrowings = pi('bs_short_term_borrowings')
-            rbs.current_portion_long_term = pi('bs_current_portion_long_term')
-            rbs.discounted_notes = pi('bs_discounted_notes')
-            rbs.other_current_liabilities = pi('bs_other_current_liabilities')
-            rbs.current_liabilities = pi('bs_current_liabilities')
-            rbs.long_term_borrowings = pi('bs_long_term_borrowings')
-            rbs.executive_borrowings = pi('bs_executive_borrowings')
-            rbs.retirement_benefit_liability = pi('bs_retirement_benefit_liability')
-            rbs.other_fixed_liabilities = pi('bs_other_fixed_liabilities')
-            rbs.fixed_liabilities = pi('bs_fixed_liabilities')
-            rbs.total_liabilities = pi('bs_total_liabilities')
-            rbs.capital = pi('bs_capital')
-            rbs.capital_surplus = pi('bs_capital_surplus')
-            rbs.retained_earnings = pi('bs_retained_earnings')
-            rbs.legal_reserve_bs = pi('bs_legal_reserve_bs')
-            rbs.voluntary_reserve_bs = pi('bs_voluntary_reserve_bs')
-            rbs.retained_earnings_carried = pi('bs_retained_earnings_carried')
-            rbs.treasury_stock = pi('bs_treasury_stock')
-            rbs.net_assets = pi('bs_net_assets')
-            rbs.total_liabilities_and_net_assets = pi('bs_total_liabilities_and_net_assets')
+            raw_bs = db.query(RawBalanceSheet).filter_by(fiscal_year_id=fiscal_year_id).first()
+            if not raw_bs:
+                # レコードが存在しない場合は新規作成
+                raw_bs = RawBalanceSheet(fiscal_year_id=fiscal_year_id)
+                db.add(raw_bs)
+            # 全項目を上書き保存
+            raw_bs.cash_on_hand                        = pi('bs_cash_on_hand')
+            raw_bs.investment_deposits                 = pi('bs_investment_deposits')
+            raw_bs.marketable_securities               = pi('bs_marketable_securities')
+            raw_bs.trade_receivables                   = pi('bs_trade_receivables')
+            raw_bs.inventory_assets                    = pi('bs_inventory_assets')
+            raw_bs.current_assets                      = pi('bs_current_assets')
+            raw_bs.tangible_fixed_assets               = pi('bs_tangible_fixed_assets')
+            raw_bs.intangible_fixed_assets             = pi('bs_intangible_fixed_assets')
+            raw_bs.investments_and_other               = pi('bs_investments_and_other')
+            raw_bs.deferred_assets                     = pi('bs_deferred_assets')
+            raw_bs.fixed_assets                        = pi('bs_fixed_assets')
+            raw_bs.total_assets                        = pi('bs_total_assets')
+            raw_bs.trade_payables                      = pi('bs_trade_payables')
+            raw_bs.short_term_borrowings               = pi('bs_short_term_borrowings')
+            raw_bs.current_portion_long_term           = pi('bs_current_portion_long_term')
+            raw_bs.discounted_notes                    = pi('bs_discounted_notes')
+            raw_bs.other_current_liabilities           = pi('bs_other_current_liabilities')
+            raw_bs.current_liabilities                 = pi('bs_current_liabilities')
+            raw_bs.long_term_borrowings                = pi('bs_long_term_borrowings')
+            raw_bs.executive_borrowings                = pi('bs_executive_borrowings')
+            raw_bs.retirement_benefit_liability        = pi('bs_retirement_benefit_liability')
+            raw_bs.other_fixed_liabilities             = pi('bs_other_fixed_liabilities')
+            raw_bs.fixed_liabilities                   = pi('bs_fixed_liabilities')
+            raw_bs.total_liabilities                   = pi('bs_total_liabilities')
+            raw_bs.capital                             = pi('bs_capital')
+            raw_bs.capital_surplus                     = pi('bs_capital_surplus')
+            raw_bs.retained_earnings                   = pi('bs_retained_earnings')
+            raw_bs.legal_reserve_bs                    = pi('bs_legal_reserve_bs')
+            raw_bs.voluntary_reserve_bs                = pi('bs_voluntary_reserve_bs')
+            raw_bs.retained_earnings_carried           = pi('bs_retained_earnings_carried')
+            raw_bs.treasury_stock                      = pi('bs_treasury_stock')
+            raw_bs.net_assets                          = pi('bs_net_assets')
+            raw_bs.total_liabilities_and_net_assets    = pi('bs_total_liabilities_and_net_assets')
 
+        # ============================================================
+        # 製造原価報告書 生データ（RawManufacturingCostReport）への upsert 保存
+        # ============================================================
         if 'manufacturing_cost' in apply_types:
-            mcr = db.query(ManufacturingCostReport).filter_by(fiscal_year_id=fiscal_year_id).first()
-            if not mcr:
-                mcr = ManufacturingCostReport(fiscal_year_id=fiscal_year_id)
-                db.add(mcr)
-            mcr.beginning_raw_material = pi('mc_beginning_raw_material')
-            mcr.raw_material_purchase = pi('mc_raw_material_purchase')
-            mcr.ending_raw_material = pi('mc_ending_raw_material')
-            mcr.material_cost = pi('mc_material_cost')
-            mcr.labor_cost_manufacturing = pi('mc_labor_cost_manufacturing')
-            mcr.outsourcing_cost = pi('mc_outsourcing_cost')
-            mcr.freight_manufacturing = pi('mc_freight_manufacturing')
-            mcr.meeting_cost_manufacturing = pi('mc_meeting_cost_manufacturing')
-            mcr.travel_cost_manufacturing = pi('mc_travel_cost_manufacturing')
-            mcr.communication_cost_manufacturing = pi('mc_communication_cost_manufacturing')
-            mcr.supplies_manufacturing = pi('mc_supplies_manufacturing')
-            mcr.vehicle_cost_manufacturing = pi('mc_vehicle_cost_manufacturing')
-            mcr.rent_manufacturing = pi('mc_rent_manufacturing')
-            mcr.insurance_manufacturing = pi('mc_insurance_manufacturing')
-            mcr.depreciation_manufacturing = pi('mc_depreciation_manufacturing')
-            mcr.repair_cost_manufacturing = pi('mc_repair_cost_manufacturing')
-            mcr.other_manufacturing_cost = pi('mc_other_manufacturing_cost')
-            mcr.manufacturing_expenses_total = pi('mc_manufacturing_expenses_total')
-            mcr.total_manufacturing_cost_current = pi('mc_total_manufacturing_cost_current')
-            mcr.beginning_wip = pi('mc_beginning_wip')
-            mcr.ending_wip = pi('mc_ending_wip')
-            mcr.total_manufacturing_cost = pi('mc_total_manufacturing_cost')
+            raw_mcr = db.query(RawManufacturingCostReport).filter_by(fiscal_year_id=fiscal_year_id).first()
+            if not raw_mcr:
+                # レコードが存在しない場合は新規作成
+                raw_mcr = RawManufacturingCostReport(fiscal_year_id=fiscal_year_id)
+                db.add(raw_mcr)
+            # 全項目を上書き保存
+            raw_mcr.beginning_raw_material              = pi('mc_beginning_raw_material')
+            raw_mcr.raw_material_purchase               = pi('mc_raw_material_purchase')
+            raw_mcr.ending_raw_material                 = pi('mc_ending_raw_material')
+            raw_mcr.material_cost                       = pi('mc_material_cost')
+            raw_mcr.labor_cost_manufacturing            = pi('mc_labor_cost_manufacturing')
+            raw_mcr.outsourcing_cost                    = pi('mc_outsourcing_cost')
+            raw_mcr.freight_manufacturing               = pi('mc_freight_manufacturing')
+            raw_mcr.meeting_cost_manufacturing          = pi('mc_meeting_cost_manufacturing')
+            raw_mcr.travel_cost_manufacturing           = pi('mc_travel_cost_manufacturing')
+            raw_mcr.communication_cost_manufacturing    = pi('mc_communication_cost_manufacturing')
+            raw_mcr.supplies_manufacturing              = pi('mc_supplies_manufacturing')
+            raw_mcr.vehicle_cost_manufacturing          = pi('mc_vehicle_cost_manufacturing')
+            raw_mcr.rent_manufacturing                  = pi('mc_rent_manufacturing')
+            raw_mcr.insurance_manufacturing             = pi('mc_insurance_manufacturing')
+            raw_mcr.depreciation_manufacturing          = pi('mc_depreciation_manufacturing')
+            raw_mcr.repair_cost_manufacturing           = pi('mc_repair_cost_manufacturing')
+            raw_mcr.other_manufacturing_cost            = pi('mc_other_manufacturing_cost')
+            raw_mcr.manufacturing_expenses_total        = pi('mc_manufacturing_expenses_total')
+            raw_mcr.total_manufacturing_cost_current    = pi('mc_total_manufacturing_cost_current')
+            raw_mcr.beginning_wip                       = pi('mc_beginning_wip')
+            raw_mcr.ending_wip                          = pi('mc_ending_wip')
+            raw_mcr.total_manufacturing_cost            = pi('mc_total_manufacturing_cost')
 
         # オリジナル試算表データの保存（生科目JSONをそのまま保存）
         import json as json_module
@@ -4182,14 +4197,59 @@ def pdf_apply():
                 otb.mcr_items = otb_mcr_items
             otb.unit = otb_unit
 
+        # ============================================================
+        # 科目マスタ（AccountMapping）自動登録
+        # PDFから読み取った科目名が未登録の場合は新規追加する
+        # ============================================================
+        if company_id:
+            def register_accounts(items_json, stmt_type):
+                """JSON文字列から科目名を取り出し、未登録のものをAccountMappingに追加"""
+                if not items_json:
+                    return
+                try:
+                    items = json_module.loads(items_json)
+                except (ValueError, TypeError):
+                    return
+                if not isinstance(items, list):
+                    return
+                # 既存の科目名セットを取得
+                existing = set(
+                    row.source_account
+                    for row in db.query(AccountMapping.source_account)
+                        .filter_by(company_id=company_id, statement_type=stmt_type)
+                        .all()
+                )
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    # 科目名キーは 'name' または 'account_name' を想定
+                    account_name = item.get('name') or item.get('account_name') or ''
+                    account_name = str(account_name).strip()
+                    if not account_name:
+                        continue
+                    if account_name not in existing:
+                        # 未登録の場合のみ新規追加
+                        new_mapping = AccountMapping(
+                            company_id=company_id,
+                            source_account=account_name,
+                            target_category='',  # 組換え時にユーザーが設定
+                            statement_type=stmt_type,
+                            is_default=False
+                        )
+                        db.add(new_mapping)
+                        existing.add(account_name)
+
+            register_accounts(otb_pl_items, StatementType.PL)
+            register_accounts(otb_bs_items, StatementType.BS)
+            register_accounts(otb_mcr_items, StatementType.MCR)
+
         db.commit()
 
-        if 'profit_loss' in apply_types:
-            return redirect(url_for('decision.pl_restructuring', company_id=company_id, fiscal_year_id=fiscal_year_id))
-        elif 'balance_sheet' in apply_types:
-            return redirect(url_for('decision.bs_restructuring', company_id=company_id, fiscal_year_id=fiscal_year_id))
+        # 保存後は読み取り済み財務諸表ページへリダイレクト
+        if company_id:
+            return redirect(url_for('decision.company_financial_statements', company_id=company_id))
         else:
-            return redirect(url_for('decision.pdf_upload', company_id=company_id, fiscal_year_id=fiscal_year_id))
+            return redirect(url_for('decision.profit_loss_list'))
     finally:
         db.close()
 
@@ -4297,3 +4357,37 @@ def pdf_parse_status(job_id):
     else:
         return jsonify({'status': 'running'})
 
+
+
+# ==================== マイグレーション（Raw詳細テーブル作成） ====================
+
+@bp.route('/run-migration-raw-tables', methods=['GET'])
+def run_migration_raw_tables():
+    """raw_profit_loss_statements / raw_balance_sheets / raw_manufacturing_cost_reports テーブルを作成し、
+    StatementType ENUM に MCR を追加するマイグレーション"""
+    from ..db import engine, Base
+    from .. import models_decision  # noqa: F401 - 全モデルをBaseに登録
+    from sqlalchemy import text
+
+    results = []
+
+    # 1. 新テーブルを create_all で作成（既存テーブルはスキップ）
+    try:
+        Base.metadata.create_all(bind=engine)
+        results.append('create_all: OK')
+    except Exception as e:
+        results.append(f'create_all: ERROR - {e}')
+
+    # 2. account_mappings の statement_type ENUM に MCR を追加
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(
+                "ALTER TABLE account_mappings "
+                "MODIFY COLUMN statement_type ENUM('PL','BS','MCR') NOT NULL"
+            ))
+            conn.commit()
+        results.append('ALTER TABLE account_mappings statement_type ENUM: OK')
+    except Exception as e:
+        results.append(f'ALTER TABLE account_mappings: {e}')
+
+    return {'results': results}, 200
