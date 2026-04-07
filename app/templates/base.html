@@ -12,20 +12,27 @@
     .user-info .user-name { font-weight: 600; color: #333; }
     .user-info .user-role { color: #666; }
     .user-info .owner-badge { display: inline-block; background: #ffd700; color: #333; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; margin-left: 0.5rem; }
-    .card { border: 1px solid #ddd; border-radius: 12px; padding: 1.25rem; margin: 1rem 0; }
-    .btn { display: inline-block; padding: .6rem 1rem; border-radius: 8px; border: 1px solid #333; text-decoration: none; }
-    .btn-primary { background: #333; color: #fff; border-color: #333; }
+    .card:not([class*="card-"]) { border: 1px solid #ddd; border-radius: 12px; padding: 1.25rem; margin: 1rem 0; }
+    .btn:not([class*="btn-"]) { display: inline-block; padding: .6rem 1rem; border-radius: 8px; border: 1px solid #333; text-decoration: none; }
     .btn-link { border: none; color: #0b5ed7; background: transparent; }
     .grid { display: grid; gap: .75rem; }
     .grid-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
     label { font-weight: 600; }
-    input, select { width: 100%; padding: .6rem .7rem; border: 1px solid #ccc; border-radius: 8px; background-color: white; }
-    .alert { padding: .8rem 1rem; border-radius: 8px; margin: .75rem 0; }
-    .alert-success { background: #e6f4ea; color: #185a2b; border: 1px solid #b7e1c1; }
-    .alert-warning { background: #fff4e5; color: #8a4b11; border: 1px solid #ffd59e; }
+    /* Bootstrapクラスが付いていないinput/selectのみスタイル適用 */
+    input:not([class]), input[class=""], select:not([class]), select[class=""] { width: 100%; padding: .6rem .7rem; border: 1px solid #ccc; border-radius: 8px; background-color: white; }
+    .alert:not([class*="alert-"]) { padding: .8rem 1rem; border-radius: 8px; margin: .75rem 0; }
+    .alert-success:not(.alert) { background: #e6f4ea; color: #185a2b; border: 1px solid #b7e1c1; }
+    .alert-warning:not(.alert) { background: #fff4e5; color: #8a4b11; border: 1px solid #ffd59e; }
     .alert-error { background: #fde7e9; color: #8a1f2d; border: 1px solid #f5b7c0; }
+    /* 非Bootstrapページ用のalert */
+    div.alert.alert-success { background: #e6f4ea; color: #185a2b; border: 1px solid #b7e1c1; padding: .8rem 1rem; border-radius: 8px; margin: .75rem 0; }
+    div.alert.alert-warning { background: #fff4e5; color: #8a4b11; border: 1px solid #ffd59e; padding: .8rem 1rem; border-radius: 8px; margin: .75rem 0; }
+    div.alert.alert-error { background: #fde7e9; color: #8a1f2d; border: 1px solid #f5b7c0; padding: .8rem 1rem; border-radius: 8px; margin: .75rem 0; }
     footer { margin-top: 2rem; color: #777; font-size: .9rem; }
+    /* btn-xs（Bootstrapにない）*/
+    .btn-xs { padding: .2rem .4rem; font-size: .75rem; border-radius: .2rem; }
   </style>
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
   <div class="container">
@@ -70,5 +77,6 @@
   </div>
 
   <script src="{{ url_for('static', filename='js/comma_input.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
 </body>
 </html>

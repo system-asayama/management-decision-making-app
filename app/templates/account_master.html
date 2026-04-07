@@ -594,6 +594,7 @@
 }
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const allFields = {{ all_fields | tojson | safe }};
 const categoryTree = {{ category_tree | tojson | safe }};
@@ -931,5 +932,4 @@ function showToast(msg, type) {
   new bootstrap.Toast(toast, {delay: 3000}).show();
 }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}
