@@ -4041,7 +4041,7 @@ def bs_restructuring():
 ## ==================== PDF財務諸表読み取り ====================
 import os
 import tempfile
-from ..services.pdf_parser_service import parse_financial_pdf
+from ..services.pdf_parser_service import parse_financial_pdf, reparse_with_instruction
 from ..models_decision import RestructuredPL, RestructuredBS
 from ..models_login import TKanrisha
 @bp.route('/pdf-upload', methods=['GET', 'POST'])
@@ -4621,6 +4621,69 @@ def pdf_parse_async():
     t = threading.Thread(target=run_parse, daemon=True)
     t.start()
 
+    return jsonify({'job_id': job_id})
+
+
+@bp.route('/pdf-reparse-async', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def pdf_reparse_async():
+    """追加指示付きでPDF生科目データを再読み取り（非同期）"""
+    import json as _json
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        openai_api_key = None
+        current_user_id = session.get('user_id')
+        if current_user_id:
+            current_user = db.query(TKanrisha).filter(TKanrisha.id == current_user_id).first()
+            if current_user and current_user.openai_api_key and current_user.openai_api_key.strip():
+                openai_api_key = current_user.openai_api_key.strip()
+        if not openai_api_key:
+            sys_admin = db.query(TKanrisha).filter(
+                TKanrisha.openai_api_key != None,
+                TKanrisha.openai_api_key != ''
+            ).first()
+            if sys_admin and sys_admin.openai_api_key:
+                openai_api_key = sys_admin.openai_api_key.strip()
+    finally:
+        db.close()
+
+    if not openai_api_key:
+        return jsonify({'error': 'OpenAI APIキーが設定されていません'}), 400
+
+    additional_instruction = request.form.get('additional_instruction', '').strip()
+    if not additional_instruction:
+        return jsonify({'error': '追加指示を入力してください'}), 400
+
+    raw_text = request.form.get('raw_text', '')
+    current_items_json = request.form.get('current_items', '{}')
+    try:
+        current_items = _json.loads(current_items_json)
+    except Exception:
+        current_items = {}
+
+    job_id = str(uuid.uuid4())
+    with _pdf_jobs_lock:
+        _pdf_jobs[job_id] = {'status': 'running', 'result': None, 'error': None}
+
+    def run_reparse():
+        try:
+            result = reparse_with_instruction(
+                pdf_text=raw_text,
+                current_items=current_items,
+                additional_instruction=additional_instruction,
+                api_key=openai_api_key
+            )
+            with _pdf_jobs_lock:
+                _pdf_jobs[job_id]['status'] = 'done'
+                _pdf_jobs[job_id]['result'] = result
+        except Exception as e:
+            with _pdf_jobs_lock:
+                _pdf_jobs[job_id]['status'] = 'error'
+                _pdf_jobs[job_id]['error'] = str(e)
+
+    t = threading.Thread(target=run_reparse, daemon=True)
+    t.start()
     return jsonify({'job_id': job_id})
 
 

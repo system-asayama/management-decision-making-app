@@ -95,252 +95,186 @@
           {% if t == 'profit_loss' %}<span class="badge bg-success me-1">損益計算書</span>{% endif %}
           {% if t == 'manufacturing_cost' %}<span class="badge bg-warning text-dark me-1">製造原価報告書</span>{% endif %}
         {% endfor %}
-        <br><small class="text-muted mt-1 d-block">科目名・金額を直接編集できます。読み取り不足がある場合は「追加指示で再読み取り」をご利用ください。</small>
+        <br><small class="text-muted mt-1 d-block">科目名・金額を直接編集できます。不足がある場合は追加指示で再読み取りできます。</small>
       </div>
 
-      <!-- 追加指示で再読み取りパネル -->
-      {% if parse_result.raw_text or (parse_result.original_trial_balance) %}
+      <!-- 追加指示・再読み取りパネル -->
       <div class="card border-warning mb-4">
         <div class="card-header bg-warning text-dark">
           <h6 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>追加指示で再読み取り</h6>
         </div>
         <div class="card-body">
-          <p class="text-muted small mb-2">読み取り不足や誤読があった場合、指示を入力してAIに再読み取りさせることができます。</p>
+          <p class="text-muted small mb-2">読み取り不足や誤りがある場合、指示を入力してAIに再読み取りさせることができます。</p>
           <div class="mb-2">
-            <label class="form-label fw-bold small">追加指示</label>
-            <textarea id="additionalInstruction" class="form-control" rows="3" placeholder="例：工具器具備品と車両運搬具が抜けています。有形固定資産の明細科目をすべて読み取ってください。&#10;例：土地の金額が誤っています。PDFの土地の行の金額を正確に読み取ってください。&#10;例：受取利息が抜けています。営業外収益の科目をすべて含めてください。"></textarea>
+            <textarea id="additional_instruction" class="form-control" rows="3"
+              placeholder="例：工具器具備品と車両運搬具が抜けています。受取利息も追加してください。土地の金額が間違っています。"></textarea>
           </div>
           <button type="button" class="btn btn-warning" id="reparseBtn">
-            <i class="bi bi-arrow-repeat me-2"></i>この指示で再読み取り
+            <i class="bi bi-arrow-repeat me-2"></i>追加指示で再読み取り
           </button>
-          <div id="reparseProgressArea" class="mt-3" style="display:none;">
-            <div class="progress" style="height:20px;">
-              <div id="reparseProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" style="width:20%">読み取り中...</div>
-            </div>
-            <small class="text-muted">AIが再読み取り中です。しばらくお待ちください...</small>
+        </div>
+      </div>
+
+      <!-- 再読み取り進捗 -->
+      <div id="reparseProgressArea" class="card border-warning mb-4" style="display:none;">
+        <div class="card-body">
+          <p class="text-muted mb-2 small">AIが再読み取り中... しばらくお待ちください。</p>
+          <div class="progress" style="height: 20px;">
+            <div id="reparseProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" role="progressbar" style="width: 30%">処理中...</div>
           </div>
         </div>
       </div>
-      {% endif %}
 
-      <!-- 保存フォーム（科目名・金額を直接編集可能） -->
+      <!-- 保存フォーム（科目データはJSで管理） -->
       <form method="POST" action="{{ url_for('decision.pdf_apply') }}" id="applyForm">
         <input type="hidden" name="fiscal_year_id" value="{{ fiscal_year_id }}">
         <input type="hidden" name="company_id" value="{{ company_id }}">
-        <!-- オリジナル試算表データ（生科目JSON） -->
+        <!-- オリジナル試算表データ（生科目JSON） - JSで更新される -->
         <input type="hidden" name="otb_pl_items" id="otb_pl_items_field">
         <input type="hidden" name="otb_bs_items" id="otb_bs_items_field">
         <input type="hidden" name="otb_mcr_items" id="otb_mcr_items_field">
         <input type="hidden" name="otb_unit" value="{{ parse_result.unit }}">
-        <input type="hidden" name="raw_text" id="raw_text_field" value="{{ parse_result.raw_text | default('') | e }}">
+        <!-- raw_textを保持（再読み取り用） -->
+        <input type="hidden" id="raw_text_field" value="">
 
-        {# ===================== 貸借対照表（生データ表示・編集可能） ===================== #}
+        {# ===================== 貸借対照表 ===================== #}
         {% if parse_result.original_trial_balance and parse_result.original_trial_balance.bs_items %}
-        {% set bs_items = parse_result.original_trial_balance.bs_items %}
         <div class="mb-4">
           <div class="d-flex align-items-center mb-2">
             <input class="form-check-input me-2" type="checkbox" name="apply_types" value="balance_sheet" id="apply_bs" checked>
             <label class="form-check-label fw-bold fs-5 text-primary" for="apply_bs">
               <i class="bi bi-table me-1"></i>貸借対照表
             </label>
-            <button type="button" class="btn btn-sm btn-outline-primary ms-3" onclick="addRow('bs_table_body', '流動資産')">
-              <i class="bi bi-plus-circle me-1"></i>行を追加
-            </button>
           </div>
           <div class="table-responsive">
             <table class="table table-sm table-bordered table-hover" id="bs_table">
               <thead class="table-primary">
                 <tr>
                   <th style="width:35%">科目名</th>
-                  <th style="width:25%">セクション</th>
-                  <th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th>
-                  <th style="width:10%"></th>
+                  <th style="width:25%" class="text-end">読み取り値（{{ parse_result.unit }}）</th>
+                  <th style="width:30%">修正後の科目名</th>
+                  <th style="width:15%">修正後の金額</th>
+                  <th style="width:5%"></th>
                 </tr>
               </thead>
-              <tbody id="bs_table_body">
-                {# sectionフィールドでグループ化して表示 #}
+              <tbody id="bs_tbody">
                 {% set ns = namespace(current_section='') %}
-                {% for item in bs_items %}
+                {% for item in parse_result.original_trial_balance.bs_items %}
                   {% set sec = item.get('section', '') %}
                   {% if sec and sec != ns.current_section %}
                     {% set ns.current_section = sec %}
-                    <tr style="background:#ecf0f1; font-weight:700;" class="section-header-row">
-                      <td colspan="4" class="ps-2">【{{ sec }}】</td>
+                    <tr class="section-header-row" style="background:#ecf0f1; font-weight:700;">
+                      <td colspan="5" class="ps-2">【{{ sec }}】</td>
                     </tr>
                   {% endif %}
-                  <tr class="item-row">
-                    <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}" placeholder="科目名"></td>
-                    <td><input type="text" class="form-control form-control-sm item-section" value="{{ sec }}" placeholder="セクション"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ item.amount | int }}"></td>
-                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
+                  <tr class="item-row" data-section="{{ sec }}">
+                    <td class="ps-4 text-muted small">{{ item.name }}</td>
+                    <td class="text-end pe-3 text-muted small">{{ "{:,}".format(item.amount | int) }}</td>
+                    <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}"></td>
+                    <td><input type="number" class="form-control form-control-sm item-amount" value="{{ item.amount | int }}"></td>
+                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button></td>
                   </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-        </div>
-        {% elif parse_result.balance_sheet %}
-        {# フォールバック：original_trial_balanceがない場合 #}
-        {% set bs = parse_result.balance_sheet %}
-        <div class="mb-4">
-          <div class="d-flex align-items-center mb-2">
-            <input class="form-check-input me-2" type="checkbox" name="apply_types" value="balance_sheet" id="apply_bs" checked>
-            <label class="form-check-label fw-bold fs-5 text-primary" for="apply_bs">
-              <i class="bi bi-table me-1"></i>貸借対照表
-            </label>
-          </div>
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover" id="bs_table">
-              <thead class="table-primary">
-                <tr><th style="width:35%">科目名</th><th style="width:25%">セクション</th><th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th><th style="width:10%"></th></tr>
-              </thead>
-              <tbody id="bs_table_body">
-                <tr style="background:#ecf0f1; font-weight:700;" class="section-header-row"><td colspan="4" class="ps-2">【資産の部】</td></tr>
-                {% for key, label, sec in [('cash_on_hand','手許現預金','流動資産'),('investment_deposits','運用預金','流動資産'),('marketable_securities','有価証券','流動資産'),('trade_receivables','売掛債権','流動資産'),('inventory_assets','棚卸資産','流動資産'),('current_assets','流動資産 合計','流動資産'),('tangible_fixed_assets','有形固定資産','固定資産'),('intangible_fixed_assets','無形固定資産','固定資産'),('investments_and_other','投資その他の資産','固定資産'),('deferred_assets','繰延資産','固定資産'),('fixed_assets','固定資産 合計','固定資産'),('total_assets','資産 合計','資産の部')] %}
-                {% set val = bs.get(key, 0) or 0 %}
-                <tr class="item-row"><td><input type="text" class="form-control form-control-sm item-name" value="{{ label }}"></td><td><input type="text" class="form-control form-control-sm item-section" value="{{ sec }}"></td><td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ val }}"></td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary add-row-btn" data-target="bs_tbody" data-section="">
+            <i class="bi bi-plus-circle me-1"></i>行を追加
+          </button>
         </div>
         {% endif %}
 
-        {# ===================== 損益計算書（生データ表示・編集可能） ===================== #}
+        {# ===================== 損益計算書 ===================== #}
         {% if parse_result.original_trial_balance and parse_result.original_trial_balance.pl_items %}
-        {% set pl_items = parse_result.original_trial_balance.pl_items %}
         <div class="mb-4">
           <div class="d-flex align-items-center mb-2">
             <input class="form-check-input me-2" type="checkbox" name="apply_types" value="profit_loss" id="apply_pl" checked>
             <label class="form-check-label fw-bold fs-5 text-success" for="apply_pl">
               <i class="bi bi-bar-chart me-1"></i>損益計算書
             </label>
-            <button type="button" class="btn btn-sm btn-outline-success ms-3" onclick="addRow('pl_table_body', '売上高')">
-              <i class="bi bi-plus-circle me-1"></i>行を追加
-            </button>
           </div>
           <div class="table-responsive">
             <table class="table table-sm table-bordered table-hover" id="pl_table">
               <thead class="table-success">
                 <tr>
                   <th style="width:35%">科目名</th>
-                  <th style="width:25%">セクション</th>
-                  <th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th>
-                  <th style="width:10%"></th>
+                  <th style="width:25%" class="text-end">読み取り値（{{ parse_result.unit }}）</th>
+                  <th style="width:30%">修正後の科目名</th>
+                  <th style="width:15%">修正後の金額</th>
+                  <th style="width:5%"></th>
                 </tr>
               </thead>
-              <tbody id="pl_table_body">
+              <tbody id="pl_tbody">
                 {% set ns2 = namespace(current_section='') %}
-                {% for item in pl_items %}
+                {% for item in parse_result.original_trial_balance.pl_items %}
                   {% set sec = item.get('section', '') %}
                   {% if sec and sec != ns2.current_section %}
                     {% set ns2.current_section = sec %}
-                    <tr style="background:#ecf0f1; font-weight:700;" class="section-header-row">
-                      <td colspan="4" class="ps-2">【{{ sec }}】</td>
+                    <tr class="section-header-row" style="background:#ecf0f1; font-weight:700;">
+                      <td colspan="5" class="ps-2">【{{ sec }}】</td>
                     </tr>
                   {% endif %}
-                  <tr class="item-row">
-                    <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}" placeholder="科目名"></td>
-                    <td><input type="text" class="form-control form-control-sm item-section" value="{{ sec }}" placeholder="セクション"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ item.amount | int }}"></td>
-                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
+                  <tr class="item-row" data-section="{{ sec }}">
+                    <td class="ps-4 text-muted small">{{ item.name }}</td>
+                    <td class="text-end pe-3 text-muted small">{{ "{:,}".format(item.amount | int) }}</td>
+                    <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}"></td>
+                    <td><input type="number" class="form-control form-control-sm item-amount" value="{{ item.amount | int }}"></td>
+                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button></td>
                   </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-        </div>
-        {% elif parse_result.profit_loss %}
-        {% set pl = parse_result.profit_loss %}
-        <div class="mb-4">
-          <div class="d-flex align-items-center mb-2">
-            <input class="form-check-input me-2" type="checkbox" name="apply_types" value="profit_loss" id="apply_pl" checked>
-            <label class="form-check-label fw-bold fs-5 text-success" for="apply_pl">
-              <i class="bi bi-bar-chart me-1"></i>損益計算書
-            </label>
-          </div>
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover" id="pl_table">
-              <thead class="table-success">
-                <tr><th style="width:35%">科目名</th><th style="width:25%">セクション</th><th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th><th style="width:10%"></th></tr>
-              </thead>
-              <tbody id="pl_table_body">
-                {% for key, label, sec in [('sales','売上高','売上高'),('cost_of_sales','売上原価 合計','売上原価'),('gross_profit','売上総利益','売上高'),('selling_general_admin_expenses','販管費 合計','販売費及び一般管理費'),('operating_income','営業利益','営業利益'),('ordinary_income','経常利益','経常利益'),('net_income','当期純利益','当期純利益')] %}
-                {% set val = pl.get(key, 0) or 0 %}
-                <tr class="item-row"><td><input type="text" class="form-control form-control-sm item-name" value="{{ label }}"></td><td><input type="text" class="form-control form-control-sm item-section" value="{{ sec }}"></td><td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ val }}"></td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+          <button type="button" class="btn btn-sm btn-outline-success add-row-btn" data-target="pl_tbody" data-section="">
+            <i class="bi bi-plus-circle me-1"></i>行を追加
+          </button>
         </div>
         {% endif %}
 
-        {# ===================== 製造原価報告書（生データ表示・編集可能） ===================== #}
+        {# ===================== 製造原価報告書 ===================== #}
         {% if parse_result.original_trial_balance and parse_result.original_trial_balance.mcr_items %}
-        {% set mcr_items = parse_result.original_trial_balance.mcr_items %}
         <div class="mb-4">
           <div class="d-flex align-items-center mb-2">
             <input class="form-check-input me-2" type="checkbox" name="apply_types" value="manufacturing_cost" id="apply_mfg" checked>
             <label class="form-check-label fw-bold fs-5 text-warning" for="apply_mfg">
               <i class="bi bi-gear me-1"></i>製造原価報告書
             </label>
-            <button type="button" class="btn btn-sm btn-outline-warning ms-3" onclick="addRow('mcr_table_body', '製造原価')">
-              <i class="bi bi-plus-circle me-1"></i>行を追加
-            </button>
           </div>
           <div class="table-responsive">
             <table class="table table-sm table-bordered table-hover" id="mcr_table">
               <thead class="table-warning">
                 <tr>
                   <th style="width:35%">科目名</th>
-                  <th style="width:25%">セクション</th>
-                  <th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th>
-                  <th style="width:10%"></th>
+                  <th style="width:25%" class="text-end">読み取り値（{{ parse_result.unit }}）</th>
+                  <th style="width:30%">修正後の科目名</th>
+                  <th style="width:15%">修正後の金額</th>
+                  <th style="width:5%"></th>
                 </tr>
               </thead>
-              <tbody id="mcr_table_body">
+              <tbody id="mcr_tbody">
                 {% set ns3 = namespace(current_section='') %}
-                {% for item in mcr_items %}
+                {% for item in parse_result.original_trial_balance.mcr_items %}
                   {% set sec = item.get('section', '') %}
                   {% if sec and sec != ns3.current_section %}
                     {% set ns3.current_section = sec %}
-                    <tr style="background:#ecf0f1; font-weight:700;" class="section-header-row">
-                      <td colspan="4" class="ps-2">【{{ sec }}】</td>
+                    <tr class="section-header-row" style="background:#ecf0f1; font-weight:700;">
+                      <td colspan="5" class="ps-2">【{{ sec }}】</td>
                     </tr>
                   {% endif %}
-                  <tr class="item-row">
-                    <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}" placeholder="科目名"></td>
-                    <td><input type="text" class="form-control form-control-sm item-section" value="{{ sec }}" placeholder="セクション"></td>
-                    <td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ item.amount | int }}"></td>
-                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>
+                  <tr class="item-row" data-section="{{ sec }}">
+                    <td class="ps-4 text-muted small">{{ item.name }}</td>
+                    <td class="text-end pe-3 text-muted small">{{ "{:,}".format(item.amount | int) }}</td>
+                    <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}"></td>
+                    <td><input type="number" class="form-control form-control-sm item-amount" value="{{ item.amount | int }}"></td>
+                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button></td>
                   </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-        </div>
-        {% elif parse_result.manufacturing_cost %}
-        {% set mfg = parse_result.manufacturing_cost %}
-        <div class="mb-4">
-          <div class="d-flex align-items-center mb-2">
-            <input class="form-check-input me-2" type="checkbox" name="apply_types" value="manufacturing_cost" id="apply_mfg" checked>
-            <label class="form-check-label fw-bold fs-5 text-warning" for="apply_mfg">
-              <i class="bi bi-gear me-1"></i>製造原価報告書
-            </label>
-          </div>
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered table-hover" id="mcr_table">
-              <thead class="table-warning">
-                <tr><th style="width:35%">科目名</th><th style="width:25%">セクション</th><th style="width:30%" class="text-end">金額（{{ parse_result.unit }}）</th><th style="width:10%"></th></tr>
-              </thead>
-              <tbody id="mcr_table_body">
-                {% for key, label in [('material_cost','材料費計'),('labor_cost_manufacturing','労務費計'),('outsourcing_cost','外注加工費'),('manufacturing_expenses_total','製造経費計'),('total_manufacturing_cost_current','総製造費用'),('total_manufacturing_cost','製造原価合計')] %}
-                {% set val = mfg.get(key, 0) or 0 %}
-                <tr class="item-row"><td><input type="text" class="form-control form-control-sm item-name" value="{{ label }}"></td><td><input type="text" class="form-control form-control-sm item-section" value="製造原価"></td><td><input type="number" class="form-control form-control-sm text-end item-amount" value="{{ val }}"></td><td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+          <button type="button" class="btn btn-sm btn-outline-warning add-row-btn" data-target="mcr_tbody" data-section="">
+            <i class="bi bi-plus-circle me-1"></i>行を追加
+          </button>
         </div>
         {% endif %}
 
@@ -362,13 +296,13 @@
   </a>
 </div>
 
-<!-- 読み取り中プログレスエリア -->
-<div id="parseProgressArea" class="card shadow-sm mb-4" style="display:none; position:fixed; bottom:20px; right:20px; width:350px; z-index:9999;">
+<!-- 読み取り中プログレス -->
+<div id="parseProgressArea" class="card shadow-sm mb-4" style="display:none;">
   <div class="card-header bg-warning text-dark">
     <h5 class="mb-0"><i class="bi bi-cpu me-2"></i>AIが財務諸表を読み取り中...</h5>
   </div>
   <div class="card-body">
-    <p class="text-muted mb-3 small">1〜2分かかる場合があります。このページを閉じないでください。</p>
+    <p class="text-muted mb-3">AIが試算表を解析しています。1〜2分かかる場合があります。このページを閉じないでください。</p>
     <div class="progress" style="height: 24px;">
       <div id="parseProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" role="progressbar" style="width: 0%">0%</div>
     </div>
@@ -377,66 +311,172 @@
 </div>
 
 <script>
-// ===================== 初期データ設定 =====================
-{% if parse_result and parse_result.original_trial_balance %}
-var _otbData = {{ parse_result.original_trial_balance | tojson | safe }};
-{% else %}
-var _otbData = {bs_items: [], pl_items: [], mcr_items: []};
-{% endif %}
-var _rawText = {{ (parse_result.raw_text if parse_result and parse_result.raw_text else '') | tojson | safe }};
-var _unit = {{ (parse_result.unit if parse_result and parse_result.unit else '円') | tojson | safe }};
+// ========== 初期データ ==========
+var otbData = {{ (parse_result.original_trial_balance if parse_result and parse_result.original_trial_balance else {}) | tojson | safe }};
+var rawTextData = {{ (parse_result.raw_text if parse_result and parse_result.raw_text else '') | tojson | safe }};
+if (document.getElementById('raw_text_field')) {
+  document.getElementById('raw_text_field').value = rawTextData;
+}
+var bsItems = otbData.bs_items || [];
+var plItems = otbData.pl_items || [];
+var mcrItems = otbData.mcr_items || [];
 
-// ===================== 行の追加・削除 =====================
-function addRow(tbodyId, defaultSection) {
-  var tbody = document.getElementById(tbodyId);
-  if (!tbody) return;
-  var tr = document.createElement('tr');
-  tr.className = 'item-row';
-  tr.innerHTML = '<td><input type="text" class="form-control form-control-sm item-name" value="" placeholder="科目名"></td>' +
-    '<td><input type="text" class="form-control form-control-sm item-section" value="' + (defaultSection || '') + '" placeholder="セクション"></td>' +
-    '<td><input type="number" class="form-control form-control-sm text-end item-amount" value="0"></td>' +
-    '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>';
-  tbody.appendChild(tr);
+// ========== hidden fieldを更新 ==========
+function updateHiddenFields() {
+  // テーブルから現在の編集値を収集
+  bsItems = collectItemsFromTable('bs_tbody');
+  plItems = collectItemsFromTable('pl_tbody');
+  mcrItems = collectItemsFromTable('mcr_tbody');
+
+  var bsField = document.getElementById('otb_bs_items_field');
+  var plField = document.getElementById('otb_pl_items_field');
+  var mcrField = document.getElementById('otb_mcr_items_field');
+  if (bsField) bsField.value = JSON.stringify(bsItems);
+  if (plField) plField.value = JSON.stringify(plItems);
+  if (mcrField) mcrField.value = JSON.stringify(mcrItems);
 }
 
-function removeRow(btn) {
-  var tr = btn.closest('tr');
-  if (tr) tr.remove();
-}
-
-// ===================== テーブルからJSONを収集 =====================
+// ========== テーブルから科目データを収集 ==========
 function collectItemsFromTable(tbodyId) {
   var tbody = document.getElementById(tbodyId);
   if (!tbody) return [];
   var items = [];
-  tbody.querySelectorAll('tr.item-row').forEach(function(tr) {
-    var nameInput = tr.querySelector('.item-name');
-    var sectionInput = tr.querySelector('.item-section');
-    var amountInput = tr.querySelector('.item-amount');
-    if (!nameInput) return;
-    var name = nameInput.value.trim();
-    if (!name) return;
-    items.push({
-      name: name,
-      section: sectionInput ? sectionInput.value.trim() : '',
-      amount: amountInput ? (parseInt(amountInput.value) || 0) : 0
-    });
+  var rows = tbody.querySelectorAll('tr.item-row');
+  rows.forEach(function(row) {
+    var nameInput = row.querySelector('.item-name');
+    var amountInput = row.querySelector('.item-amount');
+    var section = row.getAttribute('data-section') || '';
+    if (nameInput && amountInput) {
+      var name = nameInput.value.trim();
+      var amount = parseInt(amountInput.value) || 0;
+      if (name) {
+        items.push({ name: name, amount: amount, section: section });
+      }
+    }
   });
   return items;
 }
 
-// ===================== フォーム送信前にhiddenフィールドを更新 =====================
-document.getElementById('applyForm').addEventListener('submit', function(e) {
-  var bsItems = collectItemsFromTable('bs_table_body');
-  var plItems = collectItemsFromTable('pl_table_body');
-  var mcrItems = collectItemsFromTable('mcr_table_body');
-  document.getElementById('otb_bs_items_field').value = JSON.stringify(bsItems);
-  document.getElementById('otb_pl_items_field').value = JSON.stringify(plItems);
-  document.getElementById('otb_mcr_items_field').value = JSON.stringify(mcrItems);
-  document.getElementById('raw_text_field').value = _rawText;
+// ========== 行削除ボタン ==========
+document.addEventListener('click', function(e) {
+  if (e.target.closest('.delete-row-btn')) {
+    var btn = e.target.closest('.delete-row-btn');
+    var row = btn.closest('tr.item-row');
+    if (row) row.remove();
+  }
 });
 
-// ===================== テーブルを再描画（再読み取り後） =====================
+// ========== 行追加ボタン ==========
+document.querySelectorAll('.add-row-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var tbodyId = this.getAttribute('data-target');
+    var tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    var newRow = document.createElement('tr');
+    newRow.className = 'item-row';
+    newRow.setAttribute('data-section', '');
+    newRow.innerHTML = '<td class="ps-4 text-muted small">（新規）</td>' +
+      '<td class="text-end pe-3 text-muted small">0</td>' +
+      '<td><input type="text" class="form-control form-control-sm item-name" value="" placeholder="科目名を入力"></td>' +
+      '<td><input type="number" class="form-control form-control-sm item-amount" value="0"></td>' +
+      '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button></td>';
+    tbody.appendChild(newRow);
+  });
+});
+
+// ========== 保存前にhidden fieldを更新 ==========
+var applyForm = document.getElementById('applyForm');
+if (applyForm) {
+  applyForm.addEventListener('submit', function(e) {
+    updateHiddenFields();
+  });
+}
+
+// ========== 追加指示で再読み取り ==========
+var reparseBtn = document.getElementById('reparseBtn');
+if (reparseBtn) {
+  reparseBtn.addEventListener('click', function() {
+    var instruction = document.getElementById('additional_instruction').value.trim();
+    if (!instruction) {
+      alert('追加指示を入力してください');
+      return;
+    }
+
+    var rawText = document.getElementById('raw_text_field') ? document.getElementById('raw_text_field').value : '';
+
+    // 現在の編集済みデータを収集
+    var currentBs = collectItemsFromTable('bs_tbody');
+    var currentPl = collectItemsFromTable('pl_tbody');
+    var currentMcr = collectItemsFromTable('mcr_tbody');
+    var currentItems = { bs_items: currentBs, pl_items: currentPl, mcr_items: currentMcr };
+
+    // UI更新
+    reparseBtn.disabled = true;
+    reparseBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>再読み取り中...';
+    document.getElementById('reparseProgressArea').style.display = 'block';
+
+    // FormDataを構築
+    var formData = new FormData();
+    formData.append('additional_instruction', instruction);
+    formData.append('raw_text', rawText);
+    formData.append('current_items', JSON.stringify(currentItems));
+
+    fetch('{{ url_for("decision.pdf_reparse_async") }}', {
+      method: 'POST',
+      body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) {
+        alert('エラー: ' + data.error);
+        reparseBtn.disabled = false;
+        reparseBtn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>追加指示で再読み取り';
+        document.getElementById('reparseProgressArea').style.display = 'none';
+        return;
+      }
+      var jobId = data.job_id;
+
+      // ポーリングで進捗確認
+      var pollInterval = setInterval(function() {
+        fetch('{{ url_for("decision.pdf_parse_status", job_id="__JOB_ID__") }}'.replace('__JOB_ID__', jobId))
+        .then(function(r) { return r.json(); })
+        .then(function(statusData) {
+          if (statusData.status === 'done') {
+            clearInterval(pollInterval);
+            var result = statusData.result;
+
+            // テーブルを再描画
+            if (result.bs_items) renderTable('bs_tbody', result.bs_items);
+            if (result.pl_items) renderTable('pl_tbody', result.pl_items);
+            if (result.mcr_items) renderTable('mcr_tbody', result.mcr_items);
+
+            reparseBtn.disabled = false;
+            reparseBtn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>追加指示で再読み取り';
+            document.getElementById('reparseProgressArea').style.display = 'none';
+            document.getElementById('additional_instruction').value = '';
+            alert('再読み取りが完了しました。内容を確認してください。');
+
+          } else if (statusData.status === 'error') {
+            clearInterval(pollInterval);
+            alert('再読み取りエラー: ' + statusData.error);
+            reparseBtn.disabled = false;
+            reparseBtn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>追加指示で再読み取り';
+            document.getElementById('reparseProgressArea').style.display = 'none';
+          }
+        })
+        .catch(function() {});
+      }, 3000);
+    })
+    .catch(function(err) {
+      alert('送信エラー: ' + err);
+      reparseBtn.disabled = false;
+      reparseBtn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>追加指示で再読み取り';
+      document.getElementById('reparseProgressArea').style.display = 'none';
+    });
+  });
+}
+
+// ========== テーブル再描画 ==========
 function renderTable(tbodyId, items) {
   var tbody = document.getElementById(tbodyId);
   if (!tbody) return;
@@ -446,129 +486,51 @@ function renderTable(tbodyId, items) {
     var sec = item.section || '';
     if (sec && sec !== currentSection) {
       currentSection = sec;
-      var headerTr = document.createElement('tr');
-      headerTr.style.background = '#ecf0f1';
-      headerTr.style.fontWeight = '700';
-      headerTr.className = 'section-header-row';
-      headerTr.innerHTML = '<td colspan="4" class="ps-2">【' + sec + '】</td>';
-      tbody.appendChild(headerTr);
+      var headerRow = document.createElement('tr');
+      headerRow.className = 'section-header-row';
+      headerRow.style.background = '#ecf0f1';
+      headerRow.style.fontWeight = '700';
+      headerRow.innerHTML = '<td colspan="5" class="ps-2">【' + sec + '】</td>';
+      tbody.appendChild(headerRow);
     }
-    var tr = document.createElement('tr');
-    tr.className = 'item-row';
-    tr.innerHTML = '<td><input type="text" class="form-control form-control-sm item-name" value="' + escHtml(item.name) + '" placeholder="科目名"></td>' +
-      '<td><input type="text" class="form-control form-control-sm item-section" value="' + escHtml(sec) + '" placeholder="セクション"></td>' +
-      '<td><input type="number" class="form-control form-control-sm text-end item-amount" value="' + (item.amount || 0) + '"></td>' +
-      '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash"></i></button></td>';
-    tbody.appendChild(tr);
+    var row = document.createElement('tr');
+    row.className = 'item-row';
+    row.setAttribute('data-section', sec);
+    var amount = parseInt(item.amount) || 0;
+    var amountFormatted = amount.toLocaleString('ja-JP');
+    row.innerHTML =
+      '<td class="ps-4 text-muted small">' + escapeHtml(item.name) + '</td>' +
+      '<td class="text-end pe-3 text-muted small">' + amountFormatted + '</td>' +
+      '<td><input type="text" class="form-control form-control-sm item-name" value="' + escapeHtml(item.name) + '"></td>' +
+      '<td><input type="number" class="form-control form-control-sm item-amount" value="' + amount + '"></td>' +
+      '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button></td>';
+    tbody.appendChild(row);
   });
 }
 
-function escHtml(str) {
+function escapeHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ===================== 追加指示で再読み取り =====================
-var _reparseJobId = null;
-var _reparsePollInterval = null;
-
-document.getElementById('reparseBtn') && document.getElementById('reparseBtn').addEventListener('click', function() {
-  var instruction = document.getElementById('additionalInstruction').value.trim();
-  if (!instruction) {
-    alert('追加指示を入力してください');
-    return;
-  }
-  var btn = document.getElementById('reparseBtn');
-  var progressArea = document.getElementById('reparseProgressArea');
-  var progressBar = document.getElementById('reparseProgressBar');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>送信中...';
-  progressArea.style.display = 'block';
-
-  // 現在のテーブルのデータを収集
-  var currentItems = {
-    bs_items: collectItemsFromTable('bs_table_body'),
-    pl_items: collectItemsFromTable('pl_table_body'),
-    mcr_items: collectItemsFromTable('mcr_table_body')
-  };
-
-  var formData = new FormData();
-  formData.append('additional_instruction', instruction);
-  formData.append('raw_text', _rawText);
-  formData.append('current_items', JSON.stringify(currentItems));
-
-  fetch('{{ url_for("decision.pdf_reparse_async") }}', {
-    method: 'POST',
-    body: formData
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.error) {
-      alert('エラー: ' + data.error);
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>この指示で再読み取り';
-      progressArea.style.display = 'none';
-      return;
-    }
-    _reparseJobId = data.job_id;
-    var progress = 20;
-    _reparsePollInterval = setInterval(function() {
-      if (progress < 85) { progress += 5; progressBar.style.width = progress + '%'; }
-      fetch('{{ url_for("decision.pdf_parse_status", job_id="__JOB_ID__") }}'.replace('__JOB_ID__', _reparseJobId))
-      .then(r => r.json())
-      .then(statusData => {
-        if (statusData.status === 'done') {
-          clearInterval(_reparsePollInterval);
-          progressBar.style.width = '100%';
-          progressBar.textContent = '完了';
-          progressBar.classList.remove('bg-warning', 'progress-bar-animated');
-          progressBar.classList.add('bg-success');
-          // テーブルを再描画
-          var result = statusData.result;
-          if (result.bs_items) renderTable('bs_table_body', result.bs_items);
-          if (result.pl_items) renderTable('pl_table_body', result.pl_items);
-          if (result.mcr_items) renderTable('mcr_table_body', result.mcr_items);
-          btn.disabled = false;
-          btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>この指示で再読み取り';
-          setTimeout(function() { progressArea.style.display = 'none'; progressBar.style.width = '20%'; progressBar.textContent = '読み取り中...'; progressBar.classList.remove('bg-success'); progressBar.classList.add('bg-warning', 'progress-bar-animated'); }, 2000);
-          alert('再読み取りが完了しました。内容を確認して保存してください。');
-        } else if (statusData.status === 'error') {
-          clearInterval(_reparsePollInterval);
-          alert('再読み取りエラー: ' + statusData.error);
-          btn.disabled = false;
-          btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>この指示で再読み取り';
-          progressArea.style.display = 'none';
-        }
-      })
-      .catch(function() {});
-    }, 3000);
-  })
-  .catch(function(err) {
-    alert('送信エラー: ' + err);
-    btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>この指示で再読み取り';
-    progressArea.style.display = 'none';
-  });
-});
-
-// ===================== 企業選択時に会計年度を動的ロード =====================
+// ========== 企業選択時に会計年度を動的ロード ==========
 document.getElementById('company_select').addEventListener('change', function() {
-  const companyId = this.value;
+  var companyId = this.value;
   if (companyId) {
     window.location.href = '{{ url_for("decision.pdf_upload") }}?company_id=' + companyId;
   }
 });
 
-// ===================== AJAX非同期PDF読み取り =====================
+// ========== AJAX非同期PDF読み取り ==========
 document.getElementById('uploadForm').addEventListener('submit', function(e) {
   e.preventDefault();
 
-  const btn = document.getElementById('submitBtn');
-  const progressArea = document.getElementById('parseProgressArea');
-  const progressBar = document.getElementById('parseProgressBar');
-  const progressMsg = document.getElementById('parseProgressMsg');
+  var btn = document.getElementById('submitBtn');
+  var progressArea = document.getElementById('parseProgressArea');
+  var progressBar = document.getElementById('parseProgressBar');
+  var progressMsg = document.getElementById('parseProgressMsg');
 
-  const fyId = document.getElementById('fy_select').value;
-  const pdfFile = document.getElementById('pdf_input').files[0];
+  var fyId = document.getElementById('fy_select').value;
+  var pdfFile = document.getElementById('pdf_input').files[0];
   if (!fyId) { alert('会計年度を選択してください'); return; }
   if (!pdfFile) { alert('PDFファイルを選択してください'); return; }
 
@@ -579,14 +541,14 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
   progressBar.textContent = '10%';
   progressMsg.textContent = 'PDFをサーバーに送信中...';
 
-  const formData = new FormData(document.getElementById('uploadForm'));
+  var formData = new FormData(document.getElementById('uploadForm'));
 
   fetch('{{ url_for("decision.pdf_parse_async") }}', {
     method: 'POST',
     body: formData
   })
-  .then(r => r.json())
-  .then(data => {
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
     if (data.error) {
       alert('エラー: ' + data.error);
       btn.disabled = false;
@@ -594,21 +556,22 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
       progressArea.style.display = 'none';
       return;
     }
-    const jobId = data.job_id;
+    var jobId = data.job_id;
     progressBar.style.width = '20%';
     progressBar.textContent = '20%';
     progressMsg.textContent = 'AIが読み取り中... (1〜2分かかります)';
 
-    let progress = 20;
-    const pollInterval = setInterval(() => {
+    var progress = 20;
+    var pollInterval = setInterval(function() {
       if (progress < 85) {
         progress += 3;
         progressBar.style.width = progress + '%';
         progressBar.textContent = progress + '%';
       }
+
       fetch('{{ url_for("decision.pdf_parse_status", job_id="__JOB_ID__") }}'.replace('__JOB_ID__', jobId))
-      .then(r => r.json())
-      .then(statusData => {
+      .then(function(r) { return r.json(); })
+      .then(function(statusData) {
         if (statusData.status === 'done') {
           clearInterval(pollInterval);
           progressBar.style.width = '100%';
@@ -616,12 +579,13 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
           progressBar.classList.remove('progress-bar-animated', 'bg-warning');
           progressBar.classList.add('bg-success');
           progressMsg.textContent = '読み取り完了！結果を表示します...';
-          const result = statusData.result;
-          const resultForm = document.createElement('form');
+
+          var result = statusData.result;
+          var resultForm = document.createElement('form');
           resultForm.method = 'POST';
           resultForm.action = window.location.pathname;
-          const addHidden = (name, val) => {
-            const inp = document.createElement('input');
+          var addHidden = function(name, val) {
+            var inp = document.createElement('input');
             inp.type = 'hidden';
             inp.name = name;
             inp.value = val;
@@ -632,6 +596,7 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
           addHidden('fiscal_year_id', fyId);
           document.body.appendChild(resultForm);
           resultForm.submit();
+
         } else if (statusData.status === 'error') {
           clearInterval(pollInterval);
           alert('読み取りエラー: ' + statusData.error);
@@ -640,10 +605,10 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
           progressArea.style.display = 'none';
         }
       })
-      .catch(() => {});
+      .catch(function() {});
     }, 3000);
   })
-  .catch(err => {
+  .catch(function(err) {
     alert('送信エラー: ' + err);
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-cpu me-2"></i>AIで読み取る';

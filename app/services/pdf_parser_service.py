@@ -328,7 +328,7 @@ def parse_financial_pdf(pdf_path: str, target_types: list = None, api_key: str =
         "profit_loss": None,
         "manufacturing_cost": None,
         "original_trial_balance": original_trial_balance,
-        "raw_text": pdf_text[:2000]  # プレビュー用
+        "raw_text": pdf_text  # 再読み取り用（全テキスト）
     }
 
     # 2回目のAPI呼び出し：組換え用データを一括取得
@@ -342,6 +342,95 @@ def parse_financial_pdf(pdf_path: str, target_types: list = None, api_key: str =
             result["manufacturing_cost"] = restructured.get("manufacturing_cost")
     except Exception as e:
         result["restructured_error"] = str(e)
+
+    return result
+
+
+def reparse_with_instruction(pdf_text: str, current_items: dict, additional_instruction: str, api_key: str = None) -> dict:
+    """
+    追加指示付きで試算表の生科目データを再読み取りする。
+    
+    Args:
+        pdf_text: PDFから抽出したテキスト
+        current_items: 現在の読み取り結果 {"bs_items": [...], "pl_items": [...], "mcr_items": [...]}
+        additional_instruction: ユーザーからの追加指示文章
+        api_key: OpenAI APIキー
+    
+    Returns:
+        {"bs_items": [...], "pl_items": [...], "mcr_items": [...]}
+    """
+    client = get_openai_client(api_key)
+
+    import json as _json
+    current_bs = _json.dumps(current_items.get('bs_items', []), ensure_ascii=False)
+    current_pl = _json.dumps(current_items.get('pl_items', []), ensure_ascii=False)
+    current_mcr = _json.dumps(current_items.get('mcr_items', []), ensure_ascii=False)
+
+    prompt = f"""以下は財務諸表PDFから抽出したテキストと、現在の読み取り結果です。
+ユーザーからの追加指示に従って、読み取り結果を修正・補完してください。
+
+【ユーザーからの追加指示】
+{additional_instruction}
+
+【現在の読み取り結果（貸借対照表科目）】
+{current_bs}
+
+【現在の読み取り結果（損益計算書科目）】
+{current_pl}
+
+【現在の読み取り結果（製造原価報告書科目）】
+{current_mcr}
+
+【重要なルール】
+- 追加指示に従って修正・追加・削除を行う
+- 科目名はPDFに記載されている名称をそのまま使用する
+- 金額は円単位の整数で返す
+- 各科目に「section」フィールドを付与する
+- 修正が必要ない科目は現在の値をそのまま維持する
+- PDFテキストを参照して正確な金額を読み取る
+
+【出力フォーマット（JSON）】
+{{
+  "bs_items": [{{
+    "name": "科目名",
+    "amount": 123456,
+    "section": "セクション名"
+  }}],
+  "pl_items": [{{
+    "name": "科目名",
+    "amount": 123456,
+    "section": "セクション名"
+  }}],
+  "mcr_items": [{{
+    "name": "科目名",
+    "amount": 123456,
+    "section": "セクション名"
+  }}]
+}}
+
+【PDFテキスト】
+{pdf_text}
+
+JSONのみを返してください。説明文は不要です。"""
+
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+        response_format={"type": "json_object"}
+    )
+
+    result = _json.loads(response.choices[0].message.content)
+
+    # 各itemのamountを整数に変換
+    for key in ['pl_items', 'bs_items', 'mcr_items']:
+        if key in result and isinstance(result[key], list):
+            for item in result[key]:
+                if 'amount' in item:
+                    try:
+                        item['amount'] = int(item['amount']) if item['amount'] else 0
+                    except (ValueError, TypeError):
+                        item['amount'] = 0
 
     return result
 
