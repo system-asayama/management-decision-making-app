@@ -625,7 +625,25 @@ function runAiSuggest(stmtType) {
           const stmtSel = document.querySelector(`.stmt-select[data-id="${id}"][data-type="${type}"]`);
           if (stmtSel) {
             stmtSel.value = s.target_statement || '';
-            stmtSel.dispatchEvent(new Event('change'));
+            // selectの場合はchangeイベントでfield-selectを更新、hidden inputの場合は直接更新
+            if (stmtSel.tagName === 'SELECT') {
+              stmtSel.dispatchEvent(new Event('change'));
+            } else {
+              // hidden inputの場合：field-selectを直接更新
+              const stmt = s.target_statement || '';
+              const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
+              if (fieldSel) {
+                fieldSel.innerHTML = '<option value="">（選択）</option>';
+                if (stmt && allFields[stmt]) {
+                  Object.entries(allFields[stmt]).forEach(function([k, v]) {
+                    const opt = document.createElement('option');
+                    opt.value = k;
+                    opt.textContent = v;
+                    fieldSel.appendChild(opt);
+                  });
+                }
+              }
+            }
           }
 
           // 組換え先科目をセット（帳票のchange後に遅延実行）
