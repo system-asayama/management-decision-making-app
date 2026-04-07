@@ -172,15 +172,15 @@
                     <td class="text-end pe-3 text-muted small">{{ "{:,}".format(item.amount | int) }}</td>
                     <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}"></td>
                     <td><input type="number" class="form-control form-control-sm item-amount" value="{{ item.amount | int }}"></td>
-                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button></td>
+                    <td class="text-center d-flex gap-1 justify-content-center">
+                      <button type="button" class="btn btn-sm btn-outline-secondary add-row-inline-btn" title="この行の下に追加"><i class="bi bi-plus"></i></button>
+                      <button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button>
+                    </td>
                   </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-          <button type="button" class="btn btn-sm btn-outline-primary add-row-btn" data-target="bs_tbody" data-section="">
-            <i class="bi bi-plus-circle me-1"></i>行を追加
-          </button>
         </div>
         {% endif %}
 
@@ -219,15 +219,15 @@
                     <td class="text-end pe-3 text-muted small">{{ "{:,}".format(item.amount | int) }}</td>
                     <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}"></td>
                     <td><input type="number" class="form-control form-control-sm item-amount" value="{{ item.amount | int }}"></td>
-                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button></td>
+                    <td class="text-center d-flex gap-1 justify-content-center">
+                      <button type="button" class="btn btn-sm btn-outline-secondary add-row-inline-btn" title="この行の下に追加"><i class="bi bi-plus"></i></button>
+                      <button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button>
+                    </td>
                   </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-          <button type="button" class="btn btn-sm btn-outline-success add-row-btn" data-target="pl_tbody" data-section="">
-            <i class="bi bi-plus-circle me-1"></i>行を追加
-          </button>
         </div>
         {% endif %}
 
@@ -266,15 +266,15 @@
                     <td class="text-end pe-3 text-muted small">{{ "{:,}".format(item.amount | int) }}</td>
                     <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}"></td>
                     <td><input type="number" class="form-control form-control-sm item-amount" value="{{ item.amount | int }}"></td>
-                    <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button></td>
+                    <td class="text-center d-flex gap-1 justify-content-center">
+                      <button type="button" class="btn btn-sm btn-outline-secondary add-row-inline-btn" title="この行の下に追加"><i class="bi bi-plus"></i></button>
+                      <button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button>
+                    </td>
                   </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-          <button type="button" class="btn btn-sm btn-outline-warning add-row-btn" data-target="mcr_tbody" data-section="">
-            <i class="bi bi-plus-circle me-1"></i>行を追加
-          </button>
         </div>
         {% endif %}
 
@@ -365,31 +365,46 @@ function collectItemsFromTable(tbodyId) {
   return items;
 }
 
-// ========== 行削除ボタン ==========
+// ========== 新規行HTMLを生成 ==========
+function createNewItemRow(section) {
+  var row = document.createElement('tr');
+  row.className = 'item-row';
+  row.setAttribute('data-section', section || '');
+  row.innerHTML =
+    '<td class="ps-4 text-muted small">（新規）</td>' +
+    '<td class="text-end pe-3 text-muted small">0</td>' +
+    '<td><input type="text" class="form-control form-control-sm item-name" value="" placeholder="科目名を入力"></td>' +
+    '<td><input type="number" class="form-control form-control-sm item-amount" value="0"></td>' +
+    '<td class="text-center d-flex gap-1 justify-content-center">' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary add-row-inline-btn" title="この行の下に追加"><i class="bi bi-plus"></i></button>' +
+      '<button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button>' +
+    '</td>';
+  return row;
+}
+
+// ========== 行削除・行追加ボタン（イベント委譲） ==========
 document.addEventListener('click', function(e) {
+  // 削除ボタン
   if (e.target.closest('.delete-row-btn')) {
     var btn = e.target.closest('.delete-row-btn');
     var row = btn.closest('tr.item-row');
     if (row) row.remove();
+    return;
   }
-});
-
-// ========== 行追加ボタン ==========
-document.querySelectorAll('.add-row-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    var tbodyId = this.getAttribute('data-target');
-    var tbody = document.getElementById(tbodyId);
-    if (!tbody) return;
-    var newRow = document.createElement('tr');
-    newRow.className = 'item-row';
-    newRow.setAttribute('data-section', '');
-    newRow.innerHTML = '<td class="ps-4 text-muted small">（新規）</td>' +
-      '<td class="text-end pe-3 text-muted small">0</td>' +
-      '<td><input type="text" class="form-control form-control-sm item-name" value="" placeholder="科目名を入力"></td>' +
-      '<td><input type="number" class="form-control form-control-sm item-amount" value="0"></td>' +
-      '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button></td>';
-    tbody.appendChild(newRow);
-  });
+  // 行追加ボタン（各行の隣）
+  if (e.target.closest('.add-row-inline-btn')) {
+    var addBtn = e.target.closest('.add-row-inline-btn');
+    var currentRow = addBtn.closest('tr.item-row');
+    if (!currentRow) return;
+    var section = currentRow.getAttribute('data-section') || '';
+    var newRow = createNewItemRow(section);
+    // その行の真下に挿入
+    currentRow.parentNode.insertBefore(newRow, currentRow.nextSibling);
+    // 新しい行の科目名入力欄にフォーカス
+    var nameInput = newRow.querySelector('.item-name');
+    if (nameInput) nameInput.focus();
+    return;
+  }
 });
 
 // ========== 保存前にhidden fieldを更新 ==========
@@ -511,7 +526,10 @@ function renderTable(tbodyId, items) {
       '<td class="text-end pe-3 text-muted small">' + amountFormatted + '</td>' +
       '<td><input type="text" class="form-control form-control-sm item-name" value="' + escapeHtml(item.name) + '"></td>' +
       '<td><input type="number" class="form-control form-control-sm item-amount" value="' + amount + '"></td>' +
-      '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button></td>';
+      '<td class="text-center d-flex gap-1 justify-content-center">' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary add-row-inline-btn" title="この行の下に追加"><i class="bi bi-plus"></i></button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button>' +
+      '</td>';
     tbody.appendChild(row);
   });
 }
