@@ -124,7 +124,7 @@ def estimate_mappings_for_pl(company_id: int, account_items: list) -> list:
     Returns:
         マッピング結果のリスト [{id, target_statement, target_field, confidence}, ...]
     """
-    unmapped_items = [item for item in account_items if item.mapping_status in ('unmapped',)]
+    unmapped_items = [item for item in account_items if item.mapping_status in ('unmapped', None)]
     if not unmapped_items:
         return []
     
@@ -186,7 +186,7 @@ def estimate_mappings_for_bs(company_id: int, account_items: list) -> list:
     """
     貸借対照表科目マスタのAIマッピング推定
     """
-    unmapped_items = [item for item in account_items if item.mapping_status in ('unmapped',)]
+    unmapped_items = [item for item in account_items if item.mapping_status in ('unmapped', None)]
     if not unmapped_items:
         return []
     
@@ -246,7 +246,7 @@ def estimate_mappings_for_mcr(company_id: int, account_items: list) -> list:
     """
     製造原価報告書科目マスタのAIマッピング推定
     """
-    unmapped_items = [item for item in account_items if item.mapping_status in ('unmapped',)]
+    unmapped_items = [item for item in account_items if item.mapping_status in ('unmapped', None)]
     if not unmapped_items:
         return []
     

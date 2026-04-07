@@ -4318,7 +4318,7 @@ def pdf_apply():
                     pl_results = estimate_mappings_for_pl(company_id, pl_items_all)
                     for r in pl_results:
                         item = db2.query(PlAccountItem).get(r.get('id'))
-                        if item and item.mapping_status == 'unmapped':
+                        if item and item.mapping_status in ('unmapped', None):
                             item.target_statement = r.get('target_statement')
                             item.target_field = r.get('target_field') if r.get('target_field') else None
                             item.ai_confidence = r.get('confidence')
@@ -4329,7 +4329,7 @@ def pdf_apply():
                     bs_results = estimate_mappings_for_bs(company_id, bs_items_all)
                     for r in bs_results:
                         item = db2.query(BsAccountItem).get(r.get('id'))
-                        if item and item.mapping_status == 'unmapped':
+                        if item and item.mapping_status in ('unmapped', None):
                             item.target_statement = r.get('target_statement')
                             item.target_field = r.get('target_field') if r.get('target_field') else None
                             item.ai_confidence = r.get('confidence')
@@ -4340,7 +4340,7 @@ def pdf_apply():
                     mcr_results = estimate_mappings_for_mcr(company_id, mcr_items_all)
                     for r in mcr_results:
                         item = db2.query(McrAccountItem).get(r.get('id'))
-                        if item and item.mapping_status == 'unmapped':
+                        if item and item.mapping_status in ('unmapped', None):
                             item.target_statement = r.get('target_statement')
                             item.target_field = r.get('target_field') if r.get('target_field') else None
                             item.ai_confidence = r.get('confidence')
