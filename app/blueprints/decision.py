@@ -245,89 +245,102 @@ def company_financial_statements(company_id):
                   .order_by(McrAccountItem.display_order)
                   .all()
             )
-            # 階層構造変換用ヘルパー関数
-            def build_hierarchy(values_with_items):
-                """(StatementValue, AccountItem)のリストから階層構造を構築"""
+            # セクション別表示用ヘルパー関数
+            def build_section_view(items_src):
+                """[{name, amount, section?}] または [(StatementValue, AccountItem)] から
+                セクション別表示データ {section: [{name, amount}]} を構築する"""
                 import collections
-                # 分類確定済み科目と未分類科目を分ける
-                hierarchy = collections.OrderedDict()  # {major: {mid: {sub: [{name, amount}]}}}
-                unclassified = []
-                # account_item_categories.jsonの順序で大分類・中分類を初期化
-                CATEGORY_ORDER = [
-                    ('資産', ['流動資産', '固定資産', '繰延資産']),
-                    ('負債', ['流動負債', '固定負債']),
-                    ('純資産', ['資本金', '資本剰余金', '利益剰余金', '自己株式', '評価換算差額等', '新株予約権']),
-                    ('損益', ['売上高', '売上原価', '販売費及び一般管理費', '営業外収益', '営業外費用', '特別利益', '特別損失', '法人税等']),
-                ]
-                for major, mids in CATEGORY_ORDER:
-                    hierarchy[major] = collections.OrderedDict()
-                    for mid in mids:
-                        hierarchy[major][mid] = collections.OrderedDict()
-                for sv, ai in values_with_items:
-                    major = getattr(ai, 'major_category', None)
-                    mid   = getattr(ai, 'mid_category', None)
-                    sub   = getattr(ai, 'sub_category', None) or 'その他'
-                    status = getattr(ai, 'category_status', None)
-                    item_data = {'name': ai.account_name, 'amount': sv.amount}
-                    if major and mid and status in ('confirmed', 'pending'):
-                        if major not in hierarchy:
-                            hierarchy[major] = collections.OrderedDict()
-                        if mid not in hierarchy[major]:
-                            hierarchy[major][mid] = collections.OrderedDict()
-                        if sub not in hierarchy[major][mid]:
-                            hierarchy[major][mid][sub] = []
-                        hierarchy[major][mid][sub].append(item_data)
-                    else:
-                        unclassified.append(item_data)
-                # 空の中分類を削除
-                for major in list(hierarchy.keys()):
-                    for mid in list(hierarchy[major].keys()):
-                        if not hierarchy[major][mid]:
-                            del hierarchy[major][mid]
-                    if not hierarchy[major]:
-                        del hierarchy[major]
-                return hierarchy, unclassified
+                section_data = collections.OrderedDict()  # {section: [{name, amount}]}
+                no_section = []  # sectionなし科目
+                if not items_src:
+                    return section_data, no_section
+                if isinstance(items_src[0], dict):
+                    # JSON形式（OriginalTrialBalance由来）
+                    for item in items_src:
+                        sec = item.get('section', '')
+                        entry = {'name': item.get('name', ''), 'amount': item.get('amount', 0)}
+                        if sec:
+                            if sec not in section_data:
+                                section_data[sec] = []
+                            section_data[sec].append(entry)
+                        else:
+                            no_section.append(entry)
+                else:
+                    # (StatementValue, AccountItem) タプル形式
+                    for sv, ai in items_src:
+                        # mid_categoryをsectionとして使用
+                        sec = getattr(ai, 'mid_category', None) or ''
+                        entry = {'name': ai.account_name, 'amount': sv.amount}
+                        if sec:
+                            if sec not in section_data:
+                                section_data[sec] = []
+                            section_data[sec].append(entry)
+                        else:
+                            no_section.append(entry)
+                return section_data, no_section
 
             # テンプレート向けに {'name': ..., 'amount': ...} 形式に変換（フラットリスト）
             pl_items  = [{'name': ai.account_name, 'amount': sv.amount} for sv, ai in pl_values]
             bs_items  = [{'name': ai.account_name, 'amount': sv.amount} for sv, ai in bs_values]
             mcr_items = [{'name': ai.account_name, 'amount': sv.amount} for sv, ai in mcr_values]
 
-            # 階層構造データも作成
-            bs_hierarchy, bs_unclassified   = build_hierarchy(bs_values)
-            pl_hierarchy, pl_unclassified   = build_hierarchy(pl_values)
-            mcr_hierarchy, mcr_unclassified = build_hierarchy(mcr_values)
+            # セクション別表示データを作成
+            bs_section_data, bs_no_section   = build_section_view(bs_values)
+            pl_section_data, pl_no_section   = build_section_view(pl_values)
+            mcr_section_data, mcr_no_section = build_section_view(mcr_values)
+
+            # OriginalTrialBalanceからsectionフィールドを取得
+            import json as json_module
+            otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fy.id).first()
+            otb_unit = '円'
+            if otb:
+                otb_unit = getattr(otb, 'unit', '円') or '円'
+
+            def _safe_json_loads(s):
+                if not s:
+                    return []
+                try:
+                    result = json_module.loads(s)
+                    return result if isinstance(result, list) else []
+                except (json_module.JSONDecodeError, ValueError):
+                    return []
 
             # 旧データ（OriginalTrialBalance）からのフォールバック（新テーブルにデータがない場合）
             if not (pl_items or bs_items or mcr_items):
-                import json as json_module
-                otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fy.id).first()
                 if otb:
-                    def _safe_json_loads(s):
-                        if not s:
-                            return []
-                        try:
-                            result = json_module.loads(s)
-                            return result if isinstance(result, list) else []
-                        except (json_module.JSONDecodeError, ValueError):
-                            return []
                     pl_items  = _safe_json_loads(otb.pl_items)
                     bs_items  = _safe_json_loads(otb.bs_items)
                     mcr_items = _safe_json_loads(otb.mcr_items)
+                    # OriginalTrialBalanceのJSONからセクション別データを再構築
+                    bs_section_data, bs_no_section   = build_section_view(bs_items)
+                    pl_section_data, pl_no_section   = build_section_view(pl_items)
+                    mcr_section_data, mcr_no_section = build_section_view(mcr_items)
+            else:
+                # 新テーブルにデータがある場合でも、OriginalTrialBalanceのsectionを優先使用
+                if otb:
+                    otb_bs = _safe_json_loads(otb.bs_items)
+                    otb_pl = _safe_json_loads(otb.pl_items)
+                    otb_mcr = _safe_json_loads(otb.mcr_items)
+                    if otb_bs and any(i.get('section') for i in otb_bs):
+                        bs_section_data, bs_no_section = build_section_view(otb_bs)
+                    if otb_pl and any(i.get('section') for i in otb_pl):
+                        pl_section_data, pl_no_section = build_section_view(otb_pl)
+                    if otb_mcr and any(i.get('section') for i in otb_mcr):
+                        mcr_section_data, mcr_no_section = build_section_view(otb_mcr)
 
-            unit = '円'
+            unit = otb_unit
             if pl_items or bs_items or mcr_items:
                 fiscal_year_data.append({
                     'fiscal_year': fy,
                     'pl_items': pl_items,
                     'bs_items': bs_items,
                     'mcr_items': mcr_items,
-                    'bs_hierarchy': bs_hierarchy,
-                    'bs_unclassified': bs_unclassified,
-                    'pl_hierarchy': pl_hierarchy,
-                    'pl_unclassified': pl_unclassified,
-                    'mcr_hierarchy': mcr_hierarchy,
-                    'mcr_unclassified': mcr_unclassified,
+                    'bs_section_data': bs_section_data,
+                    'bs_no_section': bs_no_section,
+                    'pl_section_data': pl_section_data,
+                    'pl_no_section': pl_no_section,
+                    'mcr_section_data': mcr_section_data,
+                    'mcr_no_section': mcr_no_section,
                     'unit': unit,
                     'has_data': True
                 })
