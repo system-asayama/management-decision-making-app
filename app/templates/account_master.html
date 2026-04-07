@@ -620,7 +620,16 @@ function runAiSuggest(stmtType) {
     headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
     body: JSON.stringify({items: items})
   })
-  .then(r => r.json())
+  .then(r => {
+    if (!r.ok) {
+      return r.text().then(t => {
+        let msg = 'サーバーエラー (HTTP ' + r.status + ')';
+        try { const j = JSON.parse(t); msg = j.error || msg; } catch(e) {}
+        throw new Error(msg);
+      });
+    }
+    return r.json();
+  })
   .then(data => {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-robot me-1"></i>AI一括推定';
@@ -671,7 +680,7 @@ function runAiSuggest(stmtType) {
   .catch(e => {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-robot me-1"></i>AI一括推定';
-    showToast('通信エラーが発生しました', 'danger');
+    showToast('エラー: ' + (e.message || '通信エラーが発生しました'), 'danger');
   });
 }
 

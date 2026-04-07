@@ -5175,9 +5175,38 @@ def account_master_ai_suggest():
     if not items:
         return jsonify({'success': False, 'error': '科目リストが空です'}), 400
 
+    # OpenAI APIキーをDBから取得（他のエンドポイントと同様の方法）
+    openai_api_key = None
+    db = SessionLocal()
+    try:
+        current_user_id = session.get('user_id')
+        if current_user_id:
+            from ..models_login import TKanrisha as _TKanrisha
+            current_user = db.query(_TKanrisha).filter(_TKanrisha.id == current_user_id).first()
+            if current_user and current_user.openai_api_key and current_user.openai_api_key.strip():
+                openai_api_key = current_user.openai_api_key.strip()
+        if not openai_api_key:
+            from ..models_login import TKanrisha as _TKanrisha
+            sys_admin = db.query(_TKanrisha).filter(
+                _TKanrisha.openai_api_key != None,
+                _TKanrisha.openai_api_key != ''
+            ).first()
+            if sys_admin and sys_admin.openai_api_key:
+                openai_api_key = sys_admin.openai_api_key.strip()
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'DBエラー: {str(e)}'}), 500
+    finally:
+        db.close()
+
+    if not openai_api_key:
+        return jsonify({'success': False, 'error': 'OpenAI APIキーが設定されていません。システム管理者にAPIキーの設定を依頼してください。'}), 400
+
     cat_json_path = _os.path.join(_os.path.dirname(__file__), 'account_item_categories.json')
-    with open(cat_json_path, 'r', encoding='utf-8') as f:
-        category_tree = _json.load(f)
+    try:
+        with open(cat_json_path, 'r', encoding='utf-8') as f:
+            category_tree = _json.load(f)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'カテゴリファイルの読み込みに失敗: {str(e)}'}), 500
 
     all_fields_str = _json.dumps({
         'PL': _PL_FIELDS,
@@ -5225,12 +5254,16 @@ def account_master_ai_suggest():
 - 組換え先フィールドに存在しないキーは使用しない
 """
 
-    client = OpenAI()
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.1,
-    )
+    try:
+        client = OpenAI(api_key=openai_api_key)
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'OpenAI API呼び出しエラー: {str(e)}'}), 500
+
     raw = response.choices[0].message.content.strip()
     if '```' in raw:
         raw = raw.split('```')[1]
