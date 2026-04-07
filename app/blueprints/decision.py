@@ -4378,16 +4378,15 @@ def run_migration_raw_tables():
     except Exception as e:
         results.append(f'create_all: ERROR - {e}')
 
-    # 2. account_mappings の statement_type ENUM に MCR を追加
+    # 2. account_mappings の statement_type ENUM に MCR を追加（PostgreSQL用）
     try:
         with engine.connect() as conn:
-            conn.execute(text(
-                "ALTER TABLE account_mappings "
-                "MODIFY COLUMN statement_type ENUM('PL','BS','MCR') NOT NULL"
-            ))
+            # PostgreSQLではENUM型を別途作成してからALTERする
+            # まず既存のENUM型に'MCR'を追加する
+            conn.execute(text("ALTER TYPE statementtype ADD VALUE IF NOT EXISTS 'MCR'"))
             conn.commit()
-        results.append('ALTER TABLE account_mappings statement_type ENUM: OK')
+        results.append('ALTER TYPE statementtype ADD VALUE MCR: OK')
     except Exception as e:
-        results.append(f'ALTER TABLE account_mappings: {e}')
+        results.append(f'ALTER TYPE statementtype: {e}')
 
     return {'results': results}, 200
