@@ -312,14 +312,22 @@
 
 <script>
 // ========== 初期データ ==========
-var otbData = {{ (parse_result.original_trial_balance if parse_result and parse_result.original_trial_balance else {}) | tojson | safe }};
-var rawTextData = {{ (parse_result.raw_text if parse_result and parse_result.raw_text else '') | tojson | safe }};
+{% if parse_result %}
+var otbData = {{ (parse_result.original_trial_balance if parse_result.original_trial_balance else {}) | tojson | safe }};
+var rawTextData = {{ (parse_result.raw_text if parse_result.raw_text else '') | tojson | safe }};
 if (document.getElementById('raw_text_field')) {
   document.getElementById('raw_text_field').value = rawTextData;
 }
 var bsItems = otbData.bs_items || [];
 var plItems = otbData.pl_items || [];
 var mcrItems = otbData.mcr_items || [];
+{% else %}
+var otbData = {};
+var rawTextData = '';
+var bsItems = [];
+var plItems = [];
+var mcrItems = [];
+{% endif %}
 
 // ========== hidden fieldを更新 ==========
 function updateHiddenFields() {
