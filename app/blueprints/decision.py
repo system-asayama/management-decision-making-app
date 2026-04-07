@@ -4259,6 +4259,14 @@ def pdf_apply():
                     if not account_name:
                         continue
 
+                    # 区分項目（合計・小計・利益・損失など）は科目マスタに登録しない
+                    _EXCLUDE_SUFFIXES = ('合計', '小計', '計', '利益', '損失', '損益')
+                    _EXCLUDE_KEYWORDS = ('合計額', '差引', '税引前', '当期純利益', '内部留保', '粗付加価値')
+                    if (
+                        any(account_name.endswith(s) for s in _EXCLUDE_SUFFIXES)
+                        or any(k in account_name for k in _EXCLUDE_KEYWORDS)
+                    ):
+                        continue
                     # 金額取得
                     raw_amount = item.get('amount') or item.get('value') or 0
                     try:

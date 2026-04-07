@@ -406,6 +406,53 @@ def run_migrations():
                 print(f"  ⚠️  {table}マイグレーションエラー: {e}")
                 conn.rollback()
         
+        # 区分項目（合計・小計・利益・損失など）を科目マスタから削除
+        print("\n[マイグレーション] 科目マスタの区分項目クリーンアップ...")
+        try:
+            if _is_pg(conn):
+                for table in ['pl_account_items', 'bs_account_items', 'mcr_account_items']:
+                    value_table = table.replace('_account_items', '_statement_values')
+                    # 関連する値テーブルも先に削除
+                    cur.execute(f"""
+                        DELETE FROM {value_table}
+                        WHERE account_item_id IN (
+                            SELECT id FROM {table}
+                            WHERE
+                                account_name LIKE '%合計'
+                                OR account_name LIKE '%小計'
+                                OR account_name LIKE '%計'
+                                OR account_name LIKE '%利益'
+                                OR account_name LIKE '%損失'
+                                OR account_name LIKE '%損益'
+                                OR account_name LIKE '%差引%'
+                                OR account_name LIKE '%税引前%'
+                                OR account_name LIKE '%内部留保%'
+                                OR account_name LIKE '%粗付加価値%'
+                        )
+                    """)
+                    conn.commit()
+                    cur.execute(f"""
+                        DELETE FROM {table}
+                        WHERE
+                            account_name LIKE '%合計'
+                            OR account_name LIKE '%小計'
+                            OR account_name LIKE '%計'
+                            OR account_name LIKE '%利益'
+                            OR account_name LIKE '%損失'
+                            OR account_name LIKE '%損益'
+                            OR account_name LIKE '%差引%'
+                            OR account_name LIKE '%税引前%'
+                            OR account_name LIKE '%内部留保%'
+                            OR account_name LIKE '%粗付加価値%'
+                    """)
+                    conn.commit()
+                    print(f"  ✅ {table}の区分項目を削除しました")
+            else:
+                print("  ℹ️  SQLite環境はスキップ")
+        except Exception as e:
+            print(f"  ⚠️  区分項目クリーンアップエラー: {e}")
+            conn.rollback()
+
         conn.close()
         
         print("\n" + "=" * 60)
