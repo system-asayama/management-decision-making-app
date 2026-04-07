@@ -69,24 +69,25 @@ def parse_original_and_meta(pdf_text: str, api_key: str = None) -> dict:
 - 損益計算書・製造原価報告書・貸借対照表の3種類に分類する
 - 製造原価報告書の科目は「[製]」プレフィックスがある場合はそのまま含める
 - 金額が0または空白の科目は除外してよい
+- 各科目に「section」フィールドを付与する：PDFのセクション見出し（「流動資産」「固定資産」「流動負債」「固定負債」「純資産」「売上高」「売上原価」「販売費及び一般管理費」など）をそのまま記載する
 
 【出力フォーマット（JSON）】
 {{
   "unit": "円",
   "detected_types": ["profit_loss", "balance_sheet", "manufacturing_cost"],
   "pl_items": [
-    {{"name": "売上高", "amount": 394238924}},
-    {{"name": "売上原価", "amount": 259960759}},
+    {{"name": "売上高", "amount": 394238924, "section": "売上高"}},
+    {{"name": "売上原価", "amount": 259960759, "section": "売上原価"}},
     ...
   ],
   "bs_items": [
-    {{"name": "現金", "amount": 399038}},
-    {{"name": "売掛金", "amount": 5678901}},
+    {{"name": "現金", "amount": 399038, "section": "流動資産"}},
+    {{"name": "売掛金", "amount": 5678901, "section": "流動資産"}},
     ...
   ],
   "mcr_items": [
-    {{"name": "[製]外注加工費", "amount": 209540169}},
-    {{"name": "[製]荷造運賃", "amount": 69}},
+    {{"name": "[製]外注加工費", "amount": 209540169, "section": "製造原価"}},
+    {{"name": "[製]荷造運費", "amount": 69, "section": "製造原価"}},
     ...
   ]
 }}

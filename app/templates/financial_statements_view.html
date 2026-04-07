@@ -2,7 +2,6 @@
 {% block title %}{{ company.name }} - 読み取り済み財務諸表{% endblock %}
 {% block content %}
 <div class="container-fluid mt-4 px-3 px-md-4">
-
   <!-- パンくずナビ -->
   <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
@@ -12,7 +11,6 @@
       <li class="breadcrumb-item active">読み取り済み財務諸表</li>
     </ol>
   </nav>
-
   <!-- ヘッダー -->
   <div class="card shadow-sm border-0 mb-4" style="background: linear-gradient(135deg, #0056b3 0%, #007bff 100%);">
     <div class="card-body text-white py-3">
@@ -35,7 +33,6 @@
       </div>
     </div>
   </div>
-
   {% if not fiscal_year_data %}
   <!-- データなし -->
   <div class="card shadow-sm border-0">
@@ -48,7 +45,6 @@
     </div>
   </div>
   {% else %}
-
   <!-- 年度選択タブ -->
   <ul class="nav nav-tabs mb-4" id="fyTabs" role="tablist">
     {% for item in fiscal_year_data %}
@@ -63,12 +59,10 @@
     </li>
     {% endfor %}
   </ul>
-
   <div class="tab-content" id="fyTabContent">
     {% for item in fiscal_year_data %}
     <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
       id="pane-{{ item.fiscal_year.id }}" role="tabpanel">
-
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <small class="text-muted">
           <i class="fas fa-calendar me-1"></i>
@@ -89,114 +83,343 @@
       </div>
       {% endif %}
 
-      <div class="row g-4">
-
-        <!-- 損益計算書 -->
-        {% if item.pl_items %}
-        <div class="col-lg-6">
-          <div class="card shadow-sm border-0 h-100">
-            <div class="card-header py-2 fw-bold" style="background:#e7f1ff; color:#0056b3;">
-              <i class="fas fa-chart-line me-2"></i>損益計算書（オリジナル）
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0">
-                  <thead class="table-light">
-                    <tr>
-                      <th class="ps-3">科目名</th>
-                      <th class="text-end pe-3">金額（円）</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in item.pl_items %}
-                    <tr {% if '合計' in row.name or row.name.endswith('計') or '利益' in row.name %}class="fw-bold"{% endif %}>
-                      <td class="ps-3">{{ row.name }}</td>
-                      <td class="text-end pe-3">{{ row.amount | comma }}</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div class="card-footer bg-white text-end py-2">
-              <a href="/decision/pl-restructuring?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}"
-                 class="btn btn-outline-primary btn-sm">
-                <i class="fas fa-edit me-1"></i>PL組換えへ
-              </a>
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
-        <!-- 貸借対照表 -->
+      <!-- BS/PL 表示切替タブ -->
+      <ul class="nav nav-pills mb-3" id="stmtTabs-{{ item.fiscal_year.id }}" role="tablist">
         {% if item.bs_items %}
-        <div class="col-lg-6">
-          <div class="card shadow-sm border-0 h-100">
-            <div class="card-header py-2 fw-bold" style="background:#fff8e1; color:#856404;">
-              <i class="fas fa-balance-scale me-2"></i>貸借対照表（オリジナル）
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0">
-                  <thead class="table-light">
-                    <tr>
-                      <th class="ps-3">科目名</th>
-                      <th class="text-end pe-3">金額（円）</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in item.bs_items %}
-                    <tr {% if '合計' in row.name or row.name.endswith('計') %}class="fw-bold"{% endif %}>
-                      <td class="ps-3">{{ row.name }}</td>
-                      <td class="text-end pe-3">{{ row.amount | comma }}</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div class="card-footer bg-white text-end py-2">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="bs-tab-{{ item.fiscal_year.id }}"
+            data-bs-toggle="pill" data-bs-target="#bs-pane-{{ item.fiscal_year.id }}"
+            type="button" role="tab">
+            <i class="fas fa-balance-scale me-1"></i>貸借対照表
+          </button>
+        </li>
+        {% endif %}
+        {% if item.pl_items %}
+        <li class="nav-item" role="presentation">
+          <button class="nav-link {% if not item.bs_items %}active{% endif %}" id="pl-tab-{{ item.fiscal_year.id }}"
+            data-bs-toggle="pill" data-bs-target="#pl-pane-{{ item.fiscal_year.id }}"
+            type="button" role="tab">
+            <i class="fas fa-chart-line me-1"></i>損益計算書
+          </button>
+        </li>
+        {% endif %}
+        {% if item.mcr_items %}
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="mcr-tab-{{ item.fiscal_year.id }}"
+            data-bs-toggle="pill" data-bs-target="#mcr-pane-{{ item.fiscal_year.id }}"
+            type="button" role="tab">
+            <i class="fas fa-industry me-1"></i>製造原価報告書
+          </button>
+        </li>
+        {% endif %}
+      </ul>
+
+      <div class="tab-content" id="stmtTabContent-{{ item.fiscal_year.id }}">
+
+        {# ===================== 貸借対照表 ===================== #}
+        {% if item.bs_items %}
+        <div class="tab-pane fade show active" id="bs-pane-{{ item.fiscal_year.id }}" role="tabpanel">
+          <div class="card shadow-sm border-0">
+            <div class="card-header py-2 fw-bold d-flex justify-content-between align-items-center" style="background:#fff8e1; color:#856404;">
+              <span><i class="fas fa-balance-scale me-2"></i>貸借対照表（オリジナル）</span>
               <a href="/decision/bs-restructuring?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}"
                  class="btn btn-outline-warning btn-sm">
                 <i class="fas fa-edit me-1"></i>BS組換えへ
               </a>
             </div>
-          </div>
-        </div>
-        {% endif %}
-
-        <!-- 製造原価報告書 -->
-        {% if item.mcr_items %}
-        <div class="col-lg-6">
-          <div class="card shadow-sm border-0 h-100">
-            <div class="card-header py-2 fw-bold" style="background:#e8f5e9; color:#1b5e20;">
-              <i class="fas fa-industry me-2"></i>製造原価報告書（オリジナル）
-            </div>
             <div class="card-body p-0">
+              {% if item.bs_hierarchy %}
+              {# 階層構造表示 #}
+              <table class="table table-sm mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="ps-3" style="width:60%">科目名</th>
+                    <th class="text-end pe-3">金額（円）</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for major, mids in item.bs_hierarchy.items() %}
+                  {# 大分類ヘッダー #}
+                  <tr style="background:#f0f4ff;">
+                    <td colspan="2" class="ps-2 fw-bold" style="color:#0056b3; font-size:0.95rem; border-top:2px solid #0056b3;">
+                      <i class="fas fa-chevron-right me-1"></i>{{ major }}の部
+                    </td>
+                  </tr>
+                  {% for mid, subs in mids.items() %}
+                  {# 中分類ヘッダー #}
+                  <tr style="background:#f8f9fa;">
+                    <td colspan="2" class="ps-4 fw-semibold text-secondary" style="font-size:0.9rem;">
+                      {{ mid }}
+                    </td>
+                  </tr>
+                  {% for sub, accounts in subs.items() %}
+                  {# 小分類ヘッダー（中分類と異なる場合のみ表示） #}
+                  {% if sub != mid %}
+                  <tr>
+                    <td colspan="2" class="ps-5 text-muted" style="font-size:0.85rem; font-style:italic;">
+                      {{ sub }}
+                    </td>
+                  </tr>
+                  {% endif %}
+                  {# 勘定科目行 #}
+                  {% for acc in accounts %}
+                  <tr>
+                    <td class="ps-5">{{ acc.name }}</td>
+                    <td class="text-end pe-3">{{ acc.amount | comma }}</td>
+                  </tr>
+                  {% endfor %}
+                  {# 小分類合計 #}
+                  {% if accounts | length > 1 %}
+                  <tr class="table-light fw-bold">
+                    <td class="ps-5 text-muted" style="font-size:0.85rem;">{{ sub }}　計</td>
+                    <td class="text-end pe-3">{{ accounts | sum(attribute='amount') | comma }}</td>
+                  </tr>
+                  {% endif %}
+                  {% endfor %}
+                  {# 中分類合計 #}
+                  {% set mid_total = namespace(val=0) %}
+                  {% for sub, accounts in subs.items() %}{% for acc in accounts %}{% set mid_total.val = mid_total.val + acc.amount %}{% endfor %}{% endfor %}
+                  <tr class="fw-bold" style="background:#fff3cd;">
+                    <td class="ps-4">{{ mid }}　合計</td>
+                    <td class="text-end pe-3">{{ mid_total.val | comma }}</td>
+                  </tr>
+                  {% endfor %}
+                  {# 大分類合計 #}
+                  {% set major_total = namespace(val=0) %}
+                  {% for mid, subs in mids.items() %}{% for sub, accounts in subs.items() %}{% for acc in accounts %}{% set major_total.val = major_total.val + acc.amount %}{% endfor %}{% endfor %}{% endfor %}
+                  <tr class="fw-bold" style="background:#e7f1ff; border-top:2px solid #0056b3;">
+                    <td class="ps-2" style="color:#0056b3;">{{ major }}　合計</td>
+                    <td class="text-end pe-3" style="color:#0056b3;">{{ major_total.val | comma }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              {# 階層なし：フラット表示 #}
               <div class="table-responsive">
                 <table class="table table-sm table-hover mb-0">
                   <thead class="table-light">
-                    <tr>
-                      <th class="ps-3">科目名</th>
-                      <th class="text-end pe-3">金額（円）</th>
-                    </tr>
+                    <tr><th class="ps-3">科目名</th><th class="text-end pe-3">金額（円）</th></tr>
                   </thead>
                   <tbody>
-                    {% for row in item.mcr_items %}
-                    <tr {% if '合計' in row.name or row.name.endswith('計') %}class="fw-bold"{% endif %}>
-                      <td class="ps-3">{{ row.name }}</td>
-                      <td class="text-end pe-3">{{ row.amount | comma }}</td>
-                    </tr>
+                    {% for row in item.bs_items %}
+                    <tr><td class="ps-3">{{ row.name }}</td><td class="text-end pe-3">{{ row.amount | comma }}</td></tr>
                     {% endfor %}
                   </tbody>
                 </table>
               </div>
+              {% endif %}
+              {# 未分類科目 #}
+              {% if item.bs_unclassified %}
+              <div class="p-3 border-top">
+                <p class="text-muted small mb-2"><i class="fas fa-exclamation-circle me-1"></i>未分類科目（<a href="/decision/account-master">科目マスタ</a>で分類を設定してください）</p>
+                <table class="table table-sm table-hover mb-0">
+                  <tbody>
+                    {% for row in item.bs_unclassified %}
+                    <tr class="text-muted"><td class="ps-3">{{ row.name }}</td><td class="text-end pe-3">{{ row.amount | comma }}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% endif %}
             </div>
           </div>
         </div>
         {% endif %}
 
-      </div><!-- /row -->
+        {# ===================== 損益計算書 ===================== #}
+        {% if item.pl_items %}
+        <div class="tab-pane fade {% if not item.bs_items %}show active{% endif %}" id="pl-pane-{{ item.fiscal_year.id }}" role="tabpanel">
+          <div class="card shadow-sm border-0">
+            <div class="card-header py-2 fw-bold d-flex justify-content-between align-items-center" style="background:#e7f1ff; color:#0056b3;">
+              <span><i class="fas fa-chart-line me-2"></i>損益計算書（オリジナル）</span>
+              <a href="/decision/pl-restructuring?company_id={{ company.id }}&fiscal_year_id={{ item.fiscal_year.id }}"
+                 class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-edit me-1"></i>PL組換えへ
+              </a>
+            </div>
+            <div class="card-body p-0">
+              {% if item.pl_hierarchy %}
+              <table class="table table-sm mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="ps-3" style="width:60%">科目名</th>
+                    <th class="text-end pe-3">金額（円）</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for major, mids in item.pl_hierarchy.items() %}
+                  <tr style="background:#f0f4ff;">
+                    <td colspan="2" class="ps-2 fw-bold" style="color:#0056b3; font-size:0.95rem; border-top:2px solid #0056b3;">
+                      <i class="fas fa-chevron-right me-1"></i>{{ major }}
+                    </td>
+                  </tr>
+                  {% for mid, subs in mids.items() %}
+                  <tr style="background:#f8f9fa;">
+                    <td colspan="2" class="ps-4 fw-semibold text-secondary" style="font-size:0.9rem;">
+                      {{ mid }}
+                    </td>
+                  </tr>
+                  {% for sub, accounts in subs.items() %}
+                  {% if sub != mid %}
+                  <tr>
+                    <td colspan="2" class="ps-5 text-muted" style="font-size:0.85rem; font-style:italic;">{{ sub }}</td>
+                  </tr>
+                  {% endif %}
+                  {% for acc in accounts %}
+                  <tr>
+                    <td class="ps-5">{{ acc.name }}</td>
+                    <td class="text-end pe-3">{{ acc.amount | comma }}</td>
+                  </tr>
+                  {% endfor %}
+                  {% if accounts | length > 1 %}
+                  <tr class="table-light fw-bold">
+                    <td class="ps-5 text-muted" style="font-size:0.85rem;">{{ sub }}　計</td>
+                    <td class="text-end pe-3">{{ accounts | sum(attribute='amount') | comma }}</td>
+                  </tr>
+                  {% endif %}
+                  {% endfor %}
+                  {% set mid_total = namespace(val=0) %}
+                  {% for sub, accounts in subs.items() %}{% for acc in accounts %}{% set mid_total.val = mid_total.val + acc.amount %}{% endfor %}{% endfor %}
+                  <tr class="fw-bold" style="background:#fff3cd;">
+                    <td class="ps-4">{{ mid }}　合計</td>
+                    <td class="text-end pe-3">{{ mid_total.val | comma }}</td>
+                  </tr>
+                  {% endfor %}
+                  {% set major_total = namespace(val=0) %}
+                  {% for mid, subs in mids.items() %}{% for sub, accounts in subs.items() %}{% for acc in accounts %}{% set major_total.val = major_total.val + acc.amount %}{% endfor %}{% endfor %}{% endfor %}
+                  <tr class="fw-bold" style="background:#e7f1ff; border-top:2px solid #0056b3;">
+                    <td class="ps-2" style="color:#0056b3;">{{ major }}　合計</td>
+                    <td class="text-end pe-3" style="color:#0056b3;">{{ major_total.val | comma }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                  <thead class="table-light">
+                    <tr><th class="ps-3">科目名</th><th class="text-end pe-3">金額（円）</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for row in item.pl_items %}
+                    <tr><td class="ps-3">{{ row.name }}</td><td class="text-end pe-3">{{ row.amount | comma }}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% endif %}
+              {% if item.pl_unclassified %}
+              <div class="p-3 border-top">
+                <p class="text-muted small mb-2"><i class="fas fa-exclamation-circle me-1"></i>未分類科目（<a href="/decision/account-master">科目マスタ</a>で分類を設定してください）</p>
+                <table class="table table-sm table-hover mb-0">
+                  <tbody>
+                    {% for row in item.pl_unclassified %}
+                    <tr class="text-muted"><td class="ps-3">{{ row.name }}</td><td class="text-end pe-3">{{ row.amount | comma }}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {# ===================== 製造原価報告書 ===================== #}
+        {% if item.mcr_items %}
+        <div class="tab-pane fade" id="mcr-pane-{{ item.fiscal_year.id }}" role="tabpanel">
+          <div class="card shadow-sm border-0">
+            <div class="card-header py-2 fw-bold" style="background:#e8f5e9; color:#1b5e20;">
+              <i class="fas fa-industry me-2"></i>製造原価報告書（オリジナル）
+            </div>
+            <div class="card-body p-0">
+              {% if item.mcr_hierarchy %}
+              <table class="table table-sm mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="ps-3" style="width:60%">科目名</th>
+                    <th class="text-end pe-3">金額（円）</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for major, mids in item.mcr_hierarchy.items() %}
+                  <tr style="background:#f0f4ff;">
+                    <td colspan="2" class="ps-2 fw-bold" style="color:#1b5e20; font-size:0.95rem; border-top:2px solid #1b5e20;">
+                      <i class="fas fa-chevron-right me-1"></i>{{ major }}
+                    </td>
+                  </tr>
+                  {% for mid, subs in mids.items() %}
+                  <tr style="background:#f8f9fa;">
+                    <td colspan="2" class="ps-4 fw-semibold text-secondary" style="font-size:0.9rem;">{{ mid }}</td>
+                  </tr>
+                  {% for sub, accounts in subs.items() %}
+                  {% if sub != mid %}
+                  <tr>
+                    <td colspan="2" class="ps-5 text-muted" style="font-size:0.85rem; font-style:italic;">{{ sub }}</td>
+                  </tr>
+                  {% endif %}
+                  {% for acc in accounts %}
+                  <tr>
+                    <td class="ps-5">{{ acc.name }}</td>
+                    <td class="text-end pe-3">{{ acc.amount | comma }}</td>
+                  </tr>
+                  {% endfor %}
+                  {% if accounts | length > 1 %}
+                  <tr class="table-light fw-bold">
+                    <td class="ps-5 text-muted" style="font-size:0.85rem;">{{ sub }}　計</td>
+                    <td class="text-end pe-3">{{ accounts | sum(attribute='amount') | comma }}</td>
+                  </tr>
+                  {% endif %}
+                  {% endfor %}
+                  {% set mid_total = namespace(val=0) %}
+                  {% for sub, accounts in subs.items() %}{% for acc in accounts %}{% set mid_total.val = mid_total.val + acc.amount %}{% endfor %}{% endfor %}
+                  <tr class="fw-bold" style="background:#c8e6c9;">
+                    <td class="ps-4">{{ mid }}　合計</td>
+                    <td class="text-end pe-3">{{ mid_total.val | comma }}</td>
+                  </tr>
+                  {% endfor %}
+                  {% set major_total = namespace(val=0) %}
+                  {% for mid, subs in mids.items() %}{% for sub, accounts in subs.items() %}{% for acc in accounts %}{% set major_total.val = major_total.val + acc.amount %}{% endfor %}{% endfor %}{% endfor %}
+                  <tr class="fw-bold" style="background:#e8f5e9; border-top:2px solid #1b5e20;">
+                    <td class="ps-2" style="color:#1b5e20;">{{ major }}　合計</td>
+                    <td class="text-end pe-3" style="color:#1b5e20;">{{ major_total.val | comma }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                  <thead class="table-light">
+                    <tr><th class="ps-3">科目名</th><th class="text-end pe-3">金額（円）</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for row in item.mcr_items %}
+                    <tr><td class="ps-3">{{ row.name }}</td><td class="text-end pe-3">{{ row.amount | comma }}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% endif %}
+              {% if item.mcr_unclassified %}
+              <div class="p-3 border-top">
+                <p class="text-muted small mb-2"><i class="fas fa-exclamation-circle me-1"></i>未分類科目（<a href="/decision/account-master">科目マスタ</a>で分類を設定してください）</p>
+                <table class="table table-sm table-hover mb-0">
+                  <tbody>
+                    {% for row in item.mcr_unclassified %}
+                    <tr class="text-muted"><td class="ps-3">{{ row.name }}</td><td class="text-end pe-3">{{ row.amount | comma }}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+      </div><!-- /stmtTabContent -->
     </div><!-- /tab-pane -->
     {% endfor %}
   </div><!-- /tab-content -->

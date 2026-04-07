@@ -245,10 +245,58 @@ def company_financial_statements(company_id):
                   .order_by(McrAccountItem.display_order)
                   .all()
             )
-            # テンプレート向けに {'name': ..., 'amount': ...} 形式に変換
+            # 階層構造変換用ヘルパー関数
+            def build_hierarchy(values_with_items):
+                """(StatementValue, AccountItem)のリストから階層構造を構築"""
+                import collections
+                # 分類確定済み科目と未分類科目を分ける
+                hierarchy = collections.OrderedDict()  # {major: {mid: {sub: [{name, amount}]}}}
+                unclassified = []
+                # account_item_categories.jsonの順序で大分類・中分類を初期化
+                CATEGORY_ORDER = [
+                    ('資産', ['流動資産', '固定資産', '繰延資産']),
+                    ('負債', ['流動負債', '固定負債']),
+                    ('純資産', ['資本金', '資本剰余金', '利益剰余金', '自己株式', '評価換算差額等', '新株予約権']),
+                    ('損益', ['売上高', '売上原価', '販売費及び一般管理費', '営業外収益', '営業外費用', '特別利益', '特別損失', '法人税等']),
+                ]
+                for major, mids in CATEGORY_ORDER:
+                    hierarchy[major] = collections.OrderedDict()
+                    for mid in mids:
+                        hierarchy[major][mid] = collections.OrderedDict()
+                for sv, ai in values_with_items:
+                    major = getattr(ai, 'major_category', None)
+                    mid   = getattr(ai, 'mid_category', None)
+                    sub   = getattr(ai, 'sub_category', None) or 'その他'
+                    status = getattr(ai, 'category_status', None)
+                    item_data = {'name': ai.account_name, 'amount': sv.amount}
+                    if major and mid and status in ('confirmed', 'pending'):
+                        if major not in hierarchy:
+                            hierarchy[major] = collections.OrderedDict()
+                        if mid not in hierarchy[major]:
+                            hierarchy[major][mid] = collections.OrderedDict()
+                        if sub not in hierarchy[major][mid]:
+                            hierarchy[major][mid][sub] = []
+                        hierarchy[major][mid][sub].append(item_data)
+                    else:
+                        unclassified.append(item_data)
+                # 空の中分類を削除
+                for major in list(hierarchy.keys()):
+                    for mid in list(hierarchy[major].keys()):
+                        if not hierarchy[major][mid]:
+                            del hierarchy[major][mid]
+                    if not hierarchy[major]:
+                        del hierarchy[major]
+                return hierarchy, unclassified
+
+            # テンプレート向けに {'name': ..., 'amount': ...} 形式に変換（フラットリスト）
             pl_items  = [{'name': ai.account_name, 'amount': sv.amount} for sv, ai in pl_values]
             bs_items  = [{'name': ai.account_name, 'amount': sv.amount} for sv, ai in bs_values]
             mcr_items = [{'name': ai.account_name, 'amount': sv.amount} for sv, ai in mcr_values]
+
+            # 階層構造データも作成
+            bs_hierarchy, bs_unclassified   = build_hierarchy(bs_values)
+            pl_hierarchy, pl_unclassified   = build_hierarchy(pl_values)
+            mcr_hierarchy, mcr_unclassified = build_hierarchy(mcr_values)
 
             # 旧データ（OriginalTrialBalance）からのフォールバック（新テーブルにデータがない場合）
             if not (pl_items or bs_items or mcr_items):
@@ -274,6 +322,12 @@ def company_financial_statements(company_id):
                     'pl_items': pl_items,
                     'bs_items': bs_items,
                     'mcr_items': mcr_items,
+                    'bs_hierarchy': bs_hierarchy,
+                    'bs_unclassified': bs_unclassified,
+                    'pl_hierarchy': pl_hierarchy,
+                    'pl_unclassified': pl_unclassified,
+                    'mcr_hierarchy': mcr_hierarchy,
+                    'mcr_unclassified': mcr_unclassified,
                     'unit': unit,
                     'has_data': True
                 })
@@ -4286,17 +4340,82 @@ def pdf_apply():
                     except (ValueError, TypeError):
                         amount = 0
 
+                    # PDFのセクション名から大分類・中分類・小分類へのマッピングテーブル
+                    _SECTION_TO_CATEGORY = {
+                        # BS - 資産
+                        '流動資産':            ('資産', '流動資産', 'その他流動資産'),
+                        '現金及び預金':          ('資産', '流動資産', '現金及び預金'),
+                        '現金・預金':            ('資産', '流動資産', '現金及び預金'),
+                        '売上債権':              ('資産', '流動資産', '売上債権'),
+                        '棚卸資産':              ('資産', '流動資産', '棚卸資産'),
+                        '有価証券':              ('資産', '流動資産', '有価証券'),
+                        'その他流動資産':          ('資産', '流動資産', 'その他流動資産'),
+                        '固定資産':            ('資産', '固定資産', 'その他流動資産'),
+                        '有形固定資産':          ('資産', '固定資産', '有形固定資産'),
+                        '無形固定資産':          ('資産', '固定資産', '無形固定資産'),
+                        '投資その他の資産':        ('資産', '固定資産', '投資その他の資産'),
+                        '繰延資産':            ('資産', '繰延資産', '繰延資産'),
+                        # BS - 負債
+                        '流動負債':            ('負債', '流動負債', 'その他流動負債'),
+                        '仕入債務':              ('負債', '流動負債', '仕入債務'),
+                        'その他流動負債':          ('負債', '流動負債', 'その他流動負債'),
+                        '固定負債':            ('負債', '固定負債', '固定負債'),
+                        # BS - 純資産
+                        '純資産':              ('純資産', '資本金', '資本金'),
+                        '資本金':              ('純資産', '資本金', '資本金'),
+                        '資本剰余金':            ('純資産', '資本剰余金', 'その他資本剰余金'),
+                        '利益剰余金':            ('純資産', '利益剰余金', 'その他利益剰余金'),
+                        '自己株式':              ('純資産', '自己株式', '自己株式'),
+                        # PL - 損益
+                        '売上高':              ('損益', '売上高', '売上高'),
+                        '売上原価':            ('損益', '売上原価', '売上原価'),
+                        '販売費及び一般管理費':    ('損益', '販売費及び一般管理費', '販売費及び一般管理費'),
+                        '販管費':              ('損益', '販売費及び一般管理費', '販売費及び一般管理費'),
+                        '販売費':              ('損益', '販売費及び一般管理費', '販売費及び一般管理費'),
+                        '一般管理費':            ('損益', '販売費及び一般管理費', '販売費及び一般管理費'),
+                        '営業外収益':            ('損益', '営業外収益', '営業外収益'),
+                        '営業外費用':            ('損益', '営業外費用', '営業外費用'),
+                        '特別利益':            ('損益', '特別利益', '特別利益'),
+                        '特別損失':            ('損益', '特別損失', '特別損失'),
+                        '法人税等':              ('損益', '法人税等', '法人税等'),
+                        # MCR
+                        '製造原価':            ('損益', '売上原価', '売上原価'),
+                        '材料費':              ('損益', '売上原価', '売上原価'),
+                        '労務費':              ('損益', '売上原価', '売上原価'),
+                        '製造経費':            ('損益', '売上原価', '売上原価'),
+                    }
+
                     # 科目マスタに未登録なら新規追加
                     if account_name not in existing:
+                        # PDFのセクション名から大中小分類を取得
+                        section = item.get('section', '')
+                        cat = _SECTION_TO_CATEGORY.get(section)
                         new_item = account_model(
                             tenant_id=tenant_id,
                             account_name=account_name,
                             display_order=order_start + order_idx,
-                            is_auto_created=True
+                            is_auto_created=True,
+                            major_category=cat[0] if cat else None,
+                            mid_category=cat[1] if cat else None,
+                            sub_category=cat[2] if cat else None,
+                            category_status='confirmed' if cat else 'uncategorized',
                         )
                         db.add(new_item)
                         db.flush()  # IDを確定させる
                         existing[account_name] = new_item.id
+                    else:
+                        # 既存科目でまだ未分類ならセクション情報で更新
+                        section = item.get('section', '')
+                        cat = _SECTION_TO_CATEGORY.get(section)
+                        if cat:
+                            existing_item = db.query(account_model).filter_by(
+                                tenant_id=tenant_id, account_name=account_name
+                            ).first()
+                            if existing_item and existing_item.category_status in ('uncategorized', None):
+                                existing_item.major_category = cat[0]
+                                existing_item.mid_category = cat[1]
+                                existing_item.sub_category = cat[2]
+                                existing_item.category_status = 'confirmed'
 
                     account_item_id = existing[account_name]
 
