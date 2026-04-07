@@ -181,14 +181,13 @@
       <div class="text-center py-5 text-muted">
         <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
         <p>損益計算書の科目データがありません。<br>PDFをアップロードすると自動登録されます。</p>
-        <a href="/decision/pdf-upload?company_id={{ company.id }}" class="btn btn-primary btn-sm">
+        <a href="/decision/pdf-upload" class="btn btn-primary btn-sm">
           <i class="fas fa-file-pdf me-1"></i>PDFをアップロード
         </a>
       </div>
       {% endif %}
     </div>
-
-    <!-- ===== BS タブ ===== -->
+    <!-- ===== BS タブ ===== -->>
     <div class="tab-pane fade" id="bs-pane" role="tabpanel">
       <div class="d-flex justify-content-between align-items-center my-3">
         <h6 class="fw-bold mb-0 text-success"><i class="fas fa-balance-scale me-1"></i>貸借対照表 勘定科目マスタ</h6>
@@ -285,14 +284,13 @@
       <div class="text-center py-5 text-muted">
         <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
         <p>貸借対照表の科目データがありません。</p>
-        <a href="/decision/pdf-upload?company_id={{ company.id }}" class="btn btn-primary btn-sm">
+        <a href="/decision/pdf-upload" class="btn btn-primary btn-sm">
           <i class="fas fa-file-pdf me-1"></i>PDFをアップロード
         </a>
       </div>
       {% endif %}
     </div>
-
-    <!-- ===== MCR タブ ===== -->
+    <!-- ===== MCR タブ ====== -->
     <div class="tab-pane fade" id="mcr-pane" role="tabpanel">
       <div class="d-flex justify-content-between align-items-center my-3">
         <h6 class="fw-bold mb-0 text-warning"><i class="fas fa-industry me-1"></i>製造原価報告書 勘定科目マスタ</h6>
@@ -389,22 +387,21 @@
       <div class="text-center py-5 text-muted">
         <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
         <p>製造原価報告書の科目データがありません。</p>
-        <a href="/decision/pdf-upload?company_id={{ company.id }}" class="btn btn-primary btn-sm">
+        <a href="/decision/pdf-upload" class="btn btn-primary btn-sm">
           <i class="fas fa-file-pdf me-1"></i>PDFをアップロード
         </a>
       </div>
       {% endif %}
     </div>
-
-  </div><!-- /tab-content -->
+  </div><!-- /tab-content -->>
 
   <!-- 下部ボタン -->
   <div class="d-flex justify-content-between align-items-center mb-5">
-    <a href="/decision/companies/{{ company.id }}" class="btn btn-outline-secondary">
-      <i class="fas fa-arrow-left me-1"></i>企業詳細に戻る
+    <a href="/decision/" class="btn btn-outline-secondary">
+      <i class="fas fa-arrow-left me-1"></i>企業一覧に戻る
     </a>
-    <a href="/decision/companies/{{ company.id }}/mapping-confirm{% if fiscal_year_id %}?fiscal_year_id={{ fiscal_year_id }}{% endif %}" class="btn btn-primary">
-      <i class="fas fa-project-diagram me-1"></i>マッピング確認画面へ
+    <a href="/decision/pdf-upload" class="btn btn-primary">
+      <i class="fas fa-project-diagram me-1"></i>PDFアップロードへ
     </a>
   </div>
 </div>
