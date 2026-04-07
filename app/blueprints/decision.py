@@ -4301,9 +4301,61 @@ def pdf_apply():
 
         db.commit()
 
-        # 保存後は読み取り済み財務諸表ページへリダイレクト
+        # ============================================================
+        # AIマッピング推定（unmapped科目のみ対象）
+        # ============================================================
         if company_id:
-            return redirect(url_for('decision.company_financial_statements', company_id=company_id))
+            try:
+                from ..services.mapping_service import (
+                    estimate_mappings_for_pl,
+                    estimate_mappings_for_bs,
+                    estimate_mappings_for_mcr
+                )
+                db2 = SessionLocal()
+                try:
+                    # PLの未マッピング科目を推定
+                    pl_items_all = db2.query(PlAccountItem).filter_by(company_id=company_id).all()
+                    pl_results = estimate_mappings_for_pl(company_id, pl_items_all)
+                    for r in pl_results:
+                        item = db2.query(PlAccountItem).get(r.get('id'))
+                        if item and item.mapping_status == 'unmapped':
+                            item.target_statement = r.get('target_statement')
+                            item.target_field = r.get('target_field') if r.get('target_field') else None
+                            item.ai_confidence = r.get('confidence')
+                            item.mapping_status = 'pending'
+
+                    # BSの未マッピング科目を推定
+                    bs_items_all = db2.query(BsAccountItem).filter_by(company_id=company_id).all()
+                    bs_results = estimate_mappings_for_bs(company_id, bs_items_all)
+                    for r in bs_results:
+                        item = db2.query(BsAccountItem).get(r.get('id'))
+                        if item and item.mapping_status == 'unmapped':
+                            item.target_statement = r.get('target_statement')
+                            item.target_field = r.get('target_field') if r.get('target_field') else None
+                            item.ai_confidence = r.get('confidence')
+                            item.mapping_status = 'pending'
+
+                    # MCRの未マッピング科目を推定
+                    mcr_items_all = db2.query(McrAccountItem).filter_by(company_id=company_id).all()
+                    mcr_results = estimate_mappings_for_mcr(company_id, mcr_items_all)
+                    for r in mcr_results:
+                        item = db2.query(McrAccountItem).get(r.get('id'))
+                        if item and item.mapping_status == 'unmapped':
+                            item.target_statement = r.get('target_statement')
+                            item.target_field = r.get('target_field') if r.get('target_field') else None
+                            item.ai_confidence = r.get('confidence')
+                            item.mapping_status = 'pending'
+
+                    db2.commit()
+                finally:
+                    db2.close()
+            except Exception as e:
+                print(f'[pdf_apply] AI mapping error (non-fatal): {e}')
+
+            # マッピング確認画面へリダイレクト
+            return redirect(url_for('decision.mapping_confirm_get',
+                                    company_id=company_id,
+                                    fiscal_year_id=fiscal_year_id))
         else:
             return redirect(url_for('decision.profit_loss_list'))
     finally:
@@ -4437,12 +4489,282 @@ def run_migration_raw_tables():
     # 2. account_mappings の statement_type ENUM に MCR を追加（PostgreSQL用）
     try:
         with engine.connect() as conn:
-            # PostgreSQLではENUM型を別途作成してからALTERする
-            # まず既存のENUM型に'MCR'を追加する
             conn.execute(text("ALTER TYPE statementtype ADD VALUE IF NOT EXISTS 'MCR'"))
             conn.commit()
         results.append('ALTER TYPE statementtype ADD VALUE MCR: OK')
     except Exception as e:
         results.append(f'ALTER TYPE statementtype: {e}')
 
+    # 3. pl/bs/mcr_account_items にマッピングカラムを追加（既存テーブルへのALTER TABLE）
+    mapping_columns = [
+        ('pl_account_items',  'target_statement', 'VARCHAR(10)'),
+        ('pl_account_items',  'target_field',     'VARCHAR(100)'),
+        ('pl_account_items',  'mapping_status',   "VARCHAR(20) NOT NULL DEFAULT 'unmapped'"),
+        ('pl_account_items',  'ai_confidence',    'FLOAT'),
+        ('bs_account_items',  'target_statement', 'VARCHAR(10)'),
+        ('bs_account_items',  'target_field',     'VARCHAR(100)'),
+        ('bs_account_items',  'mapping_status',   "VARCHAR(20) NOT NULL DEFAULT 'unmapped'"),
+        ('bs_account_items',  'ai_confidence',    'FLOAT'),
+        ('mcr_account_items', 'target_statement', 'VARCHAR(10)'),
+        ('mcr_account_items', 'target_field',     'VARCHAR(100)'),
+        ('mcr_account_items', 'mapping_status',   "VARCHAR(20) NOT NULL DEFAULT 'unmapped'"),
+        ('mcr_account_items', 'ai_confidence',    'FLOAT'),
+    ]
+    for table, col, col_type in mapping_columns:
+        try:
+            with engine.connect() as conn:
+                conn.execute(text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type}'))
+                conn.commit()
+            results.append(f'ALTER TABLE {table} ADD COLUMN {col}: OK')
+        except Exception as e:
+            results.append(f'ALTER TABLE {table} ADD COLUMN {col}: {e}')
+
     return {'results': results}, 200
+
+
+# ==================== マッピング確認・確定 ====================
+
+# 組換え先フィールドの選択肢定義
+_PL_FIELDS = {
+    'sales': '売上高',
+    'cost_of_sales': '売上原価',
+    'beginning_inventory': '期首棚卸高',
+    'manufacturing_cost': '当期製造原価',
+    'ending_inventory': '期末棚卸高',
+    'gross_profit': '売上総利益',
+    'external_cost_adjustment': '外部経費調整',
+    'gross_added_value': '粗付加価値',
+    'selling_general_admin_expenses': '販売費及び一般管理費',
+    'labor_cost': '人件費',
+    'executive_compensation': '役員報酬',
+    'capital_regeneration_cost': '資本再生費',
+    'research_development_expenses': '研究開発費',
+    'general_expenses': '一般経費',
+    'general_expenses_fixed': '一般経費（固定費）',
+    'general_expenses_variable': '一般経費（変動費）',
+    'operating_income': '営業利益',
+    'financial_profit_loss': '金融損益',
+    'other_non_operating': 'その他営業外損益',
+    'ordinary_income': '経常利益',
+    'extraordinary_profit_loss': '特別損益',
+    'income_before_tax': '税引前当期純利益',
+    'income_taxes': '法人税等',
+    'net_income': '当期純利益',
+    'dividend': '配当金',
+    'retained_profit': '内部留保',
+    'legal_reserve': '利益準備金積立額',
+    'voluntary_reserve': 'その他剰余金積立額',
+    'retained_earnings_increase': '繰越利益剰余金増加',
+}
+
+_BS_FIELDS = {
+    'cash_on_hand': '手許現預金',
+    'investment_deposits': '運用預金',
+    'marketable_securities': '有価証券',
+    'trade_receivables': '売掛債権',
+    'inventory_assets': '棚卸資産',
+    'current_assets': '流動資産合計',
+    'tangible_fixed_assets': '有形固定資産',
+    'intangible_fixed_assets': '無形固定資産',
+    'investments_and_other': '投資その他資産',
+    'deferred_assets': '繰延資産',
+    'fixed_assets': '固定資産合計',
+    'total_assets': '資産合計',
+    'trade_payables': '仕入債務',
+    'short_term_borrowings': '短期借入金',
+    'current_portion_long_term': '長期借入金（1年以内）',
+    'discounted_notes': '割引手形',
+    'other_current_liabilities': 'その他流動負債',
+    'current_liabilities': '流動負債合計',
+    'long_term_borrowings': '長期借入金',
+    'executive_borrowings': '役員借入金',
+    'retirement_benefit_liability': '退職給付引当金',
+    'other_fixed_liabilities': 'その他固定負債',
+    'fixed_liabilities': '固定負債合計',
+    'total_liabilities': '負債合計',
+    'capital': '資本金',
+    'capital_surplus': '資本剰余金',
+    'retained_earnings': '利益剰余金',
+    'legal_reserve_bs': '利益準備金',
+    'voluntary_reserve_bs': '任意積立金',
+    'retained_earnings_carried': '繰越利益剰余金',
+    'treasury_stock': '自己株式',
+    'net_assets': '純資産合計',
+    'total_liabilities_and_net_assets': '負債純資産合計',
+}
+
+_MCR_FIELDS = {
+    'beginning_raw_material': '期首原材料棚卸高',
+    'raw_material_purchase': '当期原材料仕入高',
+    'ending_raw_material': '期末原材料棚卸高',
+    'material_cost': '材料費計',
+    'labor_cost_manufacturing': '労務費計',
+    'outsourcing_cost': '外注加工費',
+    'freight_manufacturing': '荷造運賃（製造）',
+    'meeting_cost_manufacturing': '会議費（製造）',
+    'travel_cost_manufacturing': '旅費交通費（製造）',
+    'communication_cost_manufacturing': '通信費（製造）',
+    'supplies_manufacturing': '消耗品費（製造）',
+    'vehicle_cost_manufacturing': '車両費（製造）',
+    'rent_manufacturing': '賃借料（製造）',
+    'insurance_manufacturing': '保険料（製造）',
+    'depreciation_manufacturing': '減価償却費（製造）',
+    'repair_cost_manufacturing': '修繕費（製造）',
+    'other_manufacturing_cost': 'その他製造経費',
+    'manufacturing_expenses_total': '製造経費計',
+    'total_manufacturing_cost_current': '総製造費用',
+    'beginning_wip': '期首仕掛品棚卸高',
+    'ending_wip': '期末仕掛品棚卸高',
+    'total_manufacturing_cost': '製造原価合計',
+}
+
+_ALL_FIELDS = {
+    'PL': _PL_FIELDS,
+    'BS': _BS_FIELDS,
+    'MCR': _MCR_FIELDS,
+}
+
+
+@bp.route('/companies/<int:company_id>/mapping-confirm', methods=['GET'])
+@require_login
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def mapping_confirm_get(company_id):
+    """科目マッピング確認画面（GET）"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if not company:
+            return redirect(url_for('decision.company_list'))
+
+        fiscal_year_id = request.args.get('fiscal_year_id', type=int)
+
+        # PL科目マスタ（会計年度の実績値と結合して金額も表示）
+        pl_rows = (
+            db.query(PlAccountItem, PlStatementValue)
+            .outerjoin(PlStatementValue, (PlStatementValue.account_item_id == PlAccountItem.id) &
+                       (PlStatementValue.fiscal_year_id == fiscal_year_id))
+            .filter(PlAccountItem.company_id == company_id)
+            .order_by(PlAccountItem.display_order)
+            .all()
+        )
+        pl_items = []
+        for ai, sv in pl_rows:
+            pl_items.append({
+                'id': ai.id,
+                'account_name': ai.account_name,
+                'amount': sv.amount if sv else None,
+                'target_statement': ai.target_statement,
+                'target_field': ai.target_field,
+                'mapping_status': ai.mapping_status,
+                'ai_confidence': ai.ai_confidence,
+            })
+
+        # BS科目マスタ
+        bs_rows = (
+            db.query(BsAccountItem, BsStatementValue)
+            .outerjoin(BsStatementValue, (BsStatementValue.account_item_id == BsAccountItem.id) &
+                       (BsStatementValue.fiscal_year_id == fiscal_year_id))
+            .filter(BsAccountItem.company_id == company_id)
+            .order_by(BsAccountItem.display_order)
+            .all()
+        )
+        bs_items = []
+        for ai, sv in bs_rows:
+            bs_items.append({
+                'id': ai.id,
+                'account_name': ai.account_name,
+                'amount': sv.amount if sv else None,
+                'target_statement': ai.target_statement,
+                'target_field': ai.target_field,
+                'mapping_status': ai.mapping_status,
+                'ai_confidence': ai.ai_confidence,
+            })
+
+        # MCR科目マスタ
+        mcr_rows = (
+            db.query(McrAccountItem, McrStatementValue)
+            .outerjoin(McrStatementValue, (McrStatementValue.account_item_id == McrAccountItem.id) &
+                       (McrStatementValue.fiscal_year_id == fiscal_year_id))
+            .filter(McrAccountItem.company_id == company_id)
+            .order_by(McrAccountItem.display_order)
+            .all()
+        )
+        mcr_items = []
+        for ai, sv in mcr_rows:
+            mcr_items.append({
+                'id': ai.id,
+                'account_name': ai.account_name,
+                'amount': sv.amount if sv else None,
+                'target_statement': ai.target_statement,
+                'target_field': ai.target_field,
+                'mapping_status': ai.mapping_status,
+                'ai_confidence': ai.ai_confidence,
+            })
+
+        return render_template(
+            'mapping_confirm.html',
+            company=company,
+            fiscal_year_id=fiscal_year_id,
+            pl_items=pl_items,
+            bs_items=bs_items,
+            mcr_items=mcr_items,
+            pl_fields=_PL_FIELDS,
+            bs_fields=_BS_FIELDS,
+            mcr_fields=_MCR_FIELDS,
+            all_fields=_ALL_FIELDS,
+        )
+    finally:
+        db.close()
+
+
+@bp.route('/companies/<int:company_id>/mapping-confirm', methods=['POST'])
+@require_login
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def mapping_confirm_post(company_id):
+    """科目マッピング確定（POST）"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if not company:
+            return redirect(url_for('decision.company_list'))
+
+        fiscal_year_id = request.form.get('fiscal_year_id', type=int)
+
+        # PL科目マスタのマッピングを確定
+        pl_items_all = db.query(PlAccountItem).filter_by(company_id=company_id).all()
+        for item in pl_items_all:
+            stmt_key = f'pl_target_statement_{item.id}'
+            field_key = f'pl_target_field_{item.id}'
+            if stmt_key in request.form:
+                item.target_statement = request.form.get(stmt_key) or None
+                item.target_field = request.form.get(field_key) or None
+                item.mapping_status = 'confirmed' if item.target_statement else 'ignored'
+
+        # BS科目マスタのマッピングを確定
+        bs_items_all = db.query(BsAccountItem).filter_by(company_id=company_id).all()
+        for item in bs_items_all:
+            stmt_key = f'bs_target_statement_{item.id}'
+            field_key = f'bs_target_field_{item.id}'
+            if stmt_key in request.form:
+                item.target_statement = request.form.get(stmt_key) or None
+                item.target_field = request.form.get(field_key) or None
+                item.mapping_status = 'confirmed' if item.target_statement else 'ignored'
+
+        # MCR科目マスタのマッピングを確定
+        mcr_items_all = db.query(McrAccountItem).filter_by(company_id=company_id).all()
+        for item in mcr_items_all:
+            stmt_key = f'mcr_target_statement_{item.id}'
+            field_key = f'mcr_target_field_{item.id}'
+            if stmt_key in request.form:
+                item.target_statement = request.form.get(stmt_key) or None
+                item.target_field = request.form.get(field_key) or None
+                item.mapping_status = 'confirmed' if item.target_statement else 'ignored'
+
+        db.commit()
+
+        # 確定後は財務諸表ページへリダイレクト
+        return redirect(url_for('decision.company_financial_statements', company_id=company_id))
+    finally:
+        db.close()

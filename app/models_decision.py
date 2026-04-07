@@ -1237,6 +1237,11 @@ class PlAccountItem(Base):
     account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
     display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
     is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
+    # マッピング設定
+    target_statement = Column(String(10), nullable=True)             # 組換え先帳票（PL/BS/MCR）
+    target_field = Column(String(100), nullable=True)                # 組換え先フィールド名
+    mapping_status = Column(String(20), default='unmapped', nullable=False)  # unmapped/pending/confirmed/ignored
+    ai_confidence = Column(Float, nullable=True)                     # AI推定信頼度（0.0〜1.0）
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
 
@@ -1290,6 +1295,11 @@ class BsAccountItem(Base):
     account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
     display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
     is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
+    # マッピング設定
+    target_statement = Column(String(10), nullable=True)             # 組換え先帳票（PL/BS/MCR）
+    target_field = Column(String(100), nullable=True)                # 組換え先フィールド名
+    mapping_status = Column(String(20), default='unmapped', nullable=False)  # unmapped/pending/confirmed/ignored
+    ai_confidence = Column(Float, nullable=True)                     # AI推定信頼度（0.0〜1.0）
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
 
@@ -1343,6 +1353,11 @@ class McrAccountItem(Base):
     account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
     display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
     is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
+    # マッピング設定
+    target_statement = Column(String(10), nullable=True)             # 組換え先帳票（PL/BS/MCR）
+    target_field = Column(String(100), nullable=True)                # 組換え先フィールド名
+    mapping_status = Column(String(20), default='unmapped', nullable=False)  # unmapped/pending/confirmed/ignored
+    ai_confidence = Column(Float, nullable=True)                     # AI推定信頼度（0.0〜1.0）
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
 

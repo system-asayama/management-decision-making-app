@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}{{ company.name }} - 科目マッピング確認{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4 px-3 px-md-4">
+  <!-- パンくずナビ -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/decision/">企業一覧</a></li>
+      <li class="breadcrumb-item"><a href="/decision/companies/{{ company.id }}">{{ company.name }}</a></li>
+      <li class="breadcrumb-item active">科目マッピング確認</li>
+    </ol>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="card shadow-sm border-0 mb-4" style="background: linear-gradient(135deg, #0056b3 0%, #007bff 100%);">
+    <div class="card-body text-white py-3">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h4 class="mb-1 fw-bold"><i class="fas fa-project-diagram me-2"></i>科目マッピング確認・確定</h4>
+          <p class="mb-0 opacity-75 small">{{ company.name }} &nbsp;|&nbsp; AIが推定した組換え先を確認・修正して確定してください</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="/decision/companies/{{ company.id }}/financial-statements" class="btn btn-outline-light btn-sm">
+            <i class="fas fa-arrow-left me-1"></i>財務諸表に戻る
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 説明 -->
+  <div class="alert alert-info mb-4">
+    <i class="fas fa-info-circle me-2"></i>
+    AIがPDFから読み取った勘定科目を組換え帳票のフィールドに自動マッピングしました。
+    内容を確認・修正し、「マッピングを確定する」ボタンを押してください。
+    確定後、組換えフォームに自動反映されます。
+  </div>
+
+  <form method="POST" action="/decision/companies/{{ company.id }}/mapping-confirm">
+    <input type="hidden" name="fiscal_year_id" value="{{ fiscal_year_id }}">
+
+    <!-- タブ -->
+    <ul class="nav nav-tabs mb-0" id="mappingTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="pl-tab" data-bs-toggle="tab" data-bs-target="#pl-pane" type="button" role="tab">
+          <i class="fas fa-chart-line me-1"></i>損益計算書（{{ pl_items|length }}科目）
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="bs-tab" data-bs-toggle="tab" data-bs-target="#bs-pane" type="button" role="tab">
+          <i class="fas fa-balance-scale me-1"></i>貸借対照表（{{ bs_items|length }}科目）
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="mcr-tab" data-bs-toggle="tab" data-bs-target="#mcr-pane" type="button" role="tab">
+          <i class="fas fa-industry me-1"></i>製造原価報告書（{{ mcr_items|length }}科目）
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 rounded-bottom bg-white p-3 mb-4" id="mappingTabContent">
+
+      <!-- PL タブ -->
+      <div class="tab-pane fade show active" id="pl-pane" role="tabpanel">
+        {% if pl_items %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width:30%">科目名（PDFの表記）</th>
+                <th style="width:15%">金額</th>
+                <th style="width:20%">組換え先帳票</th>
+                <th style="width:30%">組換え先科目</th>
+                <th style="width:5%">AI信頼度</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in pl_items %}
+              <tr class="{% if item.mapping_status == 'confirmed' %}table-success{% elif item.mapping_status == 'pending' %}table-warning{% elif item.mapping_status == 'ignored' %}table-secondary{% endif %}">
+                <td>
+                  <span class="fw-medium">{{ item.account_name }}</span>
+                  {% if item.mapping_status == 'confirmed' %}
+                    <span class="badge bg-success ms-1 small">確定済</span>
+                  {% elif item.mapping_status == 'pending' %}
+                    <span class="badge bg-warning text-dark ms-1 small">AI推定</span>
+                  {% elif item.mapping_status == 'ignored' %}
+                    <span class="badge bg-secondary ms-1 small">対象外</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if item.amount is not none %}
+                    {{ "{:,}".format(item.amount) }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td>
+                  <select name="pl_target_statement_{{ item.id }}" class="form-select form-select-sm target-statement-select" data-item-id="{{ item.id }}" data-type="pl">
+                    <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
+                    <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>損益計算書（PL）</option>
+                    <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>貸借対照表（BS）</option>
+                    <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>製造原価報告書（MCR）</option>
+                  </select>
+                </td>
+                <td>
+                  <select name="pl_target_field_{{ item.id }}" class="form-select form-select-sm target-field-select" data-item-id="{{ item.id }}">
+                    <option value="">（選択してください）</option>
+                    {% if item.target_statement == 'PL' %}
+                      {% for field_key, field_label in pl_fields.items() %}
+                        <option value="{{ field_key }}" {% if item.target_field == field_key %}selected{% endif %}>{{ field_label }}</option>
+                      {% endfor %}
+                    {% elif item.target_statement == 'BS' %}
+                      {% for field_key, field_label in bs_fields.items() %}
+                        <option value="{{ field_key }}" {% if item.target_field == field_key %}selected{% endif %}>{{ field_label }}</option>
+                      {% endfor %}
+                    {% elif item.target_statement == 'MCR' %}
+                      {% for field_key, field_label in mcr_fields.items() %}
+                        <option value="{{ field_key }}" {% if item.target_field == field_key %}selected{% endif %}>{{ field_label }}</option>
+                      {% endfor %}
+                    {% endif %}
+                  </select>
+                </td>
+                <td class="text-center">
+                  {% if item.ai_confidence is not none %}
+                    <span class="badge {% if item.ai_confidence >= 0.8 %}bg-success{% elif item.ai_confidence >= 0.5 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                      {{ "%.0f"|format(item.ai_confidence * 100) }}%
+                    </span>
+                  {% else %}
+                    <span class="text-muted">-</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted py-3">損益計算書の科目データがありません。</p>
+        {% endif %}
+      </div>
+
+      <!-- BS タブ -->
+      <div class="tab-pane fade" id="bs-pane" role="tabpanel">
+        {% if bs_items %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width:30%">科目名（PDFの表記）</th>
+                <th style="width:15%">金額</th>
+                <th style="width:20%">組換え先帳票</th>
+                <th style="width:30%">組換え先科目</th>
+                <th style="width:5%">AI信頼度</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in bs_items %}
+              <tr class="{% if item.mapping_status == 'confirmed' %}table-success{% elif item.mapping_status == 'pending' %}table-warning{% elif item.mapping_status == 'ignored' %}table-secondary{% endif %}">
+                <td>
+                  <span class="fw-medium">{{ item.account_name }}</span>
+                  {% if item.mapping_status == 'confirmed' %}
+                    <span class="badge bg-success ms-1 small">確定済</span>
+                  {% elif item.mapping_status == 'pending' %}
+                    <span class="badge bg-warning text-dark ms-1 small">AI推定</span>
+                  {% elif item.mapping_status == 'ignored' %}
+                    <span class="badge bg-secondary ms-1 small">対象外</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if item.amount is not none %}
+                    {{ "{:,}".format(item.amount) }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td>
+                  <select name="bs_target_statement_{{ item.id }}" class="form-select form-select-sm target-statement-select" data-item-id="{{ item.id }}" data-type="bs">
+                    <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
+                    <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>損益計算書（PL）</option>
+                    <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>貸借対照表（BS）</option>
+                    <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>製造原価報告書（MCR）</option>
+                  </select>
+                </td>
+                <td>
+                  <select name="bs_target_field_{{ item.id }}" class="form-select form-select-sm target-field-select" data-item-id="{{ item.id }}">
+                    <option value="">（選択してください）</option>
+                    {% if item.target_statement == 'PL' %}
+                      {% for field_key, field_label in pl_fields.items() %}
+                        <option value="{{ field_key }}" {% if item.target_field == field_key %}selected{% endif %}>{{ field_label }}</option>
+                      {% endfor %}
+                    {% elif item.target_statement == 'BS' %}
+                      {% for field_key, field_label in bs_fields.items() %}
+                        <option value="{{ field_key }}" {% if item.target_field == field_key %}selected{% endif %}>{{ field_label }}</option>
+                      {% endfor %}
+                    {% elif item.target_statement == 'MCR' %}
+                      {% for field_key, field_label in mcr_fields.items() %}
+                        <option value="{{ field_key }}" {% if item.target_field == field_key %}selected{% endif %}>{{ field_label }}</option>
+                      {% endfor %}
+                    {% endif %}
+                  </select>
+                </td>
+                <td class="text-center">
+                  {% if item.ai_confidence is not none %}
+                    <span class="badge {% if item.ai_confidence >= 0.8 %}bg-success{% elif item.ai_confidence >= 0.5 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                      {{ "%.0f"|format(item.ai_confidence * 100) }}%
+                    </span>
+                  {% else %}
+                    <span class="text-muted">-</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted py-3">貸借対照表の科目データがありません。</p>
+        {% endif %}
+      </div>
+
+      <!-- MCR タブ -->
+      <div class="tab-pane fade" id="mcr-pane" role="tabpanel">
+        {% if mcr_items %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width:30%">科目名（PDFの表記）</th>
+                <th style="width:15%">金額</th>
+                <th style="width:20%">組換え先帳票</th>
+                <th style="width:30%">組換え先科目</th>
+                <th style="width:5%">AI信頼度</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in mcr_items %}
+              <tr class="{% if item.mapping_status == 'confirmed' %}table-success{% elif item.mapping_status == 'pending' %}table-warning{% elif item.mapping_status == 'ignored' %}table-secondary{% endif %}">
+                <td>
+                  <span class="fw-medium">{{ item.account_name }}</span>
+                  {% if item.mapping_status == 'confirmed' %}
+                    <span class="badge bg-success ms-1 small">確定済</span>
+                  {% elif item.mapping_status == 'pending' %}
+                    <span class="badge bg-warning text-dark ms-1 small">AI推定</span>
+                  {% elif item.mapping_status == 'ignored' %}
+                    <span class="badge bg-secondary ms-1 small">対象外</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if item.amount is not none %}
+                    {{ "{:,}".format(item.amount) }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td>
+                  <select name="mcr_target_statement_{{ item.id }}" class="form-select form-select-sm target-statement-select" data-item-id="{{ item.id }}" data-type="mcr">
+                    <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
+                    <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>損益計算書（PL）</option>
+                    <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>貸借対照表（BS）</option>
+                    <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>製造原価報告書（MCR）</option>
+                  </select>
+                </td>
+                <td>
+                  <select name="mcr_target_field_{{ item.id }}" class="form-select form-select-sm target-field-select" data-item-id="{{ item.id }}">
+                    <option value="">（選択してください）</option>
+                    {% if item.target_statement == 'PL' %}
+                      {% for field_key, field_label in pl_fields.items() %}
+                        <option value="{{ field_key }}" {% if item.target_field == field_key %}selected{% endif %}>{{ field_label }}</option>
+                      {% endfor %}
+                    {% elif item.target_statement == 'BS' %}
+                      {% for field_key, field_label in bs_fields.items() %}
+                        <option value="{{ field_key }}" {% if item.target_field == field_key %}selected{% endif %}>{{ field_label }}</option>
+                      {% endfor %}
+                    {% elif item.target_statement == 'MCR' %}
+                      {% for field_key, field_label in mcr_fields.items() %}
+                        <option value="{{ field_key }}" {% if item.target_field == field_key %}selected{% endif %}>{{ field_label }}</option>
+                      {% endfor %}
+                    {% endif %}
+                  </select>
+                </td>
+                <td class="text-center">
+                  {% if item.ai_confidence is not none %}
+                    <span class="badge {% if item.ai_confidence >= 0.8 %}bg-success{% elif item.ai_confidence >= 0.5 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                      {{ "%.0f"|format(item.ai_confidence * 100) }}%
+                    </span>
+                  {% else %}
+                    <span class="text-muted">-</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted py-3">製造原価報告書の科目データがありません。</p>
+        {% endif %}
+      </div>
+
+    </div><!-- /tab-content -->
+
+    <!-- 確定ボタン -->
+    <div class="d-flex justify-content-between align-items-center mb-5">
+      <a href="/decision/companies/{{ company.id }}/financial-statements" class="btn btn-outline-secondary">
+        <i class="fas fa-times me-1"></i>キャンセル
+      </a>
+      <button type="submit" class="btn btn-primary btn-lg px-5">
+        <i class="fas fa-check me-2"></i>マッピングを確定する
+      </button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+// 組換え先帳票が変わったら組換え先科目のオプションを動的に更新
+const allFields = {{ all_fields | tojson | safe }};
+
+document.querySelectorAll('.target-statement-select').forEach(function(sel) {
+  sel.addEventListener('change', function() {
+    const itemId = this.dataset.itemId;
+    const itemType = this.dataset.type;
+    const targetStmt = this.value;
+    const fieldSel = document.querySelector(`select[name="${itemType}_target_field_${itemId}"]`);
+    if (!fieldSel) return;
+
+    // オプションをクリアして再構築
+    fieldSel.innerHTML = '<option value="">（選択してください）</option>';
+    if (targetStmt && allFields[targetStmt]) {
+      Object.entries(allFields[targetStmt]).forEach(function([key, label]) {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = label;
+        fieldSel.appendChild(opt);
+      });
+    }
+  });
+});
+</script>
+{% endblock %}
