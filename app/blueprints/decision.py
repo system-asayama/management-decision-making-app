@@ -5220,11 +5220,24 @@ def account_master_ai_suggest():
         ensure_ascii=False
     )
 
+    # 分類ツリーの小分類キーを明示的にリスト化してプロンプトに含める
+    sub_category_map = {}
+    for major, mids in category_tree.items():
+        for mid, subs in mids.items():
+            if isinstance(subs, dict):
+                sub_category_map[f"{major}>{mid}"] = list(subs.keys())
+            elif isinstance(subs, list):
+                sub_category_map[f"{major}>{mid}"] = subs
+    sub_category_map_str = _json.dumps(sub_category_map, ensure_ascii=False)
+
     prompt = f"""あなたは日本の財務諸表の勘定科目分類の専門家です。
 以下の勘定科目リストに対して、大分類・中分類・小分類・組換え先帳票・組換え先科目を推定してください。
 
 ## 分類ツリー（大分類 > 中分類 > 小分類）
 {category_tree_str}
+
+## 小分類の選択肢（"大分類>中分類": [使用可能な小分類リスト]）
+{sub_category_map_str}
 
 ## 組換え先フィールド一覧
 {all_fields_str}
@@ -5239,7 +5252,7 @@ def account_master_ai_suggest():
     "id": <科目ID>,
     "major_category": "<大分類（分類ツリーの最上位キー）>",
     "mid_category": "<中分類（大分類の下のキー）>",
-    "sub_category": "<小分類（中分類の下のキー、なければ空文字）>",
+    "sub_category": "<小分類（上記の小分類選択肢リストから選ぶ。該当なければ空文字）>",
     "target_statement": "<組換え先帳票: PL/BS/MCR/空文字>",
     "target_field": "<組換え先科目のキー（組換え先フィールド一覧のキー）、なければ空文字>"
   }}
@@ -5250,6 +5263,7 @@ def account_master_ai_suggest():
 - stmt_type が 'pl' の科目は target_statement を 'PL' または空文字にする
 - stmt_type が 'bs' の科目は target_statement を 'BS' または空文字にする
 - stmt_type が 'mcr' の科目は target_statement を 'MCR' または 'PL' にする
+- sub_category は必ず上記の小分類選択肢リストに存在する値を使用すること。存在しない値は絶対に使用しない
 - 分類ツリーに存在しないカテゴリは使用しない
 - 組換え先フィールドに存在しないキーは使用しない
 """

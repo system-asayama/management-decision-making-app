@@ -800,7 +800,9 @@ document.querySelectorAll('.mid-select').forEach(function(sel) {
     if (subSel) {
       subSel.innerHTML = '<option value="">（未設定）</option>';
       if (major && mid && categoryTree[major] && categoryTree[major][mid]) {
-        categoryTree[major][mid].forEach(function(sub) {
+        const subData = categoryTree[major][mid];
+        const subList = Array.isArray(subData) ? subData : Object.keys(subData);
+        subList.forEach(function(sub) {
           const opt = document.createElement('option');
           opt.value = sub;
           opt.textContent = sub;
@@ -951,7 +953,9 @@ document.getElementById('addMidCategory').addEventListener('change', function() 
   const subSel = document.getElementById('addSubCategory');
   subSel.innerHTML = '<option value="">（未設定）</option>';
   if (major && mid && categoryTree[major] && categoryTree[major][mid]) {
-    categoryTree[major][mid].forEach(function(sub) {
+    const subData = categoryTree[major][mid];
+    const subList = Array.isArray(subData) ? subData : Object.keys(subData);
+    subList.forEach(function(sub) {
       const opt = document.createElement('option');
       opt.value = sub;
       opt.textContent = sub;
