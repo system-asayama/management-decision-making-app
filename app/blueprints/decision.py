@@ -4626,7 +4626,6 @@ _ALL_FIELDS = {
 
 
 @bp.route('/companies/<int:company_id>/mapping-confirm', methods=['GET'])
-@require_login
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def mapping_confirm_get(company_id):
     """科目マッピング確認画面（GET）"""
@@ -4719,7 +4718,6 @@ def mapping_confirm_get(company_id):
 
 
 @bp.route('/companies/<int:company_id>/mapping-confirm', methods=['POST'])
-@require_login
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
 def mapping_confirm_post(company_id):
     """科目マッピング確定（POST）"""
