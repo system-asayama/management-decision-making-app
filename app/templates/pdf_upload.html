@@ -158,25 +158,32 @@
                 </tr>
               </thead>
               <tbody id="bs_tbody">
-                {% set ns = namespace(current_section='') %}
+                {% set ns = namespace(current_section='', is_first=false) %}
                 {% for item in parse_result.original_trial_balance.bs_items %}
                   {% set sec = item.get('section', '') %}
                   {% if sec and sec != ns.current_section %}
                     {% set ns.current_section = sec %}
+                    {% set ns.is_first = true %}
                     <tr class="section-header-row" style="background:#ecf0f1; font-weight:700;">
                       <td colspan="5" class="ps-2">【{{ sec }}】</td>
                     </tr>
+                  {% else %}
+                    {% set ns.is_first = false %}
                   {% endif %}
-                  <tr class="item-row" data-section="{{ sec }}">
+                  <tr class="item-row{% if ns.is_first %} is-section-first{% endif %}" data-section="{{ sec }}">
                     <td class="ps-4 text-muted small">{{ item.name }}</td>
                     <td class="text-end pe-3 text-muted small">{{ "{:,}".format(item.amount | int) }}</td>
                     <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}"></td>
                     <td><input type="number" class="form-control form-control-sm item-amount" value="{{ item.amount | int }}"></td>
                     <td class="text-center d-flex gap-1 justify-content-center">
+                      {% if ns.is_first %}
+                      <button type="button" class="btn btn-sm btn-outline-info add-row-above-btn" title="この行の上に追加"><i class="bi bi-arrow-up"></i></button>
+                      {% endif %}
                       <button type="button" class="btn btn-sm btn-outline-secondary add-row-inline-btn" title="この行の下に追加"><i class="bi bi-plus"></i></button>
                       <button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button>
                     </td>
                   </tr>
+                  {% set ns.is_first = false %}
                 {% endfor %}
               </tbody>
             </table>
@@ -205,25 +212,32 @@
                 </tr>
               </thead>
               <tbody id="pl_tbody">
-                {% set ns2 = namespace(current_section='') %}
+                {% set ns2 = namespace(current_section='', is_first=false) %}
                 {% for item in parse_result.original_trial_balance.pl_items %}
                   {% set sec = item.get('section', '') %}
                   {% if sec and sec != ns2.current_section %}
                     {% set ns2.current_section = sec %}
+                    {% set ns2.is_first = true %}
                     <tr class="section-header-row" style="background:#ecf0f1; font-weight:700;">
                       <td colspan="5" class="ps-2">【{{ sec }}】</td>
                     </tr>
+                  {% else %}
+                    {% set ns2.is_first = false %}
                   {% endif %}
-                  <tr class="item-row" data-section="{{ sec }}">
+                  <tr class="item-row{% if ns2.is_first %} is-section-first{% endif %}" data-section="{{ sec }}">
                     <td class="ps-4 text-muted small">{{ item.name }}</td>
                     <td class="text-end pe-3 text-muted small">{{ "{:,}".format(item.amount | int) }}</td>
                     <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}"></td>
                     <td><input type="number" class="form-control form-control-sm item-amount" value="{{ item.amount | int }}"></td>
                     <td class="text-center d-flex gap-1 justify-content-center">
+                      {% if ns2.is_first %}
+                      <button type="button" class="btn btn-sm btn-outline-info add-row-above-btn" title="この行の上に追加"><i class="bi bi-arrow-up"></i></button>
+                      {% endif %}
                       <button type="button" class="btn btn-sm btn-outline-secondary add-row-inline-btn" title="この行の下に追加"><i class="bi bi-plus"></i></button>
                       <button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button>
                     </td>
                   </tr>
+                  {% set ns2.is_first = false %}
                 {% endfor %}
               </tbody>
             </table>
@@ -252,25 +266,32 @@
                 </tr>
               </thead>
               <tbody id="mcr_tbody">
-                {% set ns3 = namespace(current_section='') %}
+                {% set ns3 = namespace(current_section='', is_first=false) %}
                 {% for item in parse_result.original_trial_balance.mcr_items %}
                   {% set sec = item.get('section', '') %}
                   {% if sec and sec != ns3.current_section %}
                     {% set ns3.current_section = sec %}
+                    {% set ns3.is_first = true %}
                     <tr class="section-header-row" style="background:#ecf0f1; font-weight:700;">
                       <td colspan="5" class="ps-2">【{{ sec }}】</td>
                     </tr>
+                  {% else %}
+                    {% set ns3.is_first = false %}
                   {% endif %}
-                  <tr class="item-row" data-section="{{ sec }}">
+                  <tr class="item-row{% if ns3.is_first %} is-section-first{% endif %}" data-section="{{ sec }}">
                     <td class="ps-4 text-muted small">{{ item.name }}</td>
                     <td class="text-end pe-3 text-muted small">{{ "{:,}".format(item.amount | int) }}</td>
                     <td><input type="text" class="form-control form-control-sm item-name" value="{{ item.name }}"></td>
                     <td><input type="number" class="form-control form-control-sm item-amount" value="{{ item.amount | int }}"></td>
                     <td class="text-center d-flex gap-1 justify-content-center">
+                      {% if ns3.is_first %}
+                      <button type="button" class="btn btn-sm btn-outline-info add-row-above-btn" title="この行の上に追加"><i class="bi bi-arrow-up"></i></button>
+                      {% endif %}
                       <button type="button" class="btn btn-sm btn-outline-secondary add-row-inline-btn" title="この行の下に追加"><i class="bi bi-plus"></i></button>
                       <button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button>
                     </td>
                   </tr>
+                  {% set ns3.is_first = false %}
                 {% endfor %}
               </tbody>
             </table>
@@ -391,7 +412,7 @@ document.addEventListener('click', function(e) {
     if (row) row.remove();
     return;
   }
-  // 行追加ボタン（各行の隣）
+  // 行追加ボタン（各行の下に挿入）
   if (e.target.closest('.add-row-inline-btn')) {
     var addBtn = e.target.closest('.add-row-inline-btn');
     var currentRow = addBtn.closest('tr.item-row');
@@ -400,7 +421,19 @@ document.addEventListener('click', function(e) {
     var newRow = createNewItemRow(section);
     // その行の真下に挿入
     currentRow.parentNode.insertBefore(newRow, currentRow.nextSibling);
-    // 新しい行の科目名入力欄にフォーカス
+    var nameInput = newRow.querySelector('.item-name');
+    if (nameInput) nameInput.focus();
+    return;
+  }
+  // 行追加ボタン（各セクション先頭行の上に挿入）
+  if (e.target.closest('.add-row-above-btn')) {
+    var aboveBtn = e.target.closest('.add-row-above-btn');
+    var currentRow = aboveBtn.closest('tr.item-row');
+    if (!currentRow) return;
+    var section = currentRow.getAttribute('data-section') || '';
+    var newRow = createNewItemRow(section);
+    // その行の上に挿入
+    currentRow.parentNode.insertBefore(newRow, currentRow);
     var nameInput = newRow.querySelector('.item-name');
     if (nameInput) nameInput.focus();
     return;
@@ -507,8 +540,10 @@ function renderTable(tbodyId, items) {
   var currentSection = '';
   items.forEach(function(item) {
     var sec = item.section || '';
+    var isSectionFirst = false;
     if (sec && sec !== currentSection) {
       currentSection = sec;
+      isSectionFirst = true;
       var headerRow = document.createElement('tr');
       headerRow.className = 'section-header-row';
       headerRow.style.background = '#ecf0f1';
@@ -517,16 +552,20 @@ function renderTable(tbodyId, items) {
       tbody.appendChild(headerRow);
     }
     var row = document.createElement('tr');
-    row.className = 'item-row';
+    row.className = 'item-row' + (isSectionFirst ? ' is-section-first' : '');
     row.setAttribute('data-section', sec);
     var amount = parseInt(item.amount) || 0;
     var amountFormatted = amount.toLocaleString('ja-JP');
+    var aboveBtn = isSectionFirst
+      ? '<button type="button" class="btn btn-sm btn-outline-info add-row-above-btn" title="この行の上に追加"><i class="bi bi-arrow-up"></i></button>'
+      : '';
     row.innerHTML =
       '<td class="ps-4 text-muted small">' + escapeHtml(item.name) + '</td>' +
       '<td class="text-end pe-3 text-muted small">' + amountFormatted + '</td>' +
       '<td><input type="text" class="form-control form-control-sm item-name" value="' + escapeHtml(item.name) + '"></td>' +
       '<td><input type="number" class="form-control form-control-sm item-amount" value="' + amount + '"></td>' +
       '<td class="text-center d-flex gap-1 justify-content-center">' +
+        aboveBtn +
         '<button type="button" class="btn btn-sm btn-outline-secondary add-row-inline-btn" title="この行の下に追加"><i class="bi bi-plus"></i></button>' +
         '<button type="button" class="btn btn-sm btn-outline-danger delete-row-btn" title="削除"><i class="bi bi-trash"></i></button>' +
       '</td>';
