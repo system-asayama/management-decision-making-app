@@ -417,27 +417,41 @@ def run_migrations():
                         DELETE FROM {value_table}
                         WHERE account_item_id IN (
                             SELECT id FROM {table}
-                            WHERE
+                            WHERE (
                                 account_name LIKE '%合計'
                                 OR account_name LIKE '%小計'
                                 OR account_name LIKE '%計'
+                                OR account_name LIKE '%利益'
+                                OR account_name LIKE '%損失'
+                                OR account_name LIKE '%損益'
                                 OR account_name LIKE '%差引%'
                                 OR account_name LIKE '%税引前%'
                                 OR account_name LIKE '%内部留保%'
                                 OR account_name LIKE '%粗付加価値%'
+                            )
+                            AND account_name NOT IN (
+                                '繰越利益剰余金', '利益準備金', '当期純損失金額', '繰越損失', '評価差額'
+                            )
                         )
                     """)
                     conn.commit()
                     cur.execute(f"""
                         DELETE FROM {table}
-                        WHERE
+                        WHERE (
                             account_name LIKE '%合計'
                             OR account_name LIKE '%小計'
                             OR account_name LIKE '%計'
+                            OR account_name LIKE '%利益'
+                            OR account_name LIKE '%損失'
+                            OR account_name LIKE '%損益'
                             OR account_name LIKE '%差引%'
                             OR account_name LIKE '%税引前%'
                             OR account_name LIKE '%内部留保%'
                             OR account_name LIKE '%粗付加価値%'
+                        )
+                        AND account_name NOT IN (
+                            '繰越利益剰余金', '利益準備金', '当期純損失金額', '繰越損失', '評価差額'
+                        )
                     """)
                     conn.commit()
                     print(f"  ✅ {table}の区分項目を削除しました")
