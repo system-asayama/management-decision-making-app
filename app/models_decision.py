@@ -42,9 +42,7 @@ class Company(Base):
     differential_analyses = relationship("DifferentialAnalysis", back_populates="company", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="company", cascade="all, delete-orphan")
     account_mappings = relationship("AccountMapping", back_populates="company", cascade="all, delete-orphan")
-    pl_account_items = relationship("PlAccountItem", back_populates="company", cascade="all, delete-orphan")
-    bs_account_items = relationship("BsAccountItem", back_populates="company", cascade="all, delete-orphan")
-    mcr_account_items = relationship("McrAccountItem", back_populates="company", cascade="all, delete-orphan")
+
 
 
 class FiscalYear(Base):
@@ -1221,19 +1219,19 @@ class RawManufacturingCostReport(Base):
 class PlAccountItem(Base):
     """損益計算書 勘定科目マスタ
     
-    企業ごとに損益計算書の勘定科目を管理する。
+    テナント共通の損益計算書の勘定科目を管理する。
     PDFから読み取った科目が未登録の場合は自動的に新規登録される。
     """
     __tablename__ = 'pl_account_items'
 
     __table_args__ = (
-        UniqueConstraint('company_id', 'account_name',
-                         name='uq_pl_account_items_company_name'),
+        UniqueConstraint('tenant_id', 'account_name',
+                         name='uq_pl_account_items_tenant_name'),
         {'extend_existing': True},
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
+    tenant_id = Column(Integer, nullable=False, index=True)          # テナントID（全社共通）
     account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
     display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
     is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
@@ -1246,7 +1244,6 @@ class PlAccountItem(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
 
     # リレーション
-    company = relationship("Company", back_populates="pl_account_items")
     values = relationship("PlStatementValue", back_populates="account_item",
                           cascade="all, delete-orphan")
 
@@ -1279,19 +1276,19 @@ class PlStatementValue(Base):
 class BsAccountItem(Base):
     """貸借対照表 勘定科目マスタ
     
-    企業ごとに貸借対照表の勘定科目を管理する。
+    テナント共通の貸借対照表の勘定科目を管理する。
     PDFから読み取った科目が未登録の場合は自動的に新規登録される。
     """
     __tablename__ = 'bs_account_items'
 
     __table_args__ = (
-        UniqueConstraint('company_id', 'account_name',
-                         name='uq_bs_account_items_company_name'),
+        UniqueConstraint('tenant_id', 'account_name',
+                         name='uq_bs_account_items_tenant_name'),
         {'extend_existing': True},
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
+    tenant_id = Column(Integer, nullable=False, index=True)          # テナントID（全社共通）
     account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
     display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
     is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
@@ -1304,7 +1301,6 @@ class BsAccountItem(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
 
     # リレーション
-    company = relationship("Company", back_populates="bs_account_items")
     values = relationship("BsStatementValue", back_populates="account_item",
                           cascade="all, delete-orphan")
 
@@ -1337,19 +1333,19 @@ class BsStatementValue(Base):
 class McrAccountItem(Base):
     """製造原価報告書 勘定科目マスタ
     
-    企業ごとに製造原価報告書の勘定科目を管理する。
+    テナント共通の製造原価報告書の勘定科目を管理する。
     PDFから読み取った科目が未登録の場合は自動的に新規登録される。
     """
     __tablename__ = 'mcr_account_items'
 
     __table_args__ = (
-        UniqueConstraint('company_id', 'account_name',
-                         name='uq_mcr_account_items_company_name'),
+        UniqueConstraint('tenant_id', 'account_name',
+                         name='uq_mcr_account_items_tenant_name'),
         {'extend_existing': True},
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
+    tenant_id = Column(Integer, nullable=False, index=True)          # テナントID（全社共通）
     account_name = Column(String(255), nullable=False)               # 科目名（PDFの表記そのまま）
     display_order = Column(Integer, default=9999, nullable=False)    # 表示順（小さいほど上）
     is_auto_created = Column(Boolean, default=True, nullable=False)  # PDF読み取りで自動登録された科目か
@@ -1362,7 +1358,6 @@ class McrAccountItem(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
 
     # リレーション
-    company = relationship("Company", back_populates="mcr_account_items")
     values = relationship("McrStatementValue", back_populates="account_item",
                           cascade="all, delete-orphan")
 

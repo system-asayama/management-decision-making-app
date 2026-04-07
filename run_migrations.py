@@ -348,6 +348,64 @@ def run_migrations():
                 print(f"  ⚠️  {col_name}カラム追加エラー: {e}")
                 conn.rollback()
         
+        # マイグレーション: 科目マスタテーブルのcompany_id → tenant_id 変更
+        print("\n[マイグレーション] 科目マスタテーブルのtenant_idカラム追加...")
+        
+        account_tables = ['pl_account_items', 'bs_account_items', 'mcr_account_items']
+        for table in account_tables:
+            try:
+                if _is_pg(conn):
+                    # tenant_idカラムの存在確認
+                    cur.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = %s AND column_name = 'tenant_id'
+                    """, (table,))
+                    if not cur.fetchone():
+                        cur.execute(f'ALTER TABLE {table} ADD COLUMN tenant_id INTEGER')
+                        conn.commit()
+                        # company_idからtenant_idを引き継ぎ
+                        cur.execute(f"""
+                            UPDATE {table} ai
+                            SET tenant_id = c.tenant_id
+                            FROM companies c
+                            WHERE ai.company_id = c.id
+                        """)
+                        conn.commit()
+                        cur.execute(f'ALTER TABLE {table} ALTER COLUMN tenant_id SET NOT NULL')
+                        conn.commit()
+                        cur.execute(f'CREATE INDEX IF NOT EXISTS idx_{table}_tenant_id ON {table}(tenant_id)')
+                        conn.commit()
+                        print(f"  ✅ {table}にtenant_idカラムを追加しました")
+                    else:
+                        print(f"  ℹ️  {table}.tenant_idは既に存在（スキップ）")
+                    # 旧UniqueConstraintを削除して新しいものを追加
+                    prefix = table.replace('_account_items', '')
+                    old_constraint = f'uq_{prefix}_account_items_company_name'
+                    new_constraint = f'uq_{prefix}_account_items_tenant_name'
+                    try:
+                        cur.execute(f'ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {old_constraint}')
+                        conn.commit()
+                    except Exception:
+                        conn.rollback()
+                    try:
+                        cur.execute("""
+                            SELECT constraint_name FROM information_schema.table_constraints
+                            WHERE table_name = %s AND constraint_name = %s
+                        """, (table, new_constraint))
+                        if not cur.fetchone():
+                            cur.execute(f'ALTER TABLE {table} ADD CONSTRAINT {new_constraint} UNIQUE (tenant_id, account_name)')
+                            conn.commit()
+                            print(f"  ✅ {table}に新UniqueConstraintを追加")
+                    except Exception as e2:
+                        conn.rollback()
+                        print(f"  ⚠️  UniqueConstraint追加スキップ: {e2}")
+                else:
+                    # SQLiteはテスト環境のみ想定、スキップ
+                    print(f"  ℹ️  SQLite環境はスキップ")
+            except Exception as e:
+                print(f"  ⚠️  {table}マイグレーションエラー: {e}")
+                conn.rollback()
+        
         conn.close()
         
         print("\n" + "=" * 60)

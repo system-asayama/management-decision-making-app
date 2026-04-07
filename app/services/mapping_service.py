@@ -113,12 +113,12 @@ def build_fields_description():
     return pl_desc, bs_desc, mcr_desc
 
 
-def estimate_mappings_for_pl(company_id: int, account_items: list) -> list:
+def estimate_mappings_for_pl(tenant_id: int, account_items: list) -> list:
     """
     損益計算書科目マスタのAIマッピング推定
     
     Args:
-        company_id: 企業ID
+        tenant_id: テナントID
         account_items: PlAccountItemオブジェクトのリスト
     
     Returns:
@@ -182,7 +182,7 @@ def estimate_mappings_for_pl(company_id: int, account_items: list) -> list:
         return []
 
 
-def estimate_mappings_for_bs(company_id: int, account_items: list) -> list:
+def estimate_mappings_for_bs(tenant_id: int, account_items: list) -> list:
     """
     貸借対照表科目マスタのAIマッピング推定
     """
@@ -242,7 +242,7 @@ def estimate_mappings_for_bs(company_id: int, account_items: list) -> list:
         return []
 
 
-def estimate_mappings_for_mcr(company_id: int, account_items: list) -> list:
+def estimate_mappings_for_mcr(tenant_id: int, account_items: list) -> list:
     """
     製造原価報告書科目マスタのAIマッピング推定
     """

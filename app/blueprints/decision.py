@@ -4246,7 +4246,7 @@ def pdf_apply():
                 existing = {
                     row.account_name: row.id
                     for row in db.query(account_model)
-                        .filter_by(company_id=company_id)
+                        .filter_by(tenant_id=tenant_id)
                         .all()
                 }
 
@@ -4269,7 +4269,7 @@ def pdf_apply():
                     # 科目マスタに未登録なら新規追加
                     if account_name not in existing:
                         new_item = account_model(
-                            company_id=company_id,
+                            tenant_id=tenant_id,
                             account_name=account_name,
                             display_order=order_start + order_idx,
                             is_auto_created=True
@@ -4314,8 +4314,8 @@ def pdf_apply():
                 db2 = SessionLocal()
                 try:
                     # PLの未マッピング科目を推定
-                    pl_items_all = db2.query(PlAccountItem).filter_by(company_id=company_id).all()
-                    pl_results = estimate_mappings_for_pl(company_id, pl_items_all)
+                    pl_items_all = db2.query(PlAccountItem).filter_by(tenant_id=tenant_id).all()
+                    pl_results = estimate_mappings_for_pl(tenant_id, pl_items_all)
                     for r in pl_results:
                         item = db2.query(PlAccountItem).get(r.get('id'))
                         if item and item.mapping_status in ('unmapped', None):
@@ -4325,8 +4325,8 @@ def pdf_apply():
                             item.mapping_status = 'pending'
 
                     # BSの未マッピング科目を推定
-                    bs_items_all = db2.query(BsAccountItem).filter_by(company_id=company_id).all()
-                    bs_results = estimate_mappings_for_bs(company_id, bs_items_all)
+                    bs_items_all = db2.query(BsAccountItem).filter_by(tenant_id=tenant_id).all()
+                    bs_results = estimate_mappings_for_bs(tenant_id, bs_items_all)
                     for r in bs_results:
                         item = db2.query(BsAccountItem).get(r.get('id'))
                         if item and item.mapping_status in ('unmapped', None):
@@ -4336,8 +4336,8 @@ def pdf_apply():
                             item.mapping_status = 'pending'
 
                     # MCRの未マッピング科目を推定
-                    mcr_items_all = db2.query(McrAccountItem).filter_by(company_id=company_id).all()
-                    mcr_results = estimate_mappings_for_mcr(company_id, mcr_items_all)
+                    mcr_items_all = db2.query(McrAccountItem).filter_by(tenant_id=tenant_id).all()
+                    mcr_results = estimate_mappings_for_mcr(tenant_id, mcr_items_all)
                     for r in mcr_results:
                         item = db2.query(McrAccountItem).get(r.get('id'))
                         if item and item.mapping_status in ('unmapped', None):
@@ -4354,7 +4354,7 @@ def pdf_apply():
 
             # マッピング確認画面へリダイレクト
             return redirect(url_for('decision.mapping_confirm_get',
-                                    company_id=company_id,
+                                    tenant_id=tenant_id,
                                     fiscal_year_id=fiscal_year_id))
         else:
             return redirect(url_for('decision.profit_loss_list'))
@@ -4643,7 +4643,7 @@ def mapping_confirm_get(company_id):
             db.query(PlAccountItem, PlStatementValue)
             .outerjoin(PlStatementValue, (PlStatementValue.account_item_id == PlAccountItem.id) &
                        (PlStatementValue.fiscal_year_id == fiscal_year_id))
-            .filter(PlAccountItem.company_id == company_id)
+            .filter(PlAccountItem.tenant_id == tenant_id)
             .order_by(PlAccountItem.display_order)
             .all()
         )
@@ -4664,7 +4664,7 @@ def mapping_confirm_get(company_id):
             db.query(BsAccountItem, BsStatementValue)
             .outerjoin(BsStatementValue, (BsStatementValue.account_item_id == BsAccountItem.id) &
                        (BsStatementValue.fiscal_year_id == fiscal_year_id))
-            .filter(BsAccountItem.company_id == company_id)
+            .filter(BsAccountItem.tenant_id == tenant_id)
             .order_by(BsAccountItem.display_order)
             .all()
         )
@@ -4685,7 +4685,7 @@ def mapping_confirm_get(company_id):
             db.query(McrAccountItem, McrStatementValue)
             .outerjoin(McrStatementValue, (McrStatementValue.account_item_id == McrAccountItem.id) &
                        (McrStatementValue.fiscal_year_id == fiscal_year_id))
-            .filter(McrAccountItem.company_id == company_id)
+            .filter(McrAccountItem.tenant_id == tenant_id)
             .order_by(McrAccountItem.display_order)
             .all()
         )
@@ -4731,7 +4731,7 @@ def mapping_confirm_post(company_id):
         fiscal_year_id = request.form.get('fiscal_year_id', type=int)
 
         # PL科目マスタのマッピングを確定
-        pl_items_all = db.query(PlAccountItem).filter_by(company_id=company_id).all()
+        pl_items_all = db.query(PlAccountItem).filter_by(tenant_id=tenant_id).all()
         for item in pl_items_all:
             stmt_key = f'pl_target_statement_{item.id}'
             field_key = f'pl_target_field_{item.id}'
@@ -4741,7 +4741,7 @@ def mapping_confirm_post(company_id):
                 item.mapping_status = 'confirmed' if item.target_statement else 'ignored'
 
         # BS科目マスタのマッピングを確定
-        bs_items_all = db.query(BsAccountItem).filter_by(company_id=company_id).all()
+        bs_items_all = db.query(BsAccountItem).filter_by(tenant_id=tenant_id).all()
         for item in bs_items_all:
             stmt_key = f'bs_target_statement_{item.id}'
             field_key = f'bs_target_field_{item.id}'
@@ -4751,7 +4751,7 @@ def mapping_confirm_post(company_id):
                 item.mapping_status = 'confirmed' if item.target_statement else 'ignored'
 
         # MCR科目マスタのマッピングを確定
-        mcr_items_all = db.query(McrAccountItem).filter_by(company_id=company_id).all()
+        mcr_items_all = db.query(McrAccountItem).filter_by(tenant_id=tenant_id).all()
         for item in mcr_items_all:
             stmt_key = f'mcr_target_statement_{item.id}'
             field_key = f'mcr_target_field_{item.id}'
@@ -4784,17 +4784,17 @@ def account_master(company_id):
             return redirect(url_for('decision.company_list'))
         fiscal_year_id = request.args.get('fiscal_year_id', type=int)
 
-        pl_rows = db.query(PlAccountItem).filter_by(company_id=company_id).order_by(PlAccountItem.display_order).all()
+        pl_rows = db.query(PlAccountItem).filter_by(tenant_id=tenant_id).order_by(PlAccountItem.display_order).all()
         pl_items = [{'id': ai.id, 'account_name': ai.account_name, 'is_auto_created': ai.is_auto_created,
                      'target_statement': ai.target_statement, 'target_field': ai.target_field,
                      'mapping_status': ai.mapping_status, 'ai_confidence': ai.ai_confidence} for ai in pl_rows]
 
-        bs_rows = db.query(BsAccountItem).filter_by(company_id=company_id).order_by(BsAccountItem.display_order).all()
+        bs_rows = db.query(BsAccountItem).filter_by(tenant_id=tenant_id).order_by(BsAccountItem.display_order).all()
         bs_items = [{'id': ai.id, 'account_name': ai.account_name, 'is_auto_created': ai.is_auto_created,
                      'target_statement': ai.target_statement, 'target_field': ai.target_field,
                      'mapping_status': ai.mapping_status, 'ai_confidence': ai.ai_confidence} for ai in bs_rows]
 
-        mcr_rows = db.query(McrAccountItem).filter_by(company_id=company_id).order_by(McrAccountItem.display_order).all()
+        mcr_rows = db.query(McrAccountItem).filter_by(tenant_id=tenant_id).order_by(McrAccountItem.display_order).all()
         mcr_items = [{'id': ai.id, 'account_name': ai.account_name, 'is_auto_created': ai.is_auto_created,
                       'target_statement': ai.target_statement, 'target_field': ai.target_field,
                       'mapping_status': ai.mapping_status, 'ai_confidence': ai.ai_confidence} for ai in mcr_rows]
@@ -4821,7 +4821,7 @@ def account_master_update(company_id, stmt_type, item_id):
         model = model_map.get(stmt_type)
         if not model:
             return jsonify({'success': False, 'error': '不正な帳票種別です'}), 400
-        item = db.query(model).filter_by(id=item_id, company_id=company_id).first()
+        item = db.query(model).filter_by(id=item_id, tenant_id=tenant_id).first()
         if not item:
             return jsonify({'success': False, 'error': '科目が見つかりません'}), 404
         data = request.get_json() or {}
@@ -4851,7 +4851,7 @@ def account_master_delete(company_id, stmt_type, item_id):
         model = model_map.get(stmt_type)
         if not model:
             return jsonify({'success': False, 'error': '不正な帳票種別です'}), 400
-        item = db.query(model).filter_by(id=item_id, company_id=company_id).first()
+        item = db.query(model).filter_by(id=item_id, tenant_id=tenant_id).first()
         if not item:
             return jsonify({'success': False, 'error': '科目が見つかりません'}), 404
         db.delete(item)
@@ -4882,11 +4882,11 @@ def account_master_add(company_id, stmt_type):
         account_name = (data.get('account_name') or '').strip()
         if not account_name:
             return jsonify({'success': False, 'error': '科目名は必須です'}), 400
-        existing = db.query(model).filter_by(company_id=company_id, account_name=account_name).first()
+        existing = db.query(model).filter_by(tenant_id=tenant_id, account_name=account_name).first()
         if existing:
             return jsonify({'success': False, 'error': 'この科目名は既に登録されています'}), 409
         new_item = model(
-            company_id=company_id,
+            tenant_id=tenant_id,
             account_name=account_name,
             display_order=9999,
             is_auto_created=False,
