@@ -4766,3 +4766,139 @@ def mapping_confirm_post(company_id):
         return redirect(url_for('decision.company_financial_statements', company_id=company_id))
     finally:
         db.close()
+
+
+# ============================================================
+# 科目マスタ管理画面
+# ============================================================
+
+@bp.route('/companies/<int:company_id>/account-master', methods=['GET'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def account_master(company_id):
+    """勘定科目マスタ管理画面（GET）"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if not company:
+            return redirect(url_for('decision.company_list'))
+        fiscal_year_id = request.args.get('fiscal_year_id', type=int)
+
+        pl_rows = db.query(PlAccountItem).filter_by(company_id=company_id).order_by(PlAccountItem.display_order).all()
+        pl_items = [{'id': ai.id, 'account_name': ai.account_name, 'is_auto_created': ai.is_auto_created,
+                     'target_statement': ai.target_statement, 'target_field': ai.target_field,
+                     'mapping_status': ai.mapping_status, 'ai_confidence': ai.ai_confidence} for ai in pl_rows]
+
+        bs_rows = db.query(BsAccountItem).filter_by(company_id=company_id).order_by(BsAccountItem.display_order).all()
+        bs_items = [{'id': ai.id, 'account_name': ai.account_name, 'is_auto_created': ai.is_auto_created,
+                     'target_statement': ai.target_statement, 'target_field': ai.target_field,
+                     'mapping_status': ai.mapping_status, 'ai_confidence': ai.ai_confidence} for ai in bs_rows]
+
+        mcr_rows = db.query(McrAccountItem).filter_by(company_id=company_id).order_by(McrAccountItem.display_order).all()
+        mcr_items = [{'id': ai.id, 'account_name': ai.account_name, 'is_auto_created': ai.is_auto_created,
+                      'target_statement': ai.target_statement, 'target_field': ai.target_field,
+                      'mapping_status': ai.mapping_status, 'ai_confidence': ai.ai_confidence} for ai in mcr_rows]
+
+        return render_template('account_master.html', company=company, fiscal_year_id=fiscal_year_id,
+                               pl_items=pl_items, bs_items=bs_items, mcr_items=mcr_items,
+                               pl_fields=_PL_FIELDS, bs_fields=_BS_FIELDS, mcr_fields=_MCR_FIELDS,
+                               all_fields=_ALL_FIELDS)
+    finally:
+        db.close()
+
+
+@bp.route('/companies/<int:company_id>/account-master/<string:stmt_type>/<int:item_id>', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def account_master_update(company_id, stmt_type, item_id):
+    """科目マスタ 1件更新（AJAX）"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if not company:
+            return jsonify({'success': False, 'error': '企業が見つかりません'}), 404
+        model_map = {'pl': PlAccountItem, 'bs': BsAccountItem, 'mcr': McrAccountItem}
+        model = model_map.get(stmt_type)
+        if not model:
+            return jsonify({'success': False, 'error': '不正な帳票種別です'}), 400
+        item = db.query(model).filter_by(id=item_id, company_id=company_id).first()
+        if not item:
+            return jsonify({'success': False, 'error': '科目が見つかりません'}), 404
+        data = request.get_json() or {}
+        item.target_statement = data.get('target_statement') or None
+        item.target_field = data.get('target_field') or None
+        item.mapping_status = data.get('mapping_status', 'confirmed')
+        db.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/companies/<int:company_id>/account-master/<string:stmt_type>/<int:item_id>/delete', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def account_master_delete(company_id, stmt_type, item_id):
+    """科目マスタ 1件削除（AJAX）"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if not company:
+            return jsonify({'success': False, 'error': '企業が見つかりません'}), 404
+        model_map = {'pl': PlAccountItem, 'bs': BsAccountItem, 'mcr': McrAccountItem}
+        model = model_map.get(stmt_type)
+        if not model:
+            return jsonify({'success': False, 'error': '不正な帳票種別です'}), 400
+        item = db.query(model).filter_by(id=item_id, company_id=company_id).first()
+        if not item:
+            return jsonify({'success': False, 'error': '科目が見つかりません'}), 404
+        db.delete(item)
+        db.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/companies/<int:company_id>/account-master/<string:stmt_type>/add', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def account_master_add(company_id, stmt_type):
+    """科目マスタ 1件追加（AJAX）"""
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if not company:
+            return jsonify({'success': False, 'error': '企業が見つかりません'}), 404
+        model_map = {'pl': PlAccountItem, 'bs': BsAccountItem, 'mcr': McrAccountItem}
+        model = model_map.get(stmt_type)
+        if not model:
+            return jsonify({'success': False, 'error': '不正な帳票種別です'}), 400
+        data = request.get_json() or {}
+        account_name = (data.get('account_name') or '').strip()
+        if not account_name:
+            return jsonify({'success': False, 'error': '科目名は必須です'}), 400
+        existing = db.query(model).filter_by(company_id=company_id, account_name=account_name).first()
+        if existing:
+            return jsonify({'success': False, 'error': 'この科目名は既に登録されています'}), 409
+        new_item = model(
+            company_id=company_id,
+            account_name=account_name,
+            display_order=9999,
+            is_auto_created=False,
+            target_statement=data.get('target_statement') or None,
+            target_field=data.get('target_field') or None,
+            mapping_status=data.get('mapping_status', 'confirmed'),
+        )
+        db.add(new_item)
+        db.commit()
+        return jsonify({'success': True, 'id': new_item.id})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        db.close()

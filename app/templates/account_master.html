@@ -1,0 +1,668 @@
+{% extends "base.html" %}
+{% block title %}{{ company.name }} - 勘定科目マスタ管理{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4 px-3 px-md-4">
+  <!-- パンくずナビ -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/decision/">企業一覧</a></li>
+      <li class="breadcrumb-item"><a href="/decision/companies/{{ company.id }}">{{ company.name }}</a></li>
+      <li class="breadcrumb-item active">勘定科目マスタ管理</li>
+    </ol>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="card shadow-sm border-0 mb-4" style="background: linear-gradient(135deg, #155724 0%, #28a745 100%);">
+    <div class="card-body text-white py-3">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h4 class="mb-1 fw-bold"><i class="fas fa-list-alt me-2"></i>勘定科目マスタ管理</h4>
+          <p class="mb-0 opacity-75 small">{{ company.name }} &nbsp;|&nbsp; PDFから読み取った勘定科目の一覧・編集・マッピング管理</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="/decision/companies/{{ company.id }}/mapping-confirm{% if fiscal_year_id %}?fiscal_year_id={{ fiscal_year_id }}{% endif %}" class="btn btn-outline-light btn-sm">
+            <i class="fas fa-project-diagram me-1"></i>マッピング確認
+          </a>
+          <a href="/decision/pdf-upload?company_id={{ company.id }}" class="btn btn-light btn-sm text-success fw-bold">
+            <i class="fas fa-file-pdf me-1"></i>PDFアップロード
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 統計サマリー -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        <div class="fs-3 fw-bold text-primary">{{ pl_items|length }}</div>
+        <div class="text-muted small">PL科目数</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        <div class="fs-3 fw-bold text-success">{{ bs_items|length }}</div>
+        <div class="text-muted small">BS科目数</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        <div class="fs-3 fw-bold text-warning">{{ mcr_items|length }}</div>
+        <div class="text-muted small">MCR科目数</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        {% set confirmed_count = (pl_items + bs_items + mcr_items) | selectattr('mapping_status', 'equalto', 'confirmed') | list | length %}
+        {% set total_count = pl_items|length + bs_items|length + mcr_items|length %}
+        <div class="fs-3 fw-bold text-info">{{ confirmed_count }}/{{ total_count }}</div>
+        <div class="text-muted small">マッピング確定済</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- タブ -->
+  <ul class="nav nav-tabs mb-0" id="masterTab" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="pl-tab" data-bs-toggle="tab" data-bs-target="#pl-pane" type="button" role="tab">
+        <i class="fas fa-chart-line me-1"></i>損益計算書（PL）
+        <span class="badge bg-primary ms-1">{{ pl_items|length }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="bs-tab" data-bs-toggle="tab" data-bs-target="#bs-pane" type="button" role="tab">
+        <i class="fas fa-balance-scale me-1"></i>貸借対照表（BS）
+        <span class="badge bg-success ms-1">{{ bs_items|length }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="mcr-tab" data-bs-toggle="tab" data-bs-target="#mcr-pane" type="button" role="tab">
+        <i class="fas fa-industry me-1"></i>製造原価報告書（MCR）
+        <span class="badge bg-warning text-dark ms-1">{{ mcr_items|length }}</span>
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content border border-top-0 rounded-bottom shadow-sm bg-white p-3 mb-5" id="masterTabContent">
+
+    <!-- ===== PL タブ ===== -->
+    <div class="tab-pane fade show active" id="pl-pane" role="tabpanel">
+      <div class="d-flex justify-content-between align-items-center my-3">
+        <h6 class="fw-bold mb-0 text-primary"><i class="fas fa-chart-line me-1"></i>損益計算書 勘定科目マスタ</h6>
+        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addItemModal" data-type="pl">
+          <i class="fas fa-plus me-1"></i>科目を追加
+        </button>
+      </div>
+      {% if pl_items %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width:5%">順</th>
+              <th style="width:28%">科目名（PDFの表記）</th>
+              <th style="width:12%">ステータス</th>
+              <th style="width:18%">組換え先帳票</th>
+              <th style="width:25%">組換え先科目</th>
+              <th style="width:7%">信頼度</th>
+              <th style="width:5%">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in pl_items %}
+            <tr class="{% if item.mapping_status == 'confirmed' %}table-success{% elif item.mapping_status == 'pending' %}table-warning{% elif item.mapping_status == 'ignored' %}table-secondary{% endif %}" id="pl-row-{{ item.id }}">
+              <td class="text-muted small">{{ loop.index }}</td>
+              <td>
+                <span class="fw-medium">{{ item.account_name }}</span>
+                {% if item.is_auto_created %}
+                  <span class="badge bg-light text-secondary border ms-1 small" title="PDFから自動登録">PDF</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if item.mapping_status == 'confirmed' %}
+                  <span class="badge bg-success">確定済</span>
+                {% elif item.mapping_status == 'pending' %}
+                  <span class="badge bg-warning text-dark">AI推定</span>
+                {% elif item.mapping_status == 'ignored' %}
+                  <span class="badge bg-secondary">対象外</span>
+                {% else %}
+                  <span class="badge bg-light text-muted border">未設定</span>
+                {% endif %}
+              </td>
+              <td>
+                <select class="form-select form-select-sm stmt-select" data-id="{{ item.id }}" data-type="pl">
+                  <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
+                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL（損益計算書）</option>
+                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS（貸借対照表）</option>
+                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR（製造原価）</option>
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="pl">
+                  <option value="">（選択）</option>
+                  {% if item.target_statement == 'PL' %}
+                    {% for k, v in pl_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% elif item.target_statement == 'BS' %}
+                    {% for k, v in bs_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% elif item.target_statement == 'MCR' %}
+                    {% for k, v in mcr_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
+              </td>
+              <td class="text-center">
+                {% if item.ai_confidence is not none %}
+                  <span class="badge {% if item.ai_confidence >= 0.8 %}bg-success{% elif item.ai_confidence >= 0.5 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                    {{ "%.0f"|format(item.ai_confidence * 100) }}%
+                  </span>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="d-flex gap-1">
+                  <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="pl" title="保存">
+                    <i class="fas fa-save"></i>
+                  </button>
+                  <button class="btn btn-xs btn-outline-danger delete-btn" data-id="{{ item.id }}" data-type="pl" data-name="{{ item.account_name }}" title="削除">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
+        <p>損益計算書の科目データがありません。<br>PDFをアップロードすると自動登録されます。</p>
+        <a href="/decision/pdf-upload?company_id={{ company.id }}" class="btn btn-primary btn-sm">
+          <i class="fas fa-file-pdf me-1"></i>PDFをアップロード
+        </a>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ===== BS タブ ===== -->
+    <div class="tab-pane fade" id="bs-pane" role="tabpanel">
+      <div class="d-flex justify-content-between align-items-center my-3">
+        <h6 class="fw-bold mb-0 text-success"><i class="fas fa-balance-scale me-1"></i>貸借対照表 勘定科目マスタ</h6>
+        <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#addItemModal" data-type="bs">
+          <i class="fas fa-plus me-1"></i>科目を追加
+        </button>
+      </div>
+      {% if bs_items %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width:5%">順</th>
+              <th style="width:28%">科目名（PDFの表記）</th>
+              <th style="width:12%">ステータス</th>
+              <th style="width:18%">組換え先帳票</th>
+              <th style="width:25%">組換え先科目</th>
+              <th style="width:7%">信頼度</th>
+              <th style="width:5%">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in bs_items %}
+            <tr class="{% if item.mapping_status == 'confirmed' %}table-success{% elif item.mapping_status == 'pending' %}table-warning{% elif item.mapping_status == 'ignored' %}table-secondary{% endif %}" id="bs-row-{{ item.id }}">
+              <td class="text-muted small">{{ loop.index }}</td>
+              <td>
+                <span class="fw-medium">{{ item.account_name }}</span>
+                {% if item.is_auto_created %}
+                  <span class="badge bg-light text-secondary border ms-1 small" title="PDFから自動登録">PDF</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if item.mapping_status == 'confirmed' %}
+                  <span class="badge bg-success">確定済</span>
+                {% elif item.mapping_status == 'pending' %}
+                  <span class="badge bg-warning text-dark">AI推定</span>
+                {% elif item.mapping_status == 'ignored' %}
+                  <span class="badge bg-secondary">対象外</span>
+                {% else %}
+                  <span class="badge bg-light text-muted border">未設定</span>
+                {% endif %}
+              </td>
+              <td>
+                <select class="form-select form-select-sm stmt-select" data-id="{{ item.id }}" data-type="bs">
+                  <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
+                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL（損益計算書）</option>
+                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS（貸借対照表）</option>
+                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR（製造原価）</option>
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="bs">
+                  <option value="">（選択）</option>
+                  {% if item.target_statement == 'PL' %}
+                    {% for k, v in pl_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% elif item.target_statement == 'BS' %}
+                    {% for k, v in bs_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% elif item.target_statement == 'MCR' %}
+                    {% for k, v in mcr_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
+              </td>
+              <td class="text-center">
+                {% if item.ai_confidence is not none %}
+                  <span class="badge {% if item.ai_confidence >= 0.8 %}bg-success{% elif item.ai_confidence >= 0.5 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                    {{ "%.0f"|format(item.ai_confidence * 100) }}%
+                  </span>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="d-flex gap-1">
+                  <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="bs" title="保存">
+                    <i class="fas fa-save"></i>
+                  </button>
+                  <button class="btn btn-xs btn-outline-danger delete-btn" data-id="{{ item.id }}" data-type="bs" data-name="{{ item.account_name }}" title="削除">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
+        <p>貸借対照表の科目データがありません。</p>
+        <a href="/decision/pdf-upload?company_id={{ company.id }}" class="btn btn-primary btn-sm">
+          <i class="fas fa-file-pdf me-1"></i>PDFをアップロード
+        </a>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ===== MCR タブ ===== -->
+    <div class="tab-pane fade" id="mcr-pane" role="tabpanel">
+      <div class="d-flex justify-content-between align-items-center my-3">
+        <h6 class="fw-bold mb-0 text-warning"><i class="fas fa-industry me-1"></i>製造原価報告書 勘定科目マスタ</h6>
+        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#addItemModal" data-type="mcr">
+          <i class="fas fa-plus me-1"></i>科目を追加
+        </button>
+      </div>
+      {% if mcr_items %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width:5%">順</th>
+              <th style="width:28%">科目名（PDFの表記）</th>
+              <th style="width:12%">ステータス</th>
+              <th style="width:18%">組換え先帳票</th>
+              <th style="width:25%">組換え先科目</th>
+              <th style="width:7%">信頼度</th>
+              <th style="width:5%">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in mcr_items %}
+            <tr class="{% if item.mapping_status == 'confirmed' %}table-success{% elif item.mapping_status == 'pending' %}table-warning{% elif item.mapping_status == 'ignored' %}table-secondary{% endif %}" id="mcr-row-{{ item.id }}">
+              <td class="text-muted small">{{ loop.index }}</td>
+              <td>
+                <span class="fw-medium">{{ item.account_name }}</span>
+                {% if item.is_auto_created %}
+                  <span class="badge bg-light text-secondary border ms-1 small" title="PDFから自動登録">PDF</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if item.mapping_status == 'confirmed' %}
+                  <span class="badge bg-success">確定済</span>
+                {% elif item.mapping_status == 'pending' %}
+                  <span class="badge bg-warning text-dark">AI推定</span>
+                {% elif item.mapping_status == 'ignored' %}
+                  <span class="badge bg-secondary">対象外</span>
+                {% else %}
+                  <span class="badge bg-light text-muted border">未設定</span>
+                {% endif %}
+              </td>
+              <td>
+                <select class="form-select form-select-sm stmt-select" data-id="{{ item.id }}" data-type="mcr">
+                  <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
+                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL（損益計算書）</option>
+                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS（貸借対照表）</option>
+                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR（製造原価）</option>
+                </select>
+              </td>
+              <td>
+                <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="mcr">
+                  <option value="">（選択）</option>
+                  {% if item.target_statement == 'PL' %}
+                    {% for k, v in pl_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% elif item.target_statement == 'BS' %}
+                    {% for k, v in bs_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% elif item.target_statement == 'MCR' %}
+                    {% for k, v in mcr_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
+              </td>
+              <td class="text-center">
+                {% if item.ai_confidence is not none %}
+                  <span class="badge {% if item.ai_confidence >= 0.8 %}bg-success{% elif item.ai_confidence >= 0.5 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                    {{ "%.0f"|format(item.ai_confidence * 100) }}%
+                  </span>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="d-flex gap-1">
+                  <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="mcr" title="保存">
+                    <i class="fas fa-save"></i>
+                  </button>
+                  <button class="btn btn-xs btn-outline-danger delete-btn" data-id="{{ item.id }}" data-type="mcr" data-name="{{ item.account_name }}" title="削除">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
+        <p>製造原価報告書の科目データがありません。</p>
+        <a href="/decision/pdf-upload?company_id={{ company.id }}" class="btn btn-primary btn-sm">
+          <i class="fas fa-file-pdf me-1"></i>PDFをアップロード
+        </a>
+      </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /tab-content -->
+
+  <!-- 下部ボタン -->
+  <div class="d-flex justify-content-between align-items-center mb-5">
+    <a href="/decision/companies/{{ company.id }}" class="btn btn-outline-secondary">
+      <i class="fas fa-arrow-left me-1"></i>企業詳細に戻る
+    </a>
+    <a href="/decision/companies/{{ company.id }}/mapping-confirm{% if fiscal_year_id %}?fiscal_year_id={{ fiscal_year_id }}{% endif %}" class="btn btn-primary">
+      <i class="fas fa-project-diagram me-1"></i>マッピング確認画面へ
+    </a>
+  </div>
+</div>
+
+<!-- 科目追加モーダル -->
+<div class="modal fade" id="addItemModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>科目を追加</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="addItemType" value="pl">
+        <div class="mb-3">
+          <label class="form-label fw-bold">帳票種別</label>
+          <div id="addItemTypeLabel" class="form-control-plaintext fw-bold text-primary">損益計算書（PL）</div>
+        </div>
+        <div class="mb-3">
+          <label for="addItemName" class="form-label fw-bold">科目名 <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="addItemName" placeholder="例：売上高、給料手当" maxlength="255">
+          <div class="form-text">PDFに記載されている科目名をそのまま入力してください</div>
+        </div>
+        <div class="mb-3">
+          <label for="addItemStatement" class="form-label fw-bold">組換え先帳票</label>
+          <select class="form-select" id="addItemStatement">
+            <option value="">（対象外）</option>
+            <option value="PL">PL（損益計算書）</option>
+            <option value="BS">BS（貸借対照表）</option>
+            <option value="MCR">MCR（製造原価報告書）</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="addItemField" class="form-label fw-bold">組換え先科目</label>
+          <select class="form-select" id="addItemField">
+            <option value="">（選択してください）</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" id="addItemSubmit">
+          <i class="fas fa-plus me-1"></i>追加する
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 削除確認モーダル -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger"><i class="fas fa-exclamation-triangle me-2"></i>科目の削除</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>以下の科目を削除しますか？</p>
+        <div class="alert alert-warning">
+          <strong id="deleteItemName"></strong>
+        </div>
+        <p class="text-muted small">削除すると、この科目に紐づく実績値データも削除されます。</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-danger" id="deleteConfirmBtn">
+          <i class="fas fa-trash me-1"></i>削除する
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- トースト通知 -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999">
+  <div id="toastMsg" class="toast align-items-center text-white border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="toastBody">保存しました</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<style>
+.btn-xs {
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  border-radius: 3px;
+}
+</style>
+
+<script>
+const allFields = {{ all_fields | tojson | safe }};
+const companyId = {{ company.id }};
+
+// ===== 組換え先帳票変更時に組換え先科目を動的更新 =====
+document.querySelectorAll('.stmt-select').forEach(function(sel) {
+  sel.addEventListener('change', function() {
+    const id = this.dataset.id;
+    const type = this.dataset.type;
+    const stmt = this.value;
+    const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
+    if (!fieldSel) return;
+    fieldSel.innerHTML = '<option value="">（選択）</option>';
+    if (stmt && allFields[stmt]) {
+      Object.entries(allFields[stmt]).forEach(function([k, v]) {
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = v;
+        fieldSel.appendChild(opt);
+      });
+    }
+  });
+});
+
+// ===== 保存ボタン =====
+document.querySelectorAll('.save-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const id = this.dataset.id;
+    const type = this.dataset.type;
+    const stmtSel = document.querySelector(`.stmt-select[data-id="${id}"][data-type="${type}"]`);
+    const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
+    const targetStatement = stmtSel ? stmtSel.value : '';
+    const targetField = fieldSel ? fieldSel.value : '';
+
+    fetch(`/decision/companies/${companyId}/account-master/${type}/${id}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+      body: JSON.stringify({
+        target_statement: targetStatement || null,
+        target_field: targetField || null,
+        mapping_status: targetStatement ? 'confirmed' : 'ignored'
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showToast('保存しました', 'success');
+        // 行の色を更新
+        const row = document.getElementById(`${type}-row-${id}`);
+        if (row) {
+          row.className = row.className.replace(/table-(success|warning|secondary|light)/g, '');
+          if (targetStatement) {
+            row.classList.add('table-success');
+          } else {
+            row.classList.add('table-secondary');
+          }
+        }
+      } else {
+        showToast('保存に失敗しました: ' + (data.error || ''), 'danger');
+      }
+    })
+    .catch(e => showToast('通信エラーが発生しました', 'danger'));
+  });
+});
+
+// ===== 削除ボタン =====
+let deleteTarget = null;
+document.querySelectorAll('.delete-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    deleteTarget = {id: this.dataset.id, type: this.dataset.type};
+    document.getElementById('deleteItemName').textContent = this.dataset.name;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+  });
+});
+
+document.getElementById('deleteConfirmBtn').addEventListener('click', function() {
+  if (!deleteTarget) return;
+  const {id, type} = deleteTarget;
+  fetch(`/decision/companies/${companyId}/account-master/${type}/${id}/delete`, {
+    method: 'POST',
+    headers: {'X-Requested-With': 'XMLHttpRequest'}
+  })
+  .then(r => r.json())
+  .then(data => {
+    bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+    if (data.success) {
+      const row = document.getElementById(`${type}-row-${id}`);
+      if (row) row.remove();
+      showToast('削除しました', 'success');
+    } else {
+      showToast('削除に失敗しました: ' + (data.error || ''), 'danger');
+    }
+  })
+  .catch(e => showToast('通信エラーが発生しました', 'danger'));
+});
+
+// ===== 科目追加モーダル =====
+const typeLabels = {pl: '損益計算書（PL）', bs: '貸借対照表（BS）', mcr: '製造原価報告書（MCR）'};
+document.querySelectorAll('[data-bs-target="#addItemModal"]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const type = this.dataset.type;
+    document.getElementById('addItemType').value = type;
+    document.getElementById('addItemTypeLabel').textContent = typeLabels[type] || type;
+    document.getElementById('addItemTypeLabel').className = 'form-control-plaintext fw-bold ' +
+      (type === 'pl' ? 'text-primary' : type === 'bs' ? 'text-success' : 'text-warning');
+    document.getElementById('addItemName').value = '';
+    document.getElementById('addItemStatement').value = '';
+    document.getElementById('addItemField').innerHTML = '<option value="">（選択してください）</option>';
+  });
+});
+
+document.getElementById('addItemStatement').addEventListener('change', function() {
+  const stmt = this.value;
+  const fieldSel = document.getElementById('addItemField');
+  fieldSel.innerHTML = '<option value="">（選択してください）</option>';
+  if (stmt && allFields[stmt]) {
+    Object.entries(allFields[stmt]).forEach(function([k, v]) {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = v;
+      fieldSel.appendChild(opt);
+    });
+  }
+});
+
+document.getElementById('addItemSubmit').addEventListener('click', function() {
+  const type = document.getElementById('addItemType').value;
+  const name = document.getElementById('addItemName').value.trim();
+  const stmt = document.getElementById('addItemStatement').value;
+  const field = document.getElementById('addItemField').value;
+  if (!name) {
+    alert('科目名を入力してください');
+    return;
+  }
+  fetch(`/decision/companies/${companyId}/account-master/${type}/add`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+    body: JSON.stringify({
+      account_name: name,
+      target_statement: stmt || null,
+      target_field: field || null,
+      mapping_status: stmt ? 'confirmed' : 'ignored'
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    bootstrap.Modal.getInstance(document.getElementById('addItemModal')).hide();
+    if (data.success) {
+      showToast('科目を追加しました。ページを更新します...', 'success');
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      showToast('追加に失敗しました: ' + (data.error || ''), 'danger');
+    }
+  })
+  .catch(e => showToast('通信エラーが発生しました', 'danger'));
+});
+
+// ===== トースト表示 =====
+function showToast(msg, type) {
+  const toast = document.getElementById('toastMsg');
+  const body = document.getElementById('toastBody');
+  body.textContent = msg;
+  toast.className = `toast align-items-center text-white border-0 bg-${type}`;
+  new bootstrap.Toast(toast, {delay: 3000}).show();
+}
+</script>
+{% endblock %}
