@@ -5160,3 +5160,85 @@ def account_master_add(stmt_type):
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
         db.close()
+
+
+@bp.route('/account-master/ai-suggest', methods=['POST'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"])
+def account_master_ai_suggest():
+    """科目マスタ AI一括分類推定（AJAX）"""
+    import json as _json
+    import os as _os
+    from openai import OpenAI
+
+    data = request.get_json() or {}
+    items = data.get('items', [])  # [{id, name, stmt_type}, ...]
+    if not items:
+        return jsonify({'success': False, 'error': '科目リストが空です'}), 400
+
+    cat_json_path = _os.path.join(_os.path.dirname(__file__), 'account_item_categories.json')
+    with open(cat_json_path, 'r', encoding='utf-8') as f:
+        category_tree = _json.load(f)
+
+    all_fields_str = _json.dumps({
+        'PL': _PL_FIELDS,
+        'BS': _BS_FIELDS,
+        'MCR': _MCR_FIELDS,
+    }, ensure_ascii=False)
+
+    category_tree_str = _json.dumps(category_tree, ensure_ascii=False)
+    items_str = _json.dumps(
+        [{'id': it['id'], 'name': it['name'], 'stmt_type': it['stmt_type']} for it in items],
+        ensure_ascii=False
+    )
+
+    prompt = f"""あなたは日本の財務諸表の勘定科目分類の専門家です。
+以下の勘定科目リストに対して、大分類・中分類・小分類・組換え先帳票・組換え先科目を推定してください。
+
+## 分類ツリー（大分類 > 中分類 > 小分類）
+{category_tree_str}
+
+## 組換え先フィールド一覧
+{all_fields_str}
+
+## 勘定科目リスト
+{items_str}
+
+## 出力形式
+以下のJSON配列のみを返してください（説明不要）：
+[
+  {{
+    "id": <科目ID>,
+    "major_category": "<大分類（分類ツリーの最上位キー）>",
+    "mid_category": "<中分類（大分類の下のキー）>",
+    "sub_category": "<小分類（中分類の下のキー、なければ空文字）>",
+    "target_statement": "<組換え先帳票: PL/BS/MCR/空文字>",
+    "target_field": "<組換え先科目のキー（組換え先フィールド一覧のキー）、なければ空文字>"
+  }}
+]
+
+## ルール
+- 合計行（〜合計、〜計、〜小計）は target_statement と target_field を空文字にする
+- stmt_type が 'pl' の科目は target_statement を 'PL' または空文字にする
+- stmt_type が 'bs' の科目は target_statement を 'BS' または空文字にする
+- stmt_type が 'mcr' の科目は target_statement を 'MCR' または 'PL' にする
+- 分類ツリーに存在しないカテゴリは使用しない
+- 組換え先フィールドに存在しないキーは使用しない
+"""
+
+    client = OpenAI()
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1,
+    )
+    raw = response.choices[0].message.content.strip()
+    if '```' in raw:
+        raw = raw.split('```')[1]
+        if raw.startswith('json'):
+            raw = raw[4:]
+    try:
+        suggestions = _json.loads(raw)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'AI応答のパースに失敗: {str(e)}', 'raw': raw}), 500
+
+    return jsonify({'success': True, 'suggestions': suggestions})
