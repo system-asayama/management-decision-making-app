@@ -5322,7 +5322,11 @@ def account_master_bulk_save():
             item.sub_category = it.get('sub_category') or None
             item.target_statement = it.get('target_statement') or None
             item.target_field = it.get('target_field') or None
-            item.mapping_status = 'confirmed'
+            # 組換え先科目が設定されている場合のみ確定済にする
+            if item.target_field:
+                item.mapping_status = 'confirmed'
+            else:
+                item.mapping_status = 'pending'
             saved_count += 1
         db.commit()
         return jsonify({'success': True, 'saved_count': saved_count, 'errors': errors})

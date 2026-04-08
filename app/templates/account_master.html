@@ -746,17 +746,28 @@ function runBulkSave(stmtType) {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-save me-1"></i>一括保存';
     if (!data.success) { showToast('保存失敗: ' + (data.error || ''), 'danger'); return; }
-    // 全行のバッジを「確定済」に更新
+    // 全行のバッジを更新（組換え先科目が設定されている行のみ確定済に）
+    let confirmedCount = 0;
     rows.forEach(function(row) {
+      const id = parseInt(row.id.replace(stmtType + '-row-', ''));
+      const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${stmtType}"]`);
+      const hasField = fieldSel && fieldSel.value && fieldSel.value !== '';
       row.className = row.className.replace(/table-(success|warning|secondary|light)/g, '').trim();
-      row.classList.add('table-success');
       const badge = row.querySelector('.category-badge');
-      if (badge) {
-        badge.className = 'badge bg-success category-badge';
-        badge.textContent = '確定済';
+      if (hasField) {
+        row.classList.add('table-success');
+        if (badge) {
+          badge.className = 'badge bg-success category-badge';
+          badge.textContent = '確定済';
+        }
+        confirmedCount++;
+      } else {
+        if (badge && badge.textContent !== '確定済') {
+          // 既に確定済の行はそのままにする
+        }
       }
     });
-    showToast(data.saved_count + '件の科目を保存・確定しました', 'success');
+    showToast(data.saved_count + '件保存（確定済: ' + confirmedCount + '件）', 'success');
   })
   .catch(e => {
     btn.disabled = false;
@@ -844,6 +855,11 @@ document.querySelectorAll('.save-btn').forEach(function(btn) {
     const stmtSel = document.querySelector(`.stmt-select[data-id="${id}"][data-type="${type}"]`);
     const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
 
+    const hasField = fieldSel && fieldSel.value && fieldSel.value !== '';
+    if (!hasField) {
+      showToast('組換え先科目を選択してください', 'warning');
+      return;
+    }
     const payload = {
       major_category: majorSel ? majorSel.value || null : null,
       mid_category: midSel ? midSel.value || null : null,
