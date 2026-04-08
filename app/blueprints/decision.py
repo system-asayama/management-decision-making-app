@@ -4531,10 +4531,8 @@ def pdf_apply():
             except Exception as e:
                 print(f'[pdf_apply] AI mapping error (non-fatal): {e}')
 
-            # マッピング確認画面へリダイレクト
-            return redirect(url_for('decision.mapping_confirm_get',
-                                    company_id=company_id,
-                                    fiscal_year_id=fiscal_year_id))
+            # 勘定科目マスタ画面へリダイレクト
+            return redirect(url_for('decision.account_master'))
         else:
             return redirect(url_for('decision.profit_loss_list'))
     finally:
