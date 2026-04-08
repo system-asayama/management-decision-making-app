@@ -253,6 +253,26 @@ def run_auto_migrations():
             else:
                 logger.info("- mcr_items カラムは既に存在します")
 
+        # 6. pl/bs/mcr_account_itemsのcompany_id NOT NULL制約をnullableに変更
+        for table_name in ['pl_account_items', 'bs_account_items', 'mcr_account_items']:
+            if table_exists(session, table_name) and column_exists(session, table_name, 'company_id'):
+                try:
+                    if db_type == 'postgresql':
+                        session.execute(text(f"""
+                            ALTER TABLE {table_name}
+                            ALTER COLUMN company_id DROP NOT NULL
+                        """))
+                    else:
+                        session.execute(text(f"""
+                            ALTER TABLE `{table_name}`
+                            MODIFY COLUMN `company_id` INT NULL
+                        """))
+                    session.commit()
+                    logger.info(f"✓ {table_name}.company_id の NOT NULL 制約を解除しました")
+                except Exception as e:
+                    session.rollback()
+                    logger.warning(f"{table_name}.company_id 制約変更をスキップしました: {e}")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:
