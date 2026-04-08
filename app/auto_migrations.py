@@ -204,6 +204,31 @@ def run_auto_migrations():
         else:
             logger.info("- T_システム管理者_テナント テーブルは既に存在します")
         
+        # 4. PL科目のtarget_fieldからMCRキーを除去（誤設定の修正）
+        mcr_keys = [
+            'beginning_raw_material', 'raw_material_purchase', 'ending_raw_material',
+            'material_cost', 'labor_cost_manufacturing', 'outsourcing_cost',
+            'freight_manufacturing', 'meeting_cost_manufacturing', 'travel_cost_manufacturing',
+            'communication_cost_manufacturing', 'supplies_manufacturing', 'vehicle_cost_manufacturing',
+            'rent_manufacturing', 'insurance_manufacturing', 'depreciation_manufacturing',
+            'repair_cost_manufacturing', 'other_manufacturing_cost', 'manufacturing_expenses_total',
+            'total_manufacturing_cost_current', 'beginning_wip', 'ending_wip', 'total_manufacturing_cost',
+        ]
+        placeholders = ', '.join([f"'{k}'" for k in mcr_keys])
+        try:
+            result = session.execute(text(
+                f"UPDATE `T_PL勘定科目` SET target_field = NULL, mapping_status = 'pending' "
+                f"WHERE target_field IN ({placeholders})"
+            ))
+            if result.rowcount > 0:
+                session.commit()
+                logger.info(f"✓ PL科目の誤ったMCRフィールド設定を {result.rowcount} 件修正しました")
+            else:
+                logger.info("- PL科目にMCRフィールドの誤設定はありませんでした")
+        except Exception as e:
+            session.rollback()
+            logger.warning(f"PL科目MCRフィールド修正をスキップしました: {e}")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:

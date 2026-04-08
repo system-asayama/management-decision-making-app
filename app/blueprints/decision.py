@@ -5276,7 +5276,9 @@ def account_master_ai_suggest():
 - 合計行（〜合計、〜計、〜小計）は target_statement と target_field を空文字にする
 - stmt_type が 'pl' の科目は major_category を必ず '損益' にする
 - stmt_type が 'pl' の科目は target_statement を 'PL' または空文字にする
+- stmt_type が 'pl' の科目は target_field に必ず PLフィールドのキーのみ使用する（BS・ MCRフィールドのキーは絶対使用しない）
 - stmt_type が 'bs' の科目は target_statement を 'BS' または空文字にする
+- stmt_type が 'bs' の科目は target_field に必ず BSフィールドのキーのみ使用する
 - stmt_type が 'mcr' の科目は target_statement を 'MCR' または 'PL' にする
 - sub_category は必ず上記の小分類選択肢リストに存在する値を使用すること。存在しない値は絶対に使用しない
 - 分類ツリーに存在しないカテゴリは使用しない
@@ -5303,11 +5305,24 @@ def account_master_ai_suggest():
     except Exception as e:
         return jsonify({'success': False, 'error': f'AI応答のパースに失敗: {str(e)}', 'raw': raw}), 500
 
-    # PLの大分類を強制的に「損益」に上書き
+    # PLの大分類を強制的に「損益」に上書き、MCRキーが混入した場合はnullに変換
+    pl_keys = set(_PL_FIELDS.keys())
+    bs_keys = set(_BS_FIELDS.keys())
+    mcr_keys_set = set(_MCR_FIELDS.keys())
     stmt_type_map = {it['id']: it['stmt_type'] for it in items}
     for s in suggestions:
-        if stmt_type_map.get(s.get('id')) == 'pl':
+        stype = stmt_type_map.get(s.get('id'))
+        if stype == 'pl':
             s['major_category'] = '損益'
+            # MCRまたはBSのキーが設定された場合はnullにクリア
+            if s.get('target_field') and s['target_field'] not in pl_keys:
+                s['target_field'] = ''
+                s['target_statement'] = ''
+        elif stype == 'bs':
+            # PLまたはMCRのキーが設定された場合はnullにクリア
+            if s.get('target_field') and s['target_field'] not in bs_keys:
+                s['target_field'] = ''
+                s['target_statement'] = ''
     return jsonify({'success': True, 'suggestions': suggestions})
 
 
@@ -5344,8 +5359,17 @@ def account_master_bulk_save():
                 item.major_category = it.get('major_category') or None
             item.mid_category = it.get('mid_category') or None
             item.sub_category = it.get('sub_category') or None
-            item.target_statement = it.get('target_statement') or None
-            item.target_field = it.get('target_field') or None
+            # 各席票種別に正しいフィールドキーのみ許可するバリデーション
+            raw_tf = it.get('target_field') or None
+            raw_ts = it.get('target_statement') or None
+            if stmt_type == 'pl' and raw_tf and raw_tf not in _PL_FIELDS:
+                raw_tf = None
+                raw_ts = None
+            elif stmt_type == 'bs' and raw_tf and raw_tf not in _BS_FIELDS:
+                raw_tf = None
+                raw_ts = None
+            item.target_statement = raw_ts
+            item.target_field = raw_tf
             # 組換え先科目が設定されている場合のみ確定済にする
             if item.target_field:
                 item.mapping_status = 'confirmed'
