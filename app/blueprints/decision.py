@@ -4997,7 +4997,7 @@ def account_master():
               .join(FiscalYear, OriginalTrialBalance.fiscal_year_id == FiscalYear.id)
               .join(Company, FiscalYear.company_id == Company.id)
               .filter(Company.tenant_id == tenant_id)
-              .order_by(FiscalYear.start_date.desc(), OriginalTrialBalance.id.desc())
+              .order_by(OriginalTrialBalance.updated_at.desc(), OriginalTrialBalance.id.desc())
               .all()
         )
         synced_stmt_types = {'pl': False, 'bs': False, 'mcr': False}
@@ -5017,6 +5017,48 @@ def account_master():
 
         if sync_changed:
             db.commit()
+
+        def _build_order_map(items_json):
+            items = _safe_load_items(items_json)
+            if not items:
+                return {}
+
+            order_map = {}
+            display_index = 0
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                account_name = str(item.get('name') or item.get('account_name') or '').strip()
+                if not account_name or account_name in _ACCOUNT_SECTION_NAMES:
+                    continue
+                if account_name not in order_map:
+                    order_map[account_name] = display_index
+                    display_index += 1
+            return order_map
+
+        statement_order_maps = {'pl': {}, 'bs': {}, 'mcr': {}}
+        for otb in latest_otbs:
+            if not statement_order_maps['pl'] and getattr(otb, 'pl_items', None):
+                statement_order_maps['pl'] = _build_order_map(otb.pl_items)
+            if not statement_order_maps['bs'] and getattr(otb, 'bs_items', None):
+                statement_order_maps['bs'] = _build_order_map(otb.bs_items)
+            if not statement_order_maps['mcr'] and getattr(otb, 'mcr_items', None):
+                statement_order_maps['mcr'] = _build_order_map(otb.mcr_items)
+            if all(order_map for order_map in statement_order_maps.values()):
+                break
+
+        def _sort_items_for_display(items, stmt_type):
+            order_map = statement_order_maps.get(stmt_type) or {}
+            default_rank = 10 ** 9
+            return sorted(
+                items,
+                key=lambda row: (
+                    0 if row['account_name'] in order_map else 1,
+                    order_map.get(row['account_name'], default_rank),
+                    row.get('display_order') if row.get('display_order') is not None else default_rank,
+                    row['id'],
+                )
+            )
 
         def _row_to_dict(ai, stmt_type):
             target_field = ai.target_field
@@ -5057,13 +5099,13 @@ def account_master():
             }
 
         pl_rows = db.query(PlAccountItem).filter_by(tenant_id=tenant_id).order_by(PlAccountItem.display_order, PlAccountItem.id).all()
-        pl_items = [_row_to_dict(ai, 'pl') for ai in pl_rows]
+        pl_items = _sort_items_for_display([_row_to_dict(ai, 'pl') for ai in pl_rows], 'pl')
 
         bs_rows = db.query(BsAccountItem).filter_by(tenant_id=tenant_id).order_by(BsAccountItem.display_order, BsAccountItem.id).all()
-        bs_items = [_row_to_dict(ai, 'bs') for ai in bs_rows]
+        bs_items = _sort_items_for_display([_row_to_dict(ai, 'bs') for ai in bs_rows], 'bs')
 
         mcr_rows = db.query(McrAccountItem).filter_by(tenant_id=tenant_id).order_by(McrAccountItem.display_order, McrAccountItem.id).all()
-        mcr_items = [_row_to_dict(ai, 'mcr') for ai in mcr_rows]
+        mcr_items = _sort_items_for_display([_row_to_dict(ai, 'mcr') for ai in mcr_rows], 'mcr')
 
         return render_template('account_master.html',
                                pl_items=pl_items, bs_items=bs_items, mcr_items=mcr_items,
