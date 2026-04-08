@@ -4767,36 +4767,46 @@ def run_migration_raw_tables():
 
 # 組換え先フィールドの選択肢定義
 _PL_FIELDS = {
-    'sales': '売上高',
-    'cost_of_sales': '売上原価',
-    'beginning_inventory': '期首棚卸高',
-    'manufacturing_cost': '当期製造原価',
-    'ending_inventory': '期末棚卸高',
+    'sales': '1. 売上高',
+    'cost_of_sales': '2. 売上原価（合計）',
+    'beginning_inventory': '（1）期首棚卸高',
+    'manufacturing_cost': '（2）当期製造（工事）原価',
+    'ending_inventory': '（3）期末棚卸高',
     'gross_profit': '売上総利益',
-    'external_cost_adjustment': '外部経費調整',
-    'gross_added_value': '粗付加価値',
-    'selling_general_admin_expenses': '販売費及び一般管理費',
-    'labor_cost': '人件費',
-    'executive_compensation': '役員報酬',
-    'capital_regeneration_cost': '資本再生費',
-    'research_development_expenses': '研究開発費',
-    'general_expenses': '一般経費',
-    'general_expenses_fixed': '一般経費（固定費）',
-    'general_expenses_variable': '一般経費（変動費）',
+    'external_cost_adjustment': '5. 外部経費調整',
+    'gross_added_value': '6. 粗付加価値',
+    'selling_general_admin_expenses': '3. 販売費及び一般管理費（合計）',
+    'labor_cost': '（1）人件費',
+    'executive_compensation': '（2）役員報酬',
+    'capital_regeneration_cost': '（3）資本再生費',
+    'research_development_expenses': '（4）研究開発費',
+    'general_expenses': '（5）一般経費',
+    'general_expenses_fixed': '① 固定費',
+    'general_expenses_variable': '② 変動費',
     'operating_income': '営業利益',
-    'financial_profit_loss': '金融損益',
+    'financial_profit_loss': '4. 金融損益',
     'other_non_operating': 'その他営業外損益',
     'ordinary_income': '経常利益',
-    'extraordinary_profit_loss': '特別損益',
+    'extraordinary_profit_loss': '5. 特別損益',
     'income_before_tax': '税引前当期純利益',
-    'income_taxes': '法人税等',
+    'income_taxes': '法人税・住民税・事業税',
     'net_income': '当期純利益',
-    'dividend': '配当金',
-    'retained_profit': '内部留保',
-    'legal_reserve': '利益準備金積立額',
-    'voluntary_reserve': 'その他剰余金積立額',
-    'retained_earnings_increase': '繰越利益剰余金増加',
+    'dividend': '（1）配当金',
+    'retained_profit': '（2）内部留保',
+    'legal_reserve': '① 利益準備金積立額',
+    'voluntary_reserve': '② その他剰余金積立額',
+    'retained_earnings_increase': '③ 繰越利益剰余金増加',
 }
+
+_PL_FIELD_GROUPS = [
+    {'label': '1. 売上高', 'options': ['sales']},
+    {'label': '2. 売上原価', 'options': ['beginning_inventory', 'manufacturing_cost', 'ending_inventory', 'cost_of_sales']},
+    {'label': '売上総利益・付加価値', 'options': ['gross_profit', 'external_cost_adjustment', 'gross_added_value']},
+    {'label': '3. 販売費及び一般管理費', 'options': ['labor_cost', 'executive_compensation', 'capital_regeneration_cost', 'research_development_expenses', 'general_expenses', 'general_expenses_fixed', 'general_expenses_variable', 'selling_general_admin_expenses']},
+    {'label': '4. 営業外損益', 'options': ['operating_income', 'financial_profit_loss', 'other_non_operating', 'ordinary_income']},
+    {'label': '5. 特別損益・税金', 'options': ['extraordinary_profit_loss', 'income_before_tax', 'income_taxes', 'net_income']},
+    {'label': '6. 利益処分', 'options': ['dividend', 'retained_profit', 'legal_reserve', 'voluntary_reserve', 'retained_earnings_increase']},
+]
 
 _BS_FIELDS = {
     'cash_on_hand': '① 手許現預金',
@@ -4892,6 +4902,13 @@ _MCR_FIELDS = {
     'ending_wip': '期末仕掛品棚卸高',
     'total_manufacturing_cost': '製造原価合計',
 }
+
+_MCR_FIELD_GROUPS = [
+    {'label': '1. 材料費', 'options': ['beginning_raw_material', 'raw_material_purchase', 'ending_raw_material', 'material_cost']},
+    {'label': '2. 労務費', 'options': ['labor_cost_manufacturing']},
+    {'label': '3. 製造経費', 'options': ['outsourcing_cost', 'freight_manufacturing', 'meeting_cost_manufacturing', 'travel_cost_manufacturing', 'communication_cost_manufacturing', 'supplies_manufacturing', 'vehicle_cost_manufacturing', 'rent_manufacturing', 'insurance_manufacturing', 'depreciation_manufacturing', 'repair_cost_manufacturing', 'other_manufacturing_cost', 'manufacturing_expenses_total']},
+    {'label': '4. 総製造費用・仕掛品・製造原価', 'options': ['total_manufacturing_cost_current', 'beginning_wip', 'ending_wip', 'total_manufacturing_cost']},
+]
 
 _ALL_FIELDS = {
     'PL': _PL_FIELDS,
@@ -5122,7 +5139,7 @@ def account_master():
         field_order_maps = {
             'pl': {key: idx for idx, key in enumerate(_PL_FIELDS.keys())},
             'bs': {key: idx for idx, key in enumerate(_BS_FIELDS.keys())},
-            'mcr': {key: idx for idx, key in enumerate(_PL_FIELDS.keys())},
+            'mcr': {key: idx for idx, key in enumerate(_MCR_FIELDS.keys())},
         }
 
         def _sort_items_for_display(items, stmt_type):
@@ -5208,8 +5225,8 @@ def account_master():
                 if mid_category not in valid_mid_categories:
                     mid_category = None
                 sub_category = None
-                if target_field and target_field in _PL_FIELDS:
-                    target_statement = 'PL'
+                if target_field and target_field in _MCR_FIELDS:
+                    target_statement = 'MCR'
                 else:
                     target_field = None
                     target_statement = None
@@ -5251,8 +5268,10 @@ def account_master():
                                pl_items=pl_items, bs_items=bs_items, mcr_items=mcr_items,
                                pl_fields=_PL_FIELDS, bs_fields=_BS_FIELDS, mcr_fields=_MCR_FIELDS,
                                all_fields=_ALL_FIELDS,
-                               field_groups={'BS': _BS_FIELD_GROUPS},
+                               field_groups={'PL': _PL_FIELD_GROUPS, 'BS': _BS_FIELD_GROUPS, 'MCR': _MCR_FIELD_GROUPS},
+                               pl_field_groups=_PL_FIELD_GROUPS,
                                bs_field_groups=_BS_FIELD_GROUPS,
+                               mcr_field_groups=_MCR_FIELD_GROUPS,
                                category_tree=category_tree,
                                pl_category_tree=pl_category_tree,
                                bs_category_tree=bs_category_tree,
@@ -5306,8 +5325,8 @@ def account_master_update(stmt_type, item_id):
             default_statement = 'BS'
         elif stmt_type == 'mcr':
             item.sub_category = None
-            allowed_fields = _PL_FIELDS
-            default_statement = 'PL'
+            allowed_fields = _MCR_FIELDS
+            default_statement = 'MCR'
 
         if raw_target_field and allowed_fields is not None and raw_target_field not in allowed_fields:
             raw_target_field = None
@@ -5391,8 +5410,8 @@ def account_master_add(stmt_type):
         else:
             major_category = data.get('major_category') or None
             sub_category = None
-            allowed_fields = _PL_FIELDS
-            default_statement = 'PL'
+            allowed_fields = _MCR_FIELDS
+            default_statement = 'MCR'
 
         if raw_target_field and raw_target_field not in allowed_fields:
             raw_target_field = None
@@ -5524,8 +5543,8 @@ def account_master_ai_suggest():
 - stmt_type が 'pl' の科目は target_field に必ず PLフィールドのキーのみ使用する（BS・ MCRフィールドのキーは絶対使用しない）
 - stmt_type が 'bs' の科目は target_statement を 'BS' または空文字にする
 - stmt_type が 'bs' の科目は target_field に必ず BSフィールドのキーのみ使用する
-- stmt_type が 'mcr' の科目は target_statement を 'PL' または空文字にする
-- stmt_type が 'mcr' の科目は target_field に必ず PLフィールドのキーのみ使用する
+- stmt_type が 'mcr' の科目は target_statement を 'MCR' または空文字にする
+- stmt_type が 'mcr' の科目は target_field に必ず MCRフィールドのキーのみ使用する
 - sub_category は必ず上記の小分類選択肢リストに存在する値を使用すること。存在しない値は絶対に使用しない
 - 分類ツリーに存在しないカテゴリは使用しない
 - 組換え先フィールドに存在しないキーは使用しない
@@ -5554,6 +5573,7 @@ def account_master_ai_suggest():
     # PLの大分類を強制的に「損益」に上書き、MCRキーが混入した場合はnullに変換
     pl_keys = set(_PL_FIELDS.keys())
     bs_keys = set(_BS_FIELDS.keys())
+    mcr_keys = set(_MCR_FIELDS.keys())
     stmt_type_map = {it['id']: it['stmt_type'] for it in items}
     for s in suggestions:
         stype = stmt_type_map.get(s.get('id'))
@@ -5573,8 +5593,8 @@ def account_master_ai_suggest():
                 s['target_statement'] = ''
         elif stype == 'mcr':
             s['sub_category'] = ''
-            if s.get('target_field') and s['target_field'] in pl_keys:
-                s['target_statement'] = 'PL'
+            if s.get('target_field') and s['target_field'] in mcr_keys:
+                s['target_statement'] = 'MCR'
             else:
                 s['target_field'] = ''
                 s['target_statement'] = ''
@@ -5637,8 +5657,8 @@ def account_master_bulk_save():
             else:
                 item.major_category = it.get('major_category') or None
                 item.sub_category = None
-                allowed_fields = _PL_FIELDS
-                default_statement = 'PL'
+                allowed_fields = _MCR_FIELDS
+                default_statement = 'MCR'
             item.mid_category = it.get('mid_category') or None
             # 各帳票種別に正しいフィールドキーのみ許可するバリデーション
             raw_tf = it.get('target_field') or None

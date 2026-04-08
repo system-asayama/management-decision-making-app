@@ -164,9 +164,21 @@
               <td>
                 <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="pl" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（選択）</option>
-                  {% for k, v in pl_fields.items() %}
-                    <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                  {% endfor %}
+                  {% if pl_field_groups %}
+                    {% for group in pl_field_groups %}
+                      <optgroup label="{{ group.label }}">
+                        {% for key in group.options %}
+                          {% if key in pl_fields %}
+                            <option value="{{ key }}" {% if item.target_field == key %}selected{% endif %}>{{ pl_fields[key] }}</option>
+                          {% endif %}
+                        {% endfor %}
+                      </optgroup>
+                    {% endfor %}
+                  {% else %}
+                    {% for k, v in pl_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% endif %}
                 </select>
               </td>
               <td>
@@ -413,13 +425,25 @@
                   {% endif %}
                 </select>
               </td>
-              <input type="hidden" class="stmt-select" data-id="{{ item.id }}" data-type="mcr" value="PL">
+              <input type="hidden" class="stmt-select" data-id="{{ item.id }}" data-type="mcr" value="MCR">
               <td>
                 <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="mcr" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（選択）</option>
-                  {% for k, v in pl_fields.items() %}
-                    <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                  {% endfor %}
+                  {% if mcr_field_groups %}
+                    {% for group in mcr_field_groups %}
+                      <optgroup label="{{ group.label }}">
+                        {% for key in group.options %}
+                          {% if key in mcr_fields %}
+                            <option value="{{ key }}" {% if item.target_field == key %}selected{% endif %}>{{ mcr_fields[key] }}</option>
+                          {% endif %}
+                        {% endfor %}
+                      </optgroup>
+                    {% endfor %}
+                  {% else %}
+                    {% for k, v in mcr_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% endif %}
                 </select>
               </td>
               <td>
@@ -593,7 +617,9 @@ function getCategoryTree(type) {
 }
 
 function getFixedTargetStatement(type) {
-  return type === 'bs' ? 'BS' : 'PL';
+  if (type === 'bs') return 'BS';
+  if (type === 'mcr') return 'MCR';
+  return 'PL';
 }
 
 function isSummaryRow(row) {

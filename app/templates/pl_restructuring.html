@@ -348,19 +348,19 @@
                                     <td class="text-end" id="sum_cost_of_sales">-</td>
                                 </tr>
                                 <tr class="table-success">
-                                    <td><strong>　売上総利益</strong></td>
+                                    <td><strong>4. 売上総利益</strong></td>
                                     <td class="text-end fw-bold text-success" id="sum_gross_profit">-</td>
                                 </tr>
                                 <tr>
-                                    <td>　外部経費調整</td>
+                                    <td>5. 外部経費調整</td>
                                     <td class="text-end" id="sum_external_cost">-</td>
                                 </tr>
                                 <tr class="table-success">
-                                    <td><strong>　粗付加価値</strong></td>
+                                    <td><strong>6. 粗付加価値</strong></td>
                                     <td class="text-end fw-bold text-success" id="sum_gross_added_value">-</td>
                                 </tr>
                                 <tr>
-                                    <td>3. 販売費一般管理費</td>
+                                    <td>3. 販売費及び一般管理費</td>
                                     <td class="text-end" id="sum_sga">-</td>
                                 </tr>
                                 <tr class="table-light">
@@ -382,6 +382,14 @@
                                 <tr class="table-light">
                                     <td>&nbsp;&nbsp;（５）一般経費</td>
                                     <td class="text-end text-muted" id="sum_general">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;&nbsp;&nbsp;①固定費</td>
+                                    <td class="text-end text-muted" id="sum_general_fixed">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;&nbsp;&nbsp;②変動費</td>
+                                    <td class="text-end text-muted" id="sum_general_variable">-</td>
                                 </tr>
                                 <tr class="table-primary">
                                     <td><strong>　営業利益</strong></td>
@@ -430,6 +438,18 @@
                                 <tr class="table-success">
                                     <td><strong>&nbsp;&nbsp;（２）内部留保</strong></td>
                                     <td class="text-end fw-bold text-success" id="sum_retained">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;&nbsp;&nbsp;①利益準備金積立額</td>
+                                    <td class="text-end text-muted" id="sum_legal_reserve">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;&nbsp;&nbsp;②その他剰余金積立額</td>
+                                    <td class="text-end text-muted" id="sum_voluntary_reserve">-</td>
+                                </tr>
+                                <tr class="table-light">
+                                    <td>&nbsp;&nbsp;&nbsp;&nbsp;③繰越利益剰余金増加</td>
+                                    <td class="text-end text-muted" id="sum_retained_earnings_increase">-</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -542,11 +562,14 @@ function recalculate() {
     const execComp = parseNum('executive_compensation');
     const capRegen = parseNum('capital_regeneration_cost');
     const rd = parseNum('research_development_expenses');
-    const genExp = parseNum('general_expenses');
+    const inputGeneralExp = parseNum('general_expenses');
     const genFixed = parseNum('general_expenses_fixed');
     const genVar = parseNum('general_expenses_variable');
-    
-    // 一般経費 = 固定費 + 変動費（手動入力の場合はそのまま）
+    const genExp = (genFixed !== 0 || genVar !== 0) ? (genFixed + genVar) : inputGeneralExp;
+
+    const generalEl = document.getElementById('general_expenses');
+    if (generalEl && (genFixed !== 0 || genVar !== 0)) generalEl.value = fmt(genExp);
+
     const sga = laborCost + execComp + capRegen + rd + genExp;
     const sgaEl = document.getElementById('selling_general_admin_expenses');
     if (sgaEl) sgaEl.value = fmt(sga);
@@ -596,6 +619,8 @@ function recalculate() {
     updateSummary('sum_cap_regen', capRegen);
     updateSummary('sum_rd', rd);
     updateSummary('sum_general', genExp);
+    updateSummary('sum_general_fixed', genFixed);
+    updateSummary('sum_general_variable', genVar);
     updateSummary('sum_operating_income', operatingIncome);
     updateSummary('sum_non_op', nonOpTotal);
     updateSummary('sum_financial', financial);
@@ -607,6 +632,9 @@ function recalculate() {
     updateSummary('sum_net_income', netIncome);
     updateSummary('sum_dividend', dividend);
     updateSummary('sum_retained', retainedProfit);
+    updateSummary('sum_legal_reserve', legalRes);
+    updateSummary('sum_voluntary_reserve', volRes);
+    updateSummary('sum_retained_earnings_increase', retEarningsInc);
 }
 
 // カンマ区切り入力
