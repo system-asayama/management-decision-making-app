@@ -53,7 +53,7 @@
     </div>
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center py-3">
-        {% set cat_confirmed = (pl_items + bs_items + mcr_items) | selectattr('category_status', 'equalto', 'confirmed') | list | length %}
+        {% set cat_confirmed = (pl_items + bs_items + mcr_items) | selectattr('target_field') | list | length %}
         {% set total_count = pl_items|length + bs_items|length + mcr_items|length %}
         <div class="fs-3 fw-bold text-info">{{ cat_confirmed }}/{{ total_count }}</div>
         <div class="text-muted small">分類確定済</div>
@@ -117,7 +117,7 @@
           </thead>
           <tbody>
             {% for item in pl_items %}
-            <tr class="{% if item.category_status == 'confirmed' %}table-success{% elif item.category_status == 'pending' %}table-warning{% endif %}" id="pl-row-{{ item.id }}">
+            <tr class="{% if item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="pl-row-{{ item.id }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <span class="fw-medium">{{ item.account_name }}</span>
@@ -126,9 +126,9 @@
                 {% endif %}
               </td>
               <td>
-                {% if item.category_status == 'confirmed' %}
+                {% if item.target_field %}
                   <span class="badge bg-success category-badge">確定済</span>
-                {% elif item.category_status == 'pending' %}
+                {% elif item.major_category or item.mid_category %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
                   <span class="badge bg-light text-muted border category-badge">未分類</span>
@@ -220,7 +220,7 @@
           </thead>
           <tbody>
             {% for item in bs_items %}
-            <tr class="{% if item.category_status == 'confirmed' %}table-success{% elif item.category_status == 'pending' %}table-warning{% endif %}" id="bs-row-{{ item.id }}">
+            <tr class="{% if item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="bs-row-{{ item.id }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <span class="fw-medium">{{ item.account_name }}</span>
@@ -229,9 +229,9 @@
                 {% endif %}
               </td>
               <td>
-                {% if item.category_status == 'confirmed' %}
+                {% if item.target_field %}
                   <span class="badge bg-success category-badge">確定済</span>
-                {% elif item.category_status == 'pending' %}
+                {% elif item.major_category or item.mid_category %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
                   <span class="badge bg-light text-muted border category-badge">未分類</span>
@@ -334,7 +334,7 @@
           </thead>
           <tbody>
             {% for item in mcr_items %}
-            <tr class="{% if item.category_status == 'confirmed' %}table-success{% elif item.category_status == 'pending' %}table-warning{% endif %}" id="mcr-row-{{ item.id }}">
+            <tr class="{% if item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="mcr-row-{{ item.id }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <span class="fw-medium">{{ item.account_name }}</span>
@@ -343,9 +343,9 @@
                 {% endif %}
               </td>
               <td>
-                {% if item.category_status == 'confirmed' %}
+                {% if item.target_field %}
                   <span class="badge bg-success category-badge">確定済</span>
-                {% elif item.category_status == 'pending' %}
+                {% elif item.major_category or item.mid_category %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
                   <span class="badge bg-light text-muted border category-badge">未分類</span>
@@ -762,8 +762,19 @@ function runBulkSave(stmtType) {
         }
         confirmedCount++;
       } else {
-        if (badge && badge.textContent !== '確定済') {
-          // 既に確定済の行はそのままにする
+        const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${stmtType}"]`);
+        const hasMajor = majorSel && majorSel.value && majorSel.value !== '';
+        if (hasMajor) {
+          row.classList.add('table-warning');
+          if (badge) {
+            badge.className = 'badge bg-warning text-dark category-badge';
+            badge.textContent = 'AI推定';
+          }
+        } else {
+          if (badge) {
+            badge.className = 'badge bg-light text-muted border category-badge';
+            badge.textContent = '未分類';
+          }
         }
       }
     });
