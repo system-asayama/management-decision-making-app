@@ -5085,14 +5085,36 @@ def account_master():
             if all(order_map for order_map in statement_order_maps.values()):
                 break
 
+        field_order_maps = {
+            'pl': {key: idx for idx, key in enumerate(_PL_FIELDS.keys())},
+            'bs': {key: idx for idx, key in enumerate(_BS_FIELDS.keys())},
+            'mcr': {key: idx for idx, key in enumerate(_PL_FIELDS.keys())},
+        }
+
         def _sort_items_for_display(items, stmt_type):
             order_map = statement_order_maps.get(stmt_type) or {}
+            field_order_map = field_order_maps.get(stmt_type) or {}
             default_rank = 10 ** 9
+
+            def _field_rank(row):
+                target_field = row.get('target_field')
+                return field_order_map.get(target_field, default_rank)
+
+            def _anchor_rank(row):
+                account_name = row.get('account_name')
+                if account_name in order_map:
+                    return order_map[account_name]
+                is_confirmed = (row.get('mapping_status') == 'confirmed') or bool(row.get('target_field') and row.get('mid_category'))
+                if is_confirmed:
+                    return _field_rank(row)
+                return default_rank
+
             return sorted(
                 items,
                 key=lambda row: (
-                    0 if row['account_name'] in order_map else 1,
-                    order_map.get(row['account_name'], default_rank),
+                    _anchor_rank(row),
+                    0 if row.get('is_summary') else 1,
+                    _field_rank(row),
                     row.get('display_order') if row.get('display_order') is not None else default_rank,
                     row['id'],
                 )
