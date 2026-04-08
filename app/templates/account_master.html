@@ -31,30 +31,35 @@
     </div>
   </div>
 
+  {% set pl_editable_count = pl_items | rejectattr('is_summary') | list | length %}
+  {% set bs_editable_count = bs_items | rejectattr('is_summary') | list | length %}
+  {% set mcr_editable_count = mcr_items | rejectattr('is_summary') | list | length %}
+
   <!-- 統計サマリー -->
   <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center py-3">
-        <div class="fs-3 fw-bold text-primary">{{ pl_items|length }}</div>
+        <div class="fs-3 fw-bold text-primary">{{ pl_editable_count }}</div>
         <div class="text-muted small">PL科目数</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center py-3">
-        <div class="fs-3 fw-bold text-success">{{ bs_items|length }}</div>
+        <div class="fs-3 fw-bold text-success">{{ bs_editable_count }}</div>
         <div class="text-muted small">BS科目数</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center py-3">
-        <div class="fs-3 fw-bold text-warning">{{ mcr_items|length }}</div>
+        <div class="fs-3 fw-bold text-warning">{{ mcr_editable_count }}</div>
         <div class="text-muted small">MCR科目数</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center py-3">
-        {% set cat_confirmed = (pl_items + bs_items + mcr_items) | selectattr('target_field') | selectattr('mid_category') | list | length %}
-        {% set total_count = pl_items|length + bs_items|length + mcr_items|length %}
+        {% set editable_items = (pl_items + bs_items + mcr_items) | rejectattr('is_summary') | list %}
+        {% set cat_confirmed = editable_items | selectattr('target_field') | selectattr('mid_category') | list | length %}
+        {% set total_count = editable_items | length %}
         <div class="fs-3 fw-bold text-info">{{ cat_confirmed }}/{{ total_count }}</div>
         <div class="text-muted small">分類確定済</div>
       </div>
@@ -66,19 +71,19 @@
     <li class="nav-item" role="presentation">
       <button class="nav-link active" id="pl-tab" data-bs-toggle="tab" data-bs-target="#pl-pane" type="button" role="tab">
         <i class="fas fa-chart-line me-1"></i>損益計算書（PL）
-        <span class="badge bg-primary ms-1">{{ pl_items|length }}</span>
+        <span class="badge bg-primary ms-1">{{ pl_editable_count }}</span>
       </button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="bs-tab" data-bs-toggle="tab" data-bs-target="#bs-pane" type="button" role="tab">
         <i class="fas fa-balance-scale me-1"></i>貸借対照表（BS）
-        <span class="badge bg-success ms-1">{{ bs_items|length }}</span>
+        <span class="badge bg-success ms-1">{{ bs_editable_count }}</span>
       </button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="mcr-tab" data-bs-toggle="tab" data-bs-target="#mcr-pane" type="button" role="tab">
         <i class="fas fa-industry me-1"></i>製造原価報告書（MCR）
-        <span class="badge bg-warning text-dark ms-1">{{ mcr_items|length }}</span>
+        <span class="badge bg-warning text-dark ms-1">{{ mcr_editable_count }}</span>
       </button>
     </li>
   </ul>
@@ -117,18 +122,25 @@
           </thead>
           <tbody>
             {% for item in pl_items %}
-            <tr class="{% if item.target_field and item.mid_category %}table-success{% elif item.major_category or item.mid_category or item.target_field %}table-warning{% endif %}" id="pl-row-{{ item.id }}">
+            <tr class="{% if item.is_summary %}table-secondary summary-row{% elif item.target_field and item.mid_category %}table-success{% elif item.major_category or item.mid_category or item.target_field %}table-warning{% endif %}" id="pl-row-{{ item.id }}" data-is-summary="{{ 1 if item.is_summary else 0 }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <div class="d-flex flex-column gap-1">
-                  <input type="text" class="form-control form-control-sm account-name-input" data-id="{{ item.id }}" data-type="pl" value="{{ item.account_name }}" maxlength="255">
-                  {% if item.is_auto_created %}
-                    <span class="badge bg-light text-secondary border small align-self-start" title="PDFから自動登録">PDF</span>
-                  {% endif %}
+                  <input type="text" class="form-control form-control-sm account-name-input {% if item.is_summary %}bg-light text-muted{% endif %}" data-id="{{ item.id }}" data-type="pl" value="{{ item.account_name }}" maxlength="255" {% if item.is_summary %}readonly disabled{% endif %}>
+                  <div class="d-flex gap-1 flex-wrap">
+                    {% if item.is_auto_created %}
+                      <span class="badge bg-light text-secondary border small align-self-start" title="PDFから自動登録">PDF</span>
+                    {% endif %}
+                    {% if item.is_summary %}
+                      <span class="badge bg-secondary small align-self-start">集計行</span>
+                    {% endif %}
+                  </div>
                 </div>
               </td>
               <td>
-                {% if item.target_field and item.mid_category %}
+                {% if item.is_summary %}
+                  <span class="badge bg-secondary category-badge">集計行</span>
+                {% elif item.target_field and item.mid_category %}
                   <span class="badge bg-success category-badge">確定済</span>
                 {% elif item.major_category or item.mid_category or item.target_field %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
@@ -141,7 +153,7 @@
                 <input type="hidden" class="major-select" data-id="{{ item.id }}" data-type="pl" value="損益">
               </td>
               <td>
-                <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="pl">
+                <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="pl" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（未設定）</option>
                   {% for mid in pl_category_tree['損益'].keys() %}
                     <option value="{{ mid }}" {% if item.mid_category == mid %}selected{% endif %}>{{ mid }}</option>
@@ -150,7 +162,7 @@
               </td>
               <input type="hidden" class="stmt-select" data-id="{{ item.id }}" data-type="pl" value="PL">
               <td>
-                <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="pl">
+                <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="pl" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（選択）</option>
                   {% for k, v in pl_fields.items() %}
                     <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
@@ -158,6 +170,9 @@
                 </select>
               </td>
               <td>
+                {% if item.is_summary %}
+                <span class="badge bg-light text-muted border">固定</span>
+                {% else %}
                 <div class="d-flex gap-1">
                   <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="pl" title="保存・確定">
                     <i class="fas fa-check"></i>
@@ -166,6 +181,7 @@
                     <i class="fas fa-trash"></i>
                   </button>
                 </div>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}
@@ -216,18 +232,25 @@
           </thead>
           <tbody>
             {% for item in bs_items %}
-            <tr class="{% if item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="bs-row-{{ item.id }}">
+            <tr class="{% if item.is_summary %}table-secondary summary-row{% elif item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="bs-row-{{ item.id }}" data-is-summary="{{ 1 if item.is_summary else 0 }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <div class="d-flex flex-column gap-1">
-                  <input type="text" class="form-control form-control-sm account-name-input" data-id="{{ item.id }}" data-type="bs" value="{{ item.account_name }}" maxlength="255">
-                  {% if item.is_auto_created %}
-                    <span class="badge bg-light text-secondary border small align-self-start" title="PDFから自動登録">PDF</span>
-                  {% endif %}
+                  <input type="text" class="form-control form-control-sm account-name-input {% if item.is_summary %}bg-light text-muted{% endif %}" data-id="{{ item.id }}" data-type="bs" value="{{ item.account_name }}" maxlength="255" {% if item.is_summary %}readonly disabled{% endif %}>
+                  <div class="d-flex gap-1 flex-wrap">
+                    {% if item.is_auto_created %}
+                      <span class="badge bg-light text-secondary border small align-self-start" title="PDFから自動登録">PDF</span>
+                    {% endif %}
+                    {% if item.is_summary %}
+                      <span class="badge bg-secondary small align-self-start">集計行</span>
+                    {% endif %}
+                  </div>
                 </div>
               </td>
               <td>
-                {% if item.target_field and item.mid_category %}
+                {% if item.is_summary %}
+                  <span class="badge bg-secondary category-badge">集計行</span>
+                {% elif item.target_field and item.mid_category %}
                   <span class="badge bg-success category-badge">確定済</span>
                 {% elif item.major_category or item.mid_category or item.target_field %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
@@ -236,7 +259,7 @@
                 {% endif %}
               </td>
               <td>
-                <select class="form-select form-select-sm major-select" data-id="{{ item.id }}" data-type="bs">
+                <select class="form-select form-select-sm major-select" data-id="{{ item.id }}" data-type="bs" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（未設定）</option>
                   {% for major in bs_category_tree.keys() %}
                     <option value="{{ major }}" {% if item.major_category == major %}selected{% endif %}>{{ major }}</option>
@@ -244,7 +267,7 @@
                 </select>
               </td>
               <td>
-                <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="bs">
+                <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="bs" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（未設定）</option>
                   {% if item.major_category and item.major_category in bs_category_tree %}
                     {% for mid in bs_category_tree[item.major_category].keys() %}
@@ -254,7 +277,7 @@
                 </select>
               </td>
               <td>
-                <select class="form-select form-select-sm sub-select" data-id="{{ item.id }}" data-type="bs">
+                <select class="form-select form-select-sm sub-select" data-id="{{ item.id }}" data-type="bs" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（未設定）</option>
                   {% if item.major_category and item.mid_category and item.major_category in bs_category_tree and item.mid_category in bs_category_tree[item.major_category] %}
                     {% for sub in bs_category_tree[item.major_category][item.mid_category] %}
@@ -265,7 +288,7 @@
               </td>
               <input type="hidden" class="stmt-select" data-id="{{ item.id }}" data-type="bs" value="BS">
               <td>
-                <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="bs">
+                <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="bs" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（選択）</option>
                   {% for k, v in bs_fields.items() %}
                     <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
@@ -273,6 +296,9 @@
                 </select>
               </td>
               <td>
+                {% if item.is_summary %}
+                <span class="badge bg-light text-muted border">固定</span>
+                {% else %}
                 <div class="d-flex gap-1">
                   <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="bs" title="保存・確定">
                     <i class="fas fa-check"></i>
@@ -281,6 +307,7 @@
                     <i class="fas fa-trash"></i>
                   </button>
                 </div>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}
@@ -330,18 +357,25 @@
           </thead>
           <tbody>
             {% for item in mcr_items %}
-            <tr class="{% if item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="mcr-row-{{ item.id }}">
+            <tr class="{% if item.is_summary %}table-secondary summary-row{% elif item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="mcr-row-{{ item.id }}" data-is-summary="{{ 1 if item.is_summary else 0 }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <div class="d-flex flex-column gap-1">
-                  <input type="text" class="form-control form-control-sm account-name-input" data-id="{{ item.id }}" data-type="mcr" value="{{ item.account_name }}" maxlength="255">
-                  {% if item.is_auto_created %}
-                    <span class="badge bg-light text-secondary border small align-self-start" title="PDFから自動登録">PDF</span>
-                  {% endif %}
+                  <input type="text" class="form-control form-control-sm account-name-input {% if item.is_summary %}bg-light text-muted{% endif %}" data-id="{{ item.id }}" data-type="mcr" value="{{ item.account_name }}" maxlength="255" {% if item.is_summary %}readonly disabled{% endif %}>
+                  <div class="d-flex gap-1 flex-wrap">
+                    {% if item.is_auto_created %}
+                      <span class="badge bg-light text-secondary border small align-self-start" title="PDFから自動登録">PDF</span>
+                    {% endif %}
+                    {% if item.is_summary %}
+                      <span class="badge bg-secondary small align-self-start">集計行</span>
+                    {% endif %}
+                  </div>
                 </div>
               </td>
               <td>
-                {% if item.target_field and item.mid_category %}
+                {% if item.is_summary %}
+                  <span class="badge bg-secondary category-badge">集計行</span>
+                {% elif item.target_field and item.mid_category %}
                   <span class="badge bg-success category-badge">確定済</span>
                 {% elif item.major_category or item.mid_category or item.target_field %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
@@ -350,7 +384,7 @@
                 {% endif %}
               </td>
               <td>
-                <select class="form-select form-select-sm major-select" data-id="{{ item.id }}" data-type="mcr">
+                <select class="form-select form-select-sm major-select" data-id="{{ item.id }}" data-type="mcr" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（未設定）</option>
                   {% for major in mcr_category_tree.keys() %}
                     <option value="{{ major }}" {% if item.major_category == major %}selected{% endif %}>{{ major }}</option>
@@ -358,7 +392,7 @@
                 </select>
               </td>
               <td>
-                <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="mcr">
+                <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="mcr" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（未設定）</option>
                   {% if item.major_category and item.major_category in mcr_category_tree %}
                     {% for mid in mcr_category_tree[item.major_category].keys() %}
@@ -369,7 +403,7 @@
               </td>
               <input type="hidden" class="stmt-select" data-id="{{ item.id }}" data-type="mcr" value="PL">
               <td>
-                <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="mcr">
+                <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="mcr" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（選択）</option>
                   {% for k, v in pl_fields.items() %}
                     <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
@@ -377,6 +411,9 @@
                 </select>
               </td>
               <td>
+                {% if item.is_summary %}
+                <span class="badge bg-light text-muted border">固定</span>
+                {% else %}
                 <div class="d-flex gap-1">
                   <button class="btn btn-xs btn-outline-success save-btn" data-id="{{ item.id }}" data-type="mcr" title="保存・確定">
                     <i class="fas fa-check"></i>
@@ -385,6 +422,7 @@
                     <i class="fas fa-trash"></i>
                   </button>
                 </div>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}
@@ -545,6 +583,10 @@ function getFixedTargetStatement(type) {
   return type === 'bs' ? 'BS' : 'PL';
 }
 
+function isSummaryRow(row) {
+  return !!(row && row.dataset && row.dataset.isSummary === '1');
+}
+
 function populateFieldOptions(fieldSel, stmt, placeholder = '（選択）') {
   if (!fieldSel) return;
   fieldSel.innerHTML = `<option value="">${placeholder}</option>`;
@@ -669,12 +711,15 @@ function runAiSuggest(stmtType) {
 
   const items = [];
   rows.forEach(function(row) {
+    if (isSummaryRow(row)) return;
     const id = row.id.replace(stmtType + '-row-', '');
     const nameInput = row.querySelector('.account-name-input');
     const nameEl = row.querySelector('.fw-medium');
     const accountName = nameInput ? nameInput.value.trim() : (nameEl ? nameEl.textContent.trim() : '');
     if (accountName) items.push({id: parseInt(id), name: accountName, stmt_type: stmtType});
   });
+
+  if (!items.length) { showToast('編集対象の科目がありません', 'warning'); return; }
 
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>AI推定中...';
@@ -749,6 +794,7 @@ function runBulkSave(stmtType) {
 
   const items = [];
   rows.forEach(function(row) {
+    if (isSummaryRow(row)) return;
     const id = parseInt(row.id.replace(stmtType + '-row-', ''));
     const nameInput = document.querySelector(`.account-name-input[data-id="${id}"][data-type="${stmtType}"]`);
     const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${stmtType}"]`);
@@ -767,6 +813,8 @@ function runBulkSave(stmtType) {
       target_field: fieldSel ? fieldSel.value || null : null
     });
   });
+
+  if (!items.length) { showToast('保存対象の科目がありません', 'warning'); return; }
 
   if (items.some(item => !item.account_name)) {
     showToast('科目名を入力してください', 'warning');
@@ -798,6 +846,7 @@ function runBulkSave(stmtType) {
     // 全行のバッジを更新（組換え先科目と中分類の両方が設定されている行のみ確定済に）
     let confirmedCount = 0;
     rows.forEach(function(row) {
+      if (isSummaryRow(row)) return;
       const id = parseInt(row.id.replace(stmtType + '-row-', ''));
       const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${stmtType}"]`);
       const midSel = document.querySelector(`.mid-select[data-id="${id}"][data-type="${stmtType}"]`);

@@ -4865,6 +4865,26 @@ _ALL_FIELDS = {
     'MCR': _MCR_FIELDS,
 }
 
+_FIXED_SUMMARY_ACCOUNT_NAMES = {
+    '売上高計', '売上原価', '当期商品仕入', '商品売上原価', '当期製品製造原価', '製品売上原価',
+    '売上総利益', '販売管理費計', '営業利益', '営業外収益', '営業外費用', '特別利益', '特別損失',
+    '税引前当期純利益', '法人税等', '期首原材料棚卸', '当期原材料仕入高', '期末原材料棚卸',
+    '材料費計', '材料費系', '労務費計', '製造経費計', '総製造費用', '製造原価'
+}
+
+
+def _normalize_account_name(account_name):
+    return str(account_name or '').replace(' ', '').replace('\u3000', '').strip()
+
+
+_FIXED_SUMMARY_ACCOUNT_NAMES_NORMALIZED = {
+    _normalize_account_name(name) for name in _FIXED_SUMMARY_ACCOUNT_NAMES
+}
+
+
+def _is_fixed_summary_account(account_name):
+    return _normalize_account_name(account_name) in _FIXED_SUMMARY_ACCOUNT_NAMES_NORMALIZED
+
 # ============================================================
 # 科目マスタ管理画面
 # ============================================================
@@ -4969,6 +4989,7 @@ def account_master():
 
                 section = str(item.get('section') or '').strip()
                 cat = _SECTION_TO_CATEGORY.get(section)
+                is_summary = _is_fixed_summary_account(account_name)
                 row = existing_rows.get(account_name)
 
                 if not row:
@@ -4981,14 +5002,26 @@ def account_master():
                         mid_category=cat[1] if cat else None,
                         sub_category=cat[2] if cat else None,
                         category_status='confirmed' if cat else 'uncategorized',
+                        target_statement=None,
+                        target_field=None,
+                        mapping_status='ignored' if is_summary else 'unmapped',
                     )
                     db.add(row)
                     db.flush()
                     existing_rows[account_name] = row
                     changed = True
-                elif row.display_order != order_idx:
-                    row.display_order = order_idx
-                    changed = True
+                else:
+                    if row.display_order != order_idx:
+                        row.display_order = order_idx
+                        changed = True
+
+                if is_summary:
+                    if row.target_statement is not None or row.target_field is not None or row.mapping_status != 'ignored' or row.ai_confidence is not None:
+                        row.target_statement = None
+                        row.target_field = None
+                        row.mapping_status = 'ignored'
+                        row.ai_confidence = None
+                        changed = True
 
             return changed
 
@@ -5060,9 +5093,19 @@ def account_master():
                 )
             )
 
+        summary_sync = {'changed': False}
+
         def _row_to_dict(ai, stmt_type):
-            target_field = ai.target_field
-            target_statement = ai.target_statement
+            is_summary = _is_fixed_summary_account(ai.account_name)
+            if is_summary and (ai.target_statement is not None or ai.target_field is not None or ai.mapping_status != 'ignored' or ai.ai_confidence is not None):
+                ai.target_statement = None
+                ai.target_field = None
+                ai.mapping_status = 'ignored'
+                ai.ai_confidence = None
+                summary_sync['changed'] = True
+
+            target_field = None if is_summary else ai.target_field
+            target_statement = None if is_summary else ai.target_statement
 
             if stmt_type == 'pl':
                 if target_field and target_field in _PL_FIELDS:
@@ -5088,6 +5131,7 @@ def account_master():
                 'account_name': ai.account_name,
                 'display_order': getattr(ai, 'display_order', None),
                 'is_auto_created': ai.is_auto_created,
+                'is_summary': is_summary,
                 'target_statement': target_statement,
                 'target_field': target_field,
                 'mapping_status': ai.mapping_status,
@@ -5106,6 +5150,9 @@ def account_master():
 
         mcr_rows = db.query(McrAccountItem).filter_by(tenant_id=tenant_id).order_by(McrAccountItem.display_order, McrAccountItem.id).all()
         mcr_items = _sort_items_for_display([_row_to_dict(ai, 'mcr') for ai in mcr_rows], 'mcr')
+
+        if summary_sync['changed']:
+            db.commit()
 
         return render_template('account_master.html',
                                pl_items=pl_items, bs_items=bs_items, mcr_items=mcr_items,
@@ -5133,6 +5180,8 @@ def account_master_update(stmt_type, item_id):
         item = db.query(model).filter_by(id=item_id, tenant_id=tenant_id).first()
         if not item:
             return jsonify({'success': False, 'error': '科目が見つかりません'}), 404
+        if _is_fixed_summary_account(item.account_name):
+            return jsonify({'success': False, 'error': '集計行は編集できません'}), 400
         data = request.get_json() or {}
 
         if 'account_name' in data:
@@ -5203,6 +5252,8 @@ def account_master_delete(stmt_type, item_id):
         item = db.query(model).filter_by(id=item_id, tenant_id=tenant_id).first()
         if not item:
             return jsonify({'success': False, 'error': '科目が見つかりません'}), 404
+        if _is_fixed_summary_account(item.account_name):
+            return jsonify({'success': False, 'error': '集計行は削除できません'}), 400
         db.delete(item)
         db.commit()
         return jsonify({'success': True})
@@ -5284,8 +5335,9 @@ def account_master_ai_suggest():
 
     data = request.get_json() or {}
     items = data.get('items', [])  # [{id, name, stmt_type}, ...]
+    items = [it for it in items if not _is_fixed_summary_account(it.get('name'))]
     if not items:
-        return jsonify({'success': False, 'error': '科目リストが空です'}), 400
+        return jsonify({'success': True, 'suggestions': []})
 
     # OpenAI APIキーをDBから取得（他のエンドポイントと同様の方法）
     openai_api_key = None
@@ -5459,6 +5511,8 @@ def account_master_bulk_save():
             item = db.query(model).filter_by(id=item_id, tenant_id=tenant_id).first()
             if not item:
                 errors.append(f'科目ID {item_id} が見つかりません')
+                continue
+            if _is_fixed_summary_account(item.account_name):
                 continue
 
             account_name = (it.get('account_name') or '').strip()
