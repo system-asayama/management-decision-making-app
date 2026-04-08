@@ -4533,7 +4533,7 @@ def pdf_apply():
 
             # マッピング確認画面へリダイレクト
             return redirect(url_for('decision.mapping_confirm_get',
-                                    tenant_id=tenant_id,
+                                    company_id=company_id,
                                     fiscal_year_id=fiscal_year_id))
         else:
             return redirect(url_for('decision.profit_loss_list'))
