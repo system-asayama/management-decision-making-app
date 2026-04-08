@@ -290,9 +290,21 @@
               <td>
                 <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="bs" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（選択）</option>
-                  {% for k, v in bs_fields.items() %}
-                    <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                  {% endfor %}
+                  {% if bs_field_groups %}
+                    {% for group in bs_field_groups %}
+                      <optgroup label="{{ group.label }}">
+                        {% for key in group.options %}
+                          {% if key in bs_fields %}
+                            <option value="{{ key }}" {% if item.target_field == key %}selected{% endif %}>{{ bs_fields[key] }}</option>
+                          {% endif %}
+                        {% endfor %}
+                      </optgroup>
+                    {% endfor %}
+                  {% else %}
+                    {% for k, v in bs_fields.items() %}
+                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                    {% endfor %}
+                  {% endif %}
                 </select>
               </td>
               <td>
@@ -568,6 +580,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const allFields = {{ all_fields | tojson | safe }};
+const fieldGroups = {{ field_groups | default({}, true) | tojson | safe }};
 const categoryTree = {{ category_tree | tojson | safe }};
 const plCategoryTree = {{ pl_category_tree | tojson | safe }};
 const bsCategoryTree = {{ bs_category_tree | tojson | safe }};
@@ -590,6 +603,24 @@ function isSummaryRow(row) {
 function populateFieldOptions(fieldSel, stmt, placeholder = '（選択）') {
   if (!fieldSel) return;
   fieldSel.innerHTML = `<option value="">${placeholder}</option>`;
+
+  if (stmt && fieldGroups[stmt] && Array.isArray(fieldGroups[stmt]) && fieldGroups[stmt].length) {
+    fieldGroups[stmt].forEach(function(group) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = group.label;
+      (group.options || []).forEach(function(key) {
+        const label = allFields[stmt] ? allFields[stmt][key] : null;
+        if (!label) return;
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = label;
+        optgroup.appendChild(opt);
+      });
+      if (optgroup.children.length) fieldSel.appendChild(optgroup);
+    });
+    return;
+  }
+
   if (stmt && allFields[stmt]) {
     Object.entries(allFields[stmt]).forEach(function([k, v]) {
       const opt = document.createElement('option');
@@ -681,15 +712,7 @@ function applyAiSuggestions(suggestions, stmtType) {
             const stmt = s.target_statement || '';
             const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
             if (fieldSel) {
-              fieldSel.innerHTML = '<option value="">（選択）</option>';
-              if (stmt && allFields[stmt]) {
-                Object.entries(allFields[stmt]).forEach(function([k, v]) {
-                  const opt = document.createElement('option');
-                  opt.value = k;
-                  opt.textContent = v;
-                  fieldSel.appendChild(opt);
-                });
-              }
+              populateFieldOptions(fieldSel, stmt, '（選択）');
             }
           }
         }

@@ -44,39 +44,52 @@ PL_FIELDS = {
 }
 
 BS_FIELDS = {
-    "cash_on_hand": "手許現預金",
-    "investment_deposits": "運用預金",
-    "marketable_securities": "有価証券",
-    "trade_receivables": "売掛債権（売掛金＋受取手形）",
+    "cash_on_hand": "① 手許現預金",
+    "investment_deposits": "② 運用預金",
+    "marketable_securities": "③ 有価証券",
+    "other_current_assets": "④ その他（流動資産）",
+    "trade_receivables": "売掛債権",
     "inventory_assets": "棚卸資産",
-    "current_assets": "流動資産合計",
-    "tangible_fixed_assets": "有形固定資産",
+    "land": "(1) 土地",
+    "buildings_and_attached_facilities": "(2) 建物・附属設備等",
+    "machinery_and_equipment": "(3) 機械装置",
+    "vehicles_and_transport_equipment": "(4) 車輌運搬具",
+    "tools_furniture_and_fixtures": "(5) 工具・器具・備品",
+    "other_tangible_fixed_assets": "(6) その他（有形固定資産）",
+    "tangible_fixed_assets": "有形固定資産（合計）",
     "intangible_fixed_assets": "無形固定資産",
     "investments_and_other": "投資その他の資産",
     "deferred_assets": "繰延資産",
-    "fixed_assets": "固定資産合計",
-    "total_assets": "資産合計",
-    "trade_payables": "買掛債務",
-    "short_term_borrowings": "短期借入金",
-    "current_portion_long_term": "1年以内返済の長期借入金",
-    "discounted_notes": "割引手形",
-    "other_current_liabilities": "その他流動負債",
-    "current_liabilities": "流動負債合計",
-    "long_term_borrowings": "長期借入金",
-    "executive_borrowings": "役員等借入金",
-    "retirement_benefit_liability": "退職給付引当金",
-    "other_fixed_liabilities": "その他固定負債",
-    "fixed_liabilities": "固定負債合計",
-    "total_liabilities": "負債合計",
+    "trade_payables": "(1) 買掛債務",
+    "short_term_borrowings": "(2) 短期借入金",
+    "current_portion_long_term": "長期借入金（1年以内支払い）",
+    "discounted_notes": "(3) 割引手形",
+    "income_taxes_payable": "(4) 未払法人税等",
+    "bonus_reserve": "(5) 賞与引当金",
+    "other_allowances": "(6) その他引当金",
+    "other_current_liabilities": "(7) その他",
+    "long_term_borrowings": "(1) 長期借入金",
+    "executive_borrowings": "(2) 役員等借入金",
+    "retirement_benefit_liability": "(3) 退職給付引当金",
+    "other_fixed_liabilities": "(4) その他",
     "capital": "資本金",
-    "capital_surplus": "資本剰余金",
-    "retained_earnings": "利益剰余金合計",
+    "capital_reserve": "資本準備金",
+    "other_capital_surplus": "その他資本剰余金",
+    "capital_surplus": "資本剰余金（合計）",
     "legal_reserve_bs": "利益準備金",
     "voluntary_reserve_bs": "任意積立金",
     "retained_earnings_carried": "繰越利益剰余金",
-    "treasury_stock": "自己株式",
+    "retained_earnings": "利益剰余金（合計）",
+    "valuation_and_translation_adjustments": "IV 評価・換算差額等",
+    "treasury_stock": "V 自己株式",
+    "current_assets": "流動資産合計",
+    "fixed_assets": "固定資産合計",
+    "total_assets": "資産合計",
+    "current_liabilities": "流動負債合計",
+    "fixed_liabilities": "固定負債合計",
+    "total_liabilities": "負債合計",
     "net_assets": "純資産合計",
-    "total_liabilities_and_net_assets": "負債純資産合計",
+    "total_liabilities_and_net_assets": "負債・純資産合計",
 }
 
 MCR_FIELDS = {
@@ -204,11 +217,18 @@ def estimate_mappings_for_bs(tenant_id: int, account_items: list) -> list:
 - 各科目を最も適切なフィールドに1対1でマッピングしてください
 - 合計行や小計行（「〇〇合計」「〇〇計」など）は target_field を null にしてください
 - 銀行口座名（「三井住友〇〇」「みずほ〇〇」など）は "cash_on_hand" にマッピング
-- 「売掛金」「受取手形」は "trade_receivables" にマッピング
-- 「仕掛品」「製品」「商品」「原材料」は "inventory_assets" にマッピング
-- 「前払費用」「仮払金」「立替金」「未収入金」などは "other_current_liabilities" の資産側として適切なフィールドを選択
+- 「売掛金」「受取手形」「未収金」は "trade_receivables" にマッピング
+- 「仕掛品」「製品」「商品」「原材料」「貯蔵品」は "inventory_assets" にマッピング
+- 「前払費用」「仮払金」「立替金」「未収入金」などの資産科目は "other_current_assets" にマッピング
+- 「土地」は "land"、「建物」「建物附属設備」は "buildings_and_attached_facilities" にマッピング
+- 「機械装置」は "machinery_and_equipment"、「車両運搬具」は "vehicles_and_transport_equipment" にマッピング
+- 「工具器具備品」は "tools_furniture_and_fixtures" にマッピング
 - 「買掛金」「支払手形」は "trade_payables" にマッピング
-- 「未払金」「未払費用」「預り金」「未払法人税等」「未払消費税等」は "other_current_liabilities" にマッピング
+- 「短期借入金」は "short_term_borrowings"、「1年以内返済長期借入金」は "current_portion_long_term" にマッピング
+- 「長期借入金」は "long_term_borrowings"、「役員借入金」は "executive_borrowings" にマッピング
+- 「未払法人税等」は "income_taxes_payable"、「賞与引当金」は "bonus_reserve" にマッピング
+- 「貸倒引当金」などの引当金は "other_allowances" にマッピング
+- 「未払金」「未払費用」「預り金」「未払消費税等」は "other_current_liabilities" にマッピング
 - クレジットカード名（「ダイナース」「アメックス」等）は "other_current_liabilities" にマッピング
 - confidence は 0.0〜1.0 の信頼度
 

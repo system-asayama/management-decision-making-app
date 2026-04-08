@@ -361,68 +361,116 @@
                                 <tr>
                                     <td class="text-muted small ps-3">①手許現預金</td>
                                     <td class="text-end text-muted small" id="sum_cash">-</td>
-                                    <td class="text-muted small ps-3">買掛債務</td>
+                                    <td class="text-muted small ps-3">(1) 買掛債務</td>
                                     <td class="text-end text-muted small" id="sum_trade_payables">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-3">②運用預金</td>
                                     <td class="text-end text-muted small" id="sum_inv_dep">-</td>
-                                    <td class="text-muted small ps-3">短期借入金</td>
+                                    <td class="text-muted small ps-3">(2) 短期借入金</td>
                                     <td class="text-end text-muted small" id="sum_st_borrow">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-3">③有価証券</td>
                                     <td class="text-end text-muted small" id="sum_securities">-</td>
-                                    <td class="text-muted small ps-3">その他流動負債</td>
-                                    <td class="text-end text-muted small" id="sum_other_cl">-</td>
+                                    <td class="text-muted small ps-3">長期借入金（1年以内支払い）</td>
+                                    <td class="text-end text-muted small" id="sum_current_portion">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">売掛債権</td>
+                                    <td class="text-muted small ps-3">2. 売掛債権</td>
                                     <td class="text-end text-muted small" id="sum_receivables">-</td>
-                                    <td class="table-danger fw-bold">固定負債</td>
-                                    <td class="text-end table-danger fw-bold" id="sum_fixed_liabilities">-</td>
+                                    <td class="text-muted small ps-3">(3) 割引手形</td>
+                                    <td class="text-end text-muted small" id="sum_discounted_notes">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">棚卸資産</td>
+                                    <td class="text-muted small ps-3">3. 棚卸資産</td>
                                     <td class="text-end text-muted small" id="sum_inventory">-</td>
-                                    <td class="text-muted small ps-3">長期借入金</td>
-                                    <td class="text-end text-muted small" id="sum_lt_borrow">-</td>
+                                    <td class="text-muted small ps-3">(7) その他流動負債</td>
+                                    <td class="text-end text-muted small" id="sum_other_cl">-</td>
                                 </tr>
                                 <tr>
                                     <td class="table-primary fw-bold">固定資産</td>
                                     <td class="text-end table-primary fw-bold" id="sum_fixed_assets">-</td>
-                                    <td class="text-muted small ps-3">役員等借入金</td>
-                                    <td class="text-end text-muted small" id="sum_exec_borrow">-</td>
+                                    <td class="table-danger fw-bold">固定負債</td>
+                                    <td class="text-end table-danger fw-bold" id="sum_fixed_liabilities">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-3">有形固定資産</td>
                                     <td class="text-end text-muted small" id="sum_tangible">-</td>
-                                    <td class="text-muted small ps-3">退職給付引当金</td>
-                                    <td class="text-end text-muted small" id="sum_retirement">-</td>
+                                    <td class="text-muted small ps-3">(1) 長期借入金</td>
+                                    <td class="text-end text-muted small" id="sum_lt_borrow">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-3">無形固定資産</td>
                                     <td class="text-end text-muted small" id="sum_intangible">-</td>
-                                    <td class="table-danger fw-bold">負債合計</td>
-                                    <td class="text-end table-danger fw-bold" id="sum_total_liabilities">-</td>
+                                    <td class="text-muted small ps-3">(2) 役員等借入金</td>
+                                    <td class="text-end text-muted small" id="sum_exec_borrow">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">投資その他資産</td>
+                                    <td class="text-muted small ps-3">投資その他の資産</td>
                                     <td class="text-end text-muted small" id="sum_investments">-</td>
-                                    <td class="table-success fw-bold">純資産</td>
-                                    <td class="text-end table-success fw-bold" id="sum_net_assets">-</td>
+                                    <td class="text-muted small ps-3">(3) 退職給付引当金</td>
+                                    <td class="text-end text-muted small" id="sum_retirement">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-3">繰延資産</td>
                                     <td class="text-end text-muted small" id="sum_deferred">-</td>
-                                    <td class="text-muted small ps-3">資本金</td>
+                                    <td class="text-muted small ps-3">(4) その他固定負債</td>
+                                    <td class="text-end text-muted small" id="sum_other_fl">-</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="table-danger fw-bold">負債合計</td>
+                                    <td class="text-end table-danger fw-bold" id="sum_total_liabilities">-</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="table-success fw-bold">純資産</td>
+                                    <td class="text-end table-success fw-bold" id="sum_net_assets">-</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-muted small ps-3">1 資本金</td>
                                     <td class="text-end text-muted small" id="sum_capital">-</td>
                                 </tr>
                                 <tr>
                                     <td></td>
                                     <td></td>
-                                    <td class="text-muted small ps-3">利益剰余金</td>
+                                    <td class="text-muted small ps-3">2 資本剰余金</td>
+                                    <td class="text-end text-muted small" id="sum_capital_surplus">-</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-muted small ps-3">3 利益剰余金（合計）</td>
                                     <td class="text-end text-muted small" id="sum_retained_earnings">-</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-muted small ps-4">1 利益準備金</td>
+                                    <td class="text-end text-muted small" id="sum_legal_reserve_bs">-</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-muted small ps-4">2 任意積立金</td>
+                                    <td class="text-end text-muted small" id="sum_voluntary_reserve_bs">-</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-muted small ps-4">3 繰越利益剰余金</td>
+                                    <td class="text-end text-muted small" id="sum_retained_earnings_carried">-</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-muted small ps-3">V 自己株式</td>
+                                    <td class="text-end text-muted small" id="sum_treasury_stock">-</td>
                                 </tr>
                                 <tr class="table-dark">
                                     <td class="fw-bold text-white">資産合計</td>
@@ -593,16 +641,24 @@ function recalculate() {
 
     updateSummary('sum_current_liabilities', currentLiabilities);
     updateSummary('sum_trade_payables', tradePayables);
-    updateSummary('sum_st_borrow', stBorrow + curPortion + discNotes);
+    updateSummary('sum_st_borrow', stBorrow);
+    updateSummary('sum_current_portion', curPortion);
+    updateSummary('sum_discounted_notes', discNotes);
     updateSummary('sum_other_cl', otherCL);
     updateSummary('sum_fixed_liabilities', fixedLiabilities);
     updateSummary('sum_lt_borrow', ltBorrow);
     updateSummary('sum_exec_borrow', execBorrow);
     updateSummary('sum_retirement', retirement);
+    updateSummary('sum_other_fl', otherFL);
     updateSummary('sum_total_liabilities', totalLiabilities);
     updateSummary('sum_net_assets', netAssets);
     updateSummary('sum_capital', capital);
+    updateSummary('sum_capital_surplus', capitalSurplus);
     updateSummary('sum_retained_earnings', retainedEarnings);
+    updateSummary('sum_legal_reserve_bs', legalResBs);
+    updateSummary('sum_voluntary_reserve_bs', volResBs);
+    updateSummary('sum_retained_earnings_carried', retEarningsCarried);
+    updateSummary('sum_treasury_stock', treasury);
     updateSummary('sum_total_l_na', totalLNA);
 
     // バランスチェック
