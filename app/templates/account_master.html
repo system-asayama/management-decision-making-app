@@ -117,7 +117,7 @@
           </thead>
           <tbody>
             {% for item in pl_items %}
-            <tr class="{% if item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="pl-row-{{ item.id }}">
+            <tr class="{% if item.target_field and item.mid_category %}table-success{% elif item.major_category or item.mid_category or item.target_field %}table-warning{% endif %}" id="pl-row-{{ item.id }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <span class="fw-medium">{{ item.account_name }}</span>
@@ -126,9 +126,9 @@
                 {% endif %}
               </td>
               <td>
-                {% if item.target_field %}
+                {% if item.target_field and item.mid_category %}
                   <span class="badge bg-success category-badge">確定済</span>
-                {% elif item.major_category or item.mid_category %}
+                {% elif item.major_category or item.mid_category or item.target_field %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
                   <span class="badge bg-light text-muted border category-badge">未分類</span>
