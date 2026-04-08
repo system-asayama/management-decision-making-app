@@ -4415,14 +4415,15 @@ def pdf_apply():
                         db.flush()  # IDを確定させる
                         existing[account_name] = new_item.id
                     else:
-                        # 既存科目でまだ未分類ならセクション情報で更新
+                        # 既存科目は最新PDFの表示順に同期し、未分類ならセクション情報で更新
                         section = item.get('section', '')
                         cat = _SECTION_TO_CATEGORY.get(section)
-                        if cat:
-                            existing_item = db.query(account_model).filter_by(
-                                tenant_id=tenant_id, account_name=account_name
-                            ).first()
-                            if existing_item and existing_item.category_status in ('uncategorized', None):
+                        existing_item = db.query(account_model).filter_by(
+                            tenant_id=tenant_id, account_name=account_name
+                        ).first()
+                        if existing_item:
+                            existing_item.display_order = order_start + order_idx
+                            if cat and existing_item.category_status in ('uncategorized', None):
                                 existing_item.major_category = cat[0]
                                 existing_item.mid_category = cat[1]
                                 existing_item.sub_category = cat[2]
@@ -4888,6 +4889,71 @@ def account_master():
         bs_category_tree = {k: v for k, v in category_tree.items() if k in _BS_MAJOR_KEYS}
         mcr_category_tree = {k: v for k, v in category_tree.items() if k in _MCR_MAJOR_KEYS}
 
+        _ACCOUNT_SECTION_NAMES = {
+            '資産', '負債', '純資産', '損益', '収益', '費用', '口座',
+            '流動資産', '固定資産', '繰延資産',
+            '流動負債', '固定負債',
+            '資本剰余金', '利益剰余金', '自己株式', '評価換算差額等', '新株予約権',
+            '販売費及び一般管理費',
+            '現金及び預金', '売上債権', '棚卸資産', '有価証券', '投資その他の資産',
+            '有形固定資産', '無形固定資産',
+            '仕入債務', 'その他流動負債', 'その他流動資産',
+            '販管費',
+        }
+
+        def _build_order_map(items_json):
+            if not items_json:
+                return {}
+            try:
+                items = json.loads(items_json)
+            except (json.JSONDecodeError, TypeError, ValueError):
+                return {}
+            if not isinstance(items, list):
+                return {}
+
+            order_map = {}
+            for idx, item in enumerate(items):
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get('name') or item.get('account_name') or '').strip()
+                if not name or name in _ACCOUNT_SECTION_NAMES:
+                    continue
+                if name not in order_map:
+                    order_map[name] = idx
+            return order_map
+
+        statement_order_maps = {'pl': {}, 'bs': {}, 'mcr': {}}
+        latest_otbs = (
+            db.query(OriginalTrialBalance)
+              .join(FiscalYear, OriginalTrialBalance.fiscal_year_id == FiscalYear.id)
+              .join(Company, FiscalYear.company_id == Company.id)
+              .filter(Company.tenant_id == tenant_id)
+              .order_by(FiscalYear.start_date.desc(), OriginalTrialBalance.id.desc())
+              .all()
+        )
+        for otb in latest_otbs:
+            if not statement_order_maps['pl'] and getattr(otb, 'pl_items', None):
+                statement_order_maps['pl'] = _build_order_map(otb.pl_items)
+            if not statement_order_maps['bs'] and getattr(otb, 'bs_items', None):
+                statement_order_maps['bs'] = _build_order_map(otb.bs_items)
+            if not statement_order_maps['mcr'] and getattr(otb, 'mcr_items', None):
+                statement_order_maps['mcr'] = _build_order_map(otb.mcr_items)
+            if all(order_map for order_map in statement_order_maps.values()):
+                break
+
+        def _sort_items_for_display(items, stmt_type):
+            order_map = statement_order_maps.get(stmt_type) or {}
+            default_rank = 10 ** 9
+            return sorted(
+                items,
+                key=lambda row: (
+                    0 if row['account_name'] in order_map else 1,
+                    order_map.get(row['account_name'], default_rank),
+                    row.get('display_order') if row.get('display_order') is not None else default_rank,
+                    row['id'],
+                )
+            )
+
         def _row_to_dict(ai, stmt_type):
             target_field = ai.target_field
             target_statement = ai.target_statement
@@ -4914,6 +4980,7 @@ def account_master():
             return {
                 'id': ai.id,
                 'account_name': ai.account_name,
+                'display_order': getattr(ai, 'display_order', None),
                 'is_auto_created': ai.is_auto_created,
                 'target_statement': target_statement,
                 'target_field': target_field,
@@ -4926,13 +4993,13 @@ def account_master():
             }
 
         pl_rows = db.query(PlAccountItem).filter_by(tenant_id=tenant_id).order_by(PlAccountItem.display_order).all()
-        pl_items = [_row_to_dict(ai, 'pl') for ai in pl_rows]
+        pl_items = _sort_items_for_display([_row_to_dict(ai, 'pl') for ai in pl_rows], 'pl')
 
         bs_rows = db.query(BsAccountItem).filter_by(tenant_id=tenant_id).order_by(BsAccountItem.display_order).all()
-        bs_items = [_row_to_dict(ai, 'bs') for ai in bs_rows]
+        bs_items = _sort_items_for_display([_row_to_dict(ai, 'bs') for ai in bs_rows], 'bs')
 
         mcr_rows = db.query(McrAccountItem).filter_by(tenant_id=tenant_id).order_by(McrAccountItem.display_order).all()
-        mcr_items = [_row_to_dict(ai, 'mcr') for ai in mcr_rows]
+        mcr_items = _sort_items_for_display([_row_to_dict(ai, 'mcr') for ai in mcr_rows], 'mcr')
 
         return render_template('account_master.html',
                                pl_items=pl_items, bs_items=bs_items, mcr_items=mcr_items,
