@@ -135,21 +135,15 @@
                 {% endif %}
               </td>
               <td>
-                <select class="form-select form-select-sm major-select" data-id="{{ item.id }}" data-type="pl">
-                  <option value="">（未設定）</option>
-                  {% for major in pl_category_tree.keys() %}
-                    <option value="{{ major }}" {% if item.major_category == major %}selected{% endif %}>{{ major }}</option>
-                  {% endfor %}
-                </select>
+                <span class="form-control form-control-sm bg-light text-muted" style="font-size:0.85em;">損益</span>
+                <input type="hidden" class="major-select" data-id="{{ item.id }}" data-type="pl" value="損益">
               </td>
               <td>
                 <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="pl">
                   <option value="">（未設定）</option>
-                  {% if item.major_category and item.major_category in pl_category_tree %}
-                    {% for mid in pl_category_tree[item.major_category].keys() %}
-                      <option value="{{ mid }}" {% if item.mid_category == mid %}selected{% endif %}>{{ mid }}</option>
-                    {% endfor %}
-                  {% endif %}
+                  {% for mid in pl_category_tree['損益'].keys() %}
+                    <option value="{{ mid }}" {% if item.mid_category == mid %}selected{% endif %}>{{ mid }}</option>
+                  {% endfor %}
                 </select>
               </td>
               <input type="hidden" class="stmt-select" data-id="{{ item.id }}" data-type="pl" value="PL">

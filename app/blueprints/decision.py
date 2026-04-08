@@ -5091,7 +5091,11 @@ def account_master_update(stmt_type, item_id):
         item.target_field = data.get('target_field') or None
         item.mapping_status = data.get('mapping_status', 'confirmed')
         if 'major_category' in data:
-            item.major_category = data.get('major_category') or None
+            # PL科目は大分類を必ず「損益」に強制固定
+            if stmt_type == 'pl':
+                item.major_category = '損益'
+            else:
+                item.major_category = data.get('major_category') or None
         if 'mid_category' in data:
             item.mid_category = data.get('mid_category') or None
         if 'sub_category' in data:
@@ -5270,6 +5274,7 @@ def account_master_ai_suggest():
 
 ## ルール
 - 合計行（〜合計、〜計、〜小計）は target_statement と target_field を空文字にする
+- stmt_type が 'pl' の科目は major_category を必ず '損益' にする
 - stmt_type が 'pl' の科目は target_statement を 'PL' または空文字にする
 - stmt_type が 'bs' の科目は target_statement を 'BS' または空文字にする
 - stmt_type が 'mcr' の科目は target_statement を 'MCR' または 'PL' にする
@@ -5298,6 +5303,11 @@ def account_master_ai_suggest():
     except Exception as e:
         return jsonify({'success': False, 'error': f'AI応答のパースに失敗: {str(e)}', 'raw': raw}), 500
 
+    # PLの大分類を強制的に「損益」に上書き
+    stmt_type_map = {it['id']: it['stmt_type'] for it in items}
+    for s in suggestions:
+        if stmt_type_map.get(s.get('id')) == 'pl':
+            s['major_category'] = '損益'
     return jsonify({'success': True, 'suggestions': suggestions})
 
 
@@ -5327,7 +5337,11 @@ def account_master_bulk_save():
             if not item:
                 errors.append(f'科目ID {item_id} が見つかりません')
                 continue
-            item.major_category = it.get('major_category') or None
+            # PL科目は大分類を必ず「損益」に強制固定
+            if stmt_type == 'pl':
+                item.major_category = '損益'
+            else:
+                item.major_category = it.get('major_category') or None
             item.mid_category = it.get('mid_category') or None
             item.sub_category = it.get('sub_category') or None
             item.target_statement = it.get('target_statement') or None
