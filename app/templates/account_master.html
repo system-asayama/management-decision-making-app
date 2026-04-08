@@ -120,10 +120,12 @@
             <tr class="{% if item.target_field and item.mid_category %}table-success{% elif item.major_category or item.mid_category or item.target_field %}table-warning{% endif %}" id="pl-row-{{ item.id }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
-                <span class="fw-medium">{{ item.account_name }}</span>
-                {% if item.is_auto_created %}
-                  <span class="badge bg-light text-secondary border ms-1 small" title="PDFから自動登録">PDF</span>
-                {% endif %}
+                <div class="d-flex flex-column gap-1">
+                  <input type="text" class="form-control form-control-sm account-name-input" data-id="{{ item.id }}" data-type="pl" value="{{ item.account_name }}" maxlength="255">
+                  {% if item.is_auto_created %}
+                    <span class="badge bg-light text-secondary border small align-self-start" title="PDFから自動登録">PDF</span>
+                  {% endif %}
+                </div>
               </td>
               <td>
                 {% if item.target_field and item.mid_category %}
@@ -217,10 +219,12 @@
             <tr class="{% if item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="bs-row-{{ item.id }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
-                <span class="fw-medium">{{ item.account_name }}</span>
-                {% if item.is_auto_created %}
-                  <span class="badge bg-light text-secondary border ms-1 small" title="PDFから自動登録">PDF</span>
-                {% endif %}
+                <div class="d-flex flex-column gap-1">
+                  <input type="text" class="form-control form-control-sm account-name-input" data-id="{{ item.id }}" data-type="bs" value="{{ item.account_name }}" maxlength="255">
+                  {% if item.is_auto_created %}
+                    <span class="badge bg-light text-secondary border small align-self-start" title="PDFから自動登録">PDF</span>
+                  {% endif %}
+                </div>
               </td>
               <td>
                 {% if item.target_field and item.mid_category %}
@@ -329,10 +333,12 @@
             <tr class="{% if item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="mcr-row-{{ item.id }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
-                <span class="fw-medium">{{ item.account_name }}</span>
-                {% if item.is_auto_created %}
-                  <span class="badge bg-light text-secondary border ms-1 small" title="PDFから自動登録">PDF</span>
-                {% endif %}
+                <div class="d-flex flex-column gap-1">
+                  <input type="text" class="form-control form-control-sm account-name-input" data-id="{{ item.id }}" data-type="mcr" value="{{ item.account_name }}" maxlength="255">
+                  {% if item.is_auto_created %}
+                    <span class="badge bg-light text-secondary border small align-self-start" title="PDFから自動登録">PDF</span>
+                  {% endif %}
+                </div>
               </td>
               <td>
                 {% if item.target_field and item.mid_category %}
@@ -664,8 +670,10 @@ function runAiSuggest(stmtType) {
   const items = [];
   rows.forEach(function(row) {
     const id = row.id.replace(stmtType + '-row-', '');
+    const nameInput = row.querySelector('.account-name-input');
     const nameEl = row.querySelector('.fw-medium');
-    if (nameEl) items.push({id: parseInt(id), name: nameEl.textContent.trim(), stmt_type: stmtType});
+    const accountName = nameInput ? nameInput.value.trim() : (nameEl ? nameEl.textContent.trim() : '');
+    if (accountName) items.push({id: parseInt(id), name: accountName, stmt_type: stmtType});
   });
 
   btn.disabled = true;
@@ -742,6 +750,7 @@ function runBulkSave(stmtType) {
   const items = [];
   rows.forEach(function(row) {
     const id = parseInt(row.id.replace(stmtType + '-row-', ''));
+    const nameInput = document.querySelector(`.account-name-input[data-id="${id}"][data-type="${stmtType}"]`);
     const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${stmtType}"]`);
     const midSel = document.querySelector(`.mid-select[data-id="${id}"][data-type="${stmtType}"]`);
     const subSel = document.querySelector(`.sub-select[data-id="${id}"][data-type="${stmtType}"]`);
@@ -750,6 +759,7 @@ function runBulkSave(stmtType) {
     items.push({
       id: id,
       stmt_type: stmtType,
+      account_name: nameInput ? nameInput.value.trim() : null,
       major_category: majorSel ? majorSel.value || null : null,
       mid_category: midSel ? midSel.value || null : null,
       sub_category: subSel ? subSel.value || null : null,
@@ -757,6 +767,11 @@ function runBulkSave(stmtType) {
       target_field: fieldSel ? fieldSel.value || null : null
     });
   });
+
+  if (items.some(item => !item.account_name)) {
+    showToast('科目名を入力してください', 'warning');
+    return;
+  }
 
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>保存中...';
@@ -820,7 +835,11 @@ function runBulkSave(stmtType) {
         }
       }
     });
-    showToast(data.saved_count + '件保存（確定済: ' + confirmedCount + '件）', 'success');
+    if (data.errors && data.errors.length) {
+      showToast(data.saved_count + '件保存 / ' + data.errors[0], 'warning');
+    } else {
+      showToast(data.saved_count + '件保存（確定済: ' + confirmedCount + '件）', 'success');
+    }
   })
   .catch(e => {
     btn.disabled = false;
@@ -895,14 +914,20 @@ document.querySelectorAll('.save-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     const id = this.dataset.id;
     const type = this.dataset.type;
+    const nameInput = document.querySelector(`.account-name-input[data-id="${id}"][data-type="${type}"]`);
     const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${type}"]`);
     const midSel = document.querySelector(`.mid-select[data-id="${id}"][data-type="${type}"]`);
     const subSel = document.querySelector(`.sub-select[data-id="${id}"][data-type="${type}"]`);
     const stmtSel = document.querySelector(`.stmt-select[data-id="${id}"][data-type="${type}"]`);
     const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
 
+    const accountName = nameInput ? nameInput.value.trim() : '';
     const hasField = fieldSel && fieldSel.value && fieldSel.value !== '';
     const hasMidVal = midSel && midSel.value && midSel.value !== '';
+    if (!accountName) {
+      showToast('科目名を入力してください', 'warning');
+      return;
+    }
     if (!hasField) {
       showToast('組換え先科目を選択してください', 'warning');
       return;
@@ -912,6 +937,7 @@ document.querySelectorAll('.save-btn').forEach(function(btn) {
       return;
     }
     const payload = {
+      account_name: accountName,
       major_category: majorSel ? majorSel.value || null : null,
       mid_category: midSel ? midSel.value || null : null,
       sub_category: subSel ? subSel.value || null : null,
@@ -934,6 +960,8 @@ document.querySelectorAll('.save-btn').forEach(function(btn) {
         if (row) {
           row.className = row.className.replace(/table-(success|warning|secondary|light)/g, '').trim();
           row.classList.add('table-success');
+          const deleteBtn = row.querySelector('.delete-btn');
+          if (deleteBtn) deleteBtn.dataset.name = accountName;
           // バッジを「確定済」に更新（中分類と組換え先科目の両方が設定済みの場合）
           const badge = row.querySelector('.category-badge');
           if (badge) {
@@ -954,7 +982,9 @@ let deleteTarget = null;
 document.querySelectorAll('.delete-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     deleteTarget = {id: this.dataset.id, type: this.dataset.type};
-    document.getElementById('deleteItemName').textContent = this.dataset.name;
+    const row = document.getElementById(`${this.dataset.type}-row-${this.dataset.id}`);
+    const nameInput = row ? row.querySelector('.account-name-input') : null;
+    document.getElementById('deleteItemName').textContent = nameInput ? nameInput.value.trim() : this.dataset.name;
     new bootstrap.Modal(document.getElementById('deleteModal')).show();
   });
 });

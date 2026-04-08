@@ -4961,6 +4961,20 @@ def account_master_update(stmt_type, item_id):
         if not item:
             return jsonify({'success': False, 'error': '科目が見つかりません'}), 404
         data = request.get_json() or {}
+
+        if 'account_name' in data:
+            account_name = (data.get('account_name') or '').strip()
+            if not account_name:
+                return jsonify({'success': False, 'error': '科目名は必須です'}), 400
+            duplicate = db.query(model).filter(
+                model.tenant_id == tenant_id,
+                model.account_name == account_name,
+                model.id != item_id
+            ).first()
+            if duplicate:
+                return jsonify({'success': False, 'error': 'この科目名は既に登録されています'}), 409
+            item.account_name = account_name
+
         raw_target_field = data.get('target_field') or None
         allowed_fields = None
         default_statement = None
@@ -5253,7 +5267,7 @@ def account_master_bulk_save():
     """科目マスタ 一括保存（AJAX）"""
     tenant_id = session.get('tenant_id')
     data = request.get_json() or {}
-    items = data.get('items', [])  # [{id, stmt_type, major_category, mid_category, sub_category, target_statement, target_field}, ...]
+    items = data.get('items', [])  # [{id, stmt_type, account_name, major_category, mid_category, sub_category, target_statement, target_field}, ...]
     if not items:
         return jsonify({'success': False, 'error': '保存する科目がありません'}), 400
 
@@ -5273,6 +5287,21 @@ def account_master_bulk_save():
             if not item:
                 errors.append(f'科目ID {item_id} が見つかりません')
                 continue
+
+            account_name = (it.get('account_name') or '').strip()
+            if not account_name:
+                errors.append(f'科目ID {item_id}: 科目名は必須です')
+                continue
+            duplicate = db.query(model).filter(
+                model.tenant_id == tenant_id,
+                model.account_name == account_name,
+                model.id != item_id
+            ).first()
+            if duplicate:
+                errors.append(f'科目ID {item_id}: この科目名は既に登録されています')
+                continue
+            item.account_name = account_name
+
             if stmt_type == 'pl':
                 item.major_category = '損益'
                 item.sub_category = None
