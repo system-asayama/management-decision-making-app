@@ -5028,6 +5028,13 @@ def account_master():
         cat_json_path = os.path.join(os.path.dirname(__file__), 'account_item_categories.json')
         with open(cat_json_path, 'r', encoding='utf-8') as f:
             category_tree = json.load(f)
+        # PL/BS/MCR別にカテゴリツリーを分離
+        _PL_MAJOR_KEYS = {'損益'}
+        _BS_MAJOR_KEYS = {'資産', '負債', '純資産'}
+        _MCR_MAJOR_KEYS = {'製造費用', '製造原価'}
+        pl_category_tree = {k: v for k, v in category_tree.items() if k in _PL_MAJOR_KEYS}
+        bs_category_tree = {k: v for k, v in category_tree.items() if k in _BS_MAJOR_KEYS}
+        mcr_category_tree = {k: v for k, v in category_tree.items() if k in _MCR_MAJOR_KEYS}
 
         def _row_to_dict(ai):
             return {
@@ -5057,7 +5064,10 @@ def account_master():
                                pl_items=pl_items, bs_items=bs_items, mcr_items=mcr_items,
                                pl_fields=_PL_FIELDS, bs_fields=_BS_FIELDS, mcr_fields=_MCR_FIELDS,
                                all_fields=_ALL_FIELDS,
-                               category_tree=category_tree)
+                               category_tree=category_tree,
+                               pl_category_tree=pl_category_tree,
+                               bs_category_tree=bs_category_tree,
+                               mcr_category_tree=mcr_category_tree)
     finally:
         db.close()
 

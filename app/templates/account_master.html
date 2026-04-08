@@ -137,7 +137,7 @@
               <td>
                 <select class="form-select form-select-sm major-select" data-id="{{ item.id }}" data-type="pl">
                   <option value="">（未設定）</option>
-                  {% for major in category_tree.keys() %}
+                  {% for major in pl_category_tree.keys() %}
                     <option value="{{ major }}" {% if item.major_category == major %}selected{% endif %}>{{ major }}</option>
                   {% endfor %}
                 </select>
@@ -145,8 +145,8 @@
               <td>
                 <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="pl">
                   <option value="">（未設定）</option>
-                  {% if item.major_category and item.major_category in category_tree %}
-                    {% for mid in category_tree[item.major_category].keys() %}
+                  {% if item.major_category and item.major_category in pl_category_tree %}
+                    {% for mid in pl_category_tree[item.major_category].keys() %}
                       <option value="{{ mid }}" {% if item.mid_category == mid %}selected{% endif %}>{{ mid }}</option>
                     {% endfor %}
                   {% endif %}
@@ -240,7 +240,7 @@
               <td>
                 <select class="form-select form-select-sm major-select" data-id="{{ item.id }}" data-type="bs">
                   <option value="">（未設定）</option>
-                  {% for major in category_tree.keys() %}
+                  {% for major in bs_category_tree.keys() %}
                     <option value="{{ major }}" {% if item.major_category == major %}selected{% endif %}>{{ major }}</option>
                   {% endfor %}
                 </select>
@@ -248,8 +248,8 @@
               <td>
                 <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="bs">
                   <option value="">（未設定）</option>
-                  {% if item.major_category and item.major_category in category_tree %}
-                    {% for mid in category_tree[item.major_category].keys() %}
+                  {% if item.major_category and item.major_category in bs_category_tree %}
+                    {% for mid in bs_category_tree[item.major_category].keys() %}
                       <option value="{{ mid }}" {% if item.mid_category == mid %}selected{% endif %}>{{ mid }}</option>
                     {% endfor %}
                   {% endif %}
@@ -258,8 +258,8 @@
               <td>
                 <select class="form-select form-select-sm sub-select" data-id="{{ item.id }}" data-type="bs">
                   <option value="">（未設定）</option>
-                  {% if item.major_category and item.mid_category and item.major_category in category_tree and item.mid_category in category_tree[item.major_category] %}
-                    {% for sub in category_tree[item.major_category][item.mid_category] %}
+                  {% if item.major_category and item.mid_category and item.major_category in bs_category_tree and item.mid_category in bs_category_tree[item.major_category] %}
+                    {% for sub in bs_category_tree[item.major_category][item.mid_category] %}
                       <option value="{{ sub }}" {% if item.sub_category == sub %}selected{% endif %}>{{ sub }}</option>
                     {% endfor %}
                   {% endif %}
@@ -354,7 +354,7 @@
               <td>
                 <select class="form-select form-select-sm major-select" data-id="{{ item.id }}" data-type="mcr">
                   <option value="">（未設定）</option>
-                  {% for major in category_tree.keys() %}
+                  {% for major in mcr_category_tree.keys() %}
                     <option value="{{ major }}" {% if item.major_category == major %}selected{% endif %}>{{ major }}</option>
                   {% endfor %}
                 </select>
@@ -362,8 +362,8 @@
               <td>
                 <select class="form-select form-select-sm mid-select" data-id="{{ item.id }}" data-type="mcr">
                   <option value="">（未設定）</option>
-                  {% if item.major_category and item.major_category in category_tree %}
-                    {% for mid in category_tree[item.major_category].keys() %}
+                  {% if item.major_category and item.major_category in mcr_category_tree %}
+                    {% for mid in mcr_category_tree[item.major_category].keys() %}
                       <option value="{{ mid }}" {% if item.mid_category == mid %}selected{% endif %}>{{ mid }}</option>
                     {% endfor %}
                   {% endif %}
@@ -372,8 +372,8 @@
               <td>
                 <select class="form-select form-select-sm sub-select" data-id="{{ item.id }}" data-type="mcr">
                   <option value="">（未設定）</option>
-                  {% if item.major_category and item.mid_category and item.major_category in category_tree and item.mid_category in category_tree[item.major_category] %}
-                    {% for sub in category_tree[item.major_category][item.mid_category] %}
+                  {% if item.major_category and item.mid_category and item.major_category in mcr_category_tree and item.mid_category in mcr_category_tree[item.major_category] %}
+                    {% for sub in mcr_category_tree[item.major_category][item.mid_category] %}
                       <option value="{{ sub }}" {% if item.sub_category == sub %}selected{% endif %}>{{ sub }}</option>
                     {% endfor %}
                   {% endif %}
@@ -560,6 +560,15 @@
 <script>
 const allFields = {{ all_fields | tojson | safe }};
 const categoryTree = {{ category_tree | tojson | safe }};
+const plCategoryTree = {{ pl_category_tree | tojson | safe }};
+const bsCategoryTree = {{ bs_category_tree | tojson | safe }};
+const mcrCategoryTree = {{ mcr_category_tree | tojson | safe }};
+function getCategoryTree(type) {
+  if (type === 'pl') return plCategoryTree;
+  if (type === 'bs') return bsCategoryTree;
+  if (type === 'mcr') return mcrCategoryTree;
+  return categoryTree;
+}
 
 // ===== AI一括推定 =====
 function applyAiSuggestions(suggestions, stmtType) {
@@ -797,8 +806,9 @@ document.querySelectorAll('.major-select').forEach(function(sel) {
     const subSel = document.querySelector(`.sub-select[data-id="${id}"][data-type="${type}"]`);
     if (midSel) {
       midSel.innerHTML = '<option value="">（未設定）</option>';
-      if (major && categoryTree[major]) {
-        Object.keys(categoryTree[major]).forEach(function(mid) {
+      const tree = getCategoryTree(type);
+      if (major && tree[major]) {
+        Object.keys(tree[major]).forEach(function(mid) {
           const opt = document.createElement('option');
           opt.value = mid;
           opt.textContent = mid;
@@ -821,8 +831,9 @@ document.querySelectorAll('.mid-select').forEach(function(sel) {
     const subSel = document.querySelector(`.sub-select[data-id="${id}"][data-type="${type}"]`);
     if (subSel) {
       subSel.innerHTML = '<option value="">（未設定）</option>';
-      if (major && mid && categoryTree[major] && categoryTree[major][mid]) {
-        const subData = categoryTree[major][mid];
+      const tree = getCategoryTree(type);
+      if (major && mid && tree[major] && tree[major][mid]) {
+        const subData = tree[major][mid];
         const subList = Array.isArray(subData) ? subData : Object.keys(subData);
         subList.forEach(function(sub) {
           const opt = document.createElement('option');
