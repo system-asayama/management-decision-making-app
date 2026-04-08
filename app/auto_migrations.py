@@ -229,6 +229,30 @@ def run_auto_migrations():
             session.rollback()
             logger.warning(f"PL科目MCRフィールド修正をスキップしました: {e}")
 
+        # 5. original_trial_balancesテーブルにmcr_itemsカラムを追加
+        if table_exists(session, 'original_trial_balances'):
+            if not column_exists(session, 'original_trial_balances', 'mcr_items'):
+                logger.info("original_trial_balancesテーブルに mcr_items カラムを追加中...")
+                try:
+                    if db_type == 'postgresql':
+                        session.execute(text("""
+                            ALTER TABLE original_trial_balances
+                            ADD COLUMN mcr_items TEXT NULL
+                        """))
+                    else:
+                        session.execute(text("""
+                            ALTER TABLE `original_trial_balances`
+                            ADD COLUMN `mcr_items` TEXT NULL
+                            COMMENT '製造原価報告書の生科目（JSON形式）'
+                        """))
+                    session.commit()
+                    logger.info("✓ mcr_items カラムを追加しました")
+                except Exception as e:
+                    session.rollback()
+                    logger.warning(f"mcr_items カラム追加をスキップしました: {e}")
+            else:
+                logger.info("- mcr_items カラムは既に存在します")
+
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
     except Exception as e:
