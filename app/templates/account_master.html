@@ -318,11 +318,9 @@
               <th style="width:4%">順</th>
               <th style="width:18%">科目名（PDFの表記）</th>
               <th style="width:9%">分類状態</th>
-              <th style="width:11%">大分類</th>
-              <th style="width:14%">中分類</th>
-              <th style="width:14%">小分類</th>
-              <th style="width:13%">組換え先帳票</th>
-              <th style="width:12%">組換え先科目</th>
+              <th style="width:13%">大分類</th>
+              <th style="width:18%">中分類</th>
+              <th style="width:20%">組換え先科目（PL）</th>
               <th style="width:5%">操作</th>
             </tr>
           </thead>
@@ -363,40 +361,13 @@
                   {% endif %}
                 </select>
               </td>
-              <td>
-                <select class="form-select form-select-sm sub-select" data-id="{{ item.id }}" data-type="mcr">
-                  <option value="">（未設定）</option>
-                  {% if item.major_category and item.mid_category and item.major_category in mcr_category_tree and item.mid_category in mcr_category_tree[item.major_category] %}
-                    {% for sub in mcr_category_tree[item.major_category][item.mid_category] %}
-                      <option value="{{ sub }}" {% if item.sub_category == sub %}selected{% endif %}>{{ sub }}</option>
-                    {% endfor %}
-                  {% endif %}
-                </select>
-              </td>
-              <td>
-                <select class="form-select form-select-sm stmt-select" data-id="{{ item.id }}" data-type="mcr">
-                  <option value="" {% if not item.target_statement %}selected{% endif %}>（対象外）</option>
-                  <option value="PL" {% if item.target_statement == 'PL' %}selected{% endif %}>PL</option>
-                  <option value="BS" {% if item.target_statement == 'BS' %}selected{% endif %}>BS</option>
-                  <option value="MCR" {% if item.target_statement == 'MCR' %}selected{% endif %}>MCR</option>
-                </select>
-              </td>
+              <input type="hidden" class="stmt-select" data-id="{{ item.id }}" data-type="mcr" value="PL">
               <td>
                 <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="mcr">
                   <option value="">（選択）</option>
-                  {% if item.target_statement == 'PL' %}
-                    {% for k, v in pl_fields.items() %}
-                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                    {% endfor %}
-                  {% elif item.target_statement == 'BS' %}
-                    {% for k, v in bs_fields.items() %}
-                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                    {% endfor %}
-                  {% elif item.target_statement == 'MCR' %}
-                    {% for k, v in mcr_fields.items() %}
-                      <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
-                    {% endfor %}
-                  {% endif %}
+                  {% for k, v in pl_fields.items() %}
+                    <option value="{{ k }}" {% if item.target_field == k %}selected{% endif %}>{{ v }}</option>
+                  {% endfor %}
                 </select>
               </td>
               <td>
@@ -471,7 +442,7 @@
               <option value="">（未設定）</option>
             </select>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-4" id="addSubCategoryGroup">
             <label for="addSubCategory" class="form-label fw-bold">小分類</label>
             <select class="form-select" id="addSubCategory">
               <option value="">（未設定）</option>
@@ -479,7 +450,7 @@
           </div>
         </div>
         <div class="row g-3">
-          <div class="col-md-6">
+          <div class="col-md-6" id="addStatementGroup">
             <label for="addItemStatement" class="form-label fw-bold">組換え先帳票</label>
             <select class="form-select" id="addItemStatement">
               <option value="">（対象外）</option>
@@ -489,7 +460,7 @@
             </select>
           </div>
           <div class="col-md-6">
-            <label for="addItemField" class="form-label fw-bold">組換え先科目</label>
+            <label for="addItemField" class="form-label fw-bold" id="addItemFieldLabel">組換え先科目</label>
             <select class="form-select" id="addItemField">
               <option value="">（選択してください）</option>
             </select>
@@ -562,6 +533,66 @@ function getCategoryTree(type) {
   if (type === 'bs') return bsCategoryTree;
   if (type === 'mcr') return mcrCategoryTree;
   return categoryTree;
+}
+
+function getFixedTargetStatement(type) {
+  return type === 'bs' ? 'BS' : 'PL';
+}
+
+function populateFieldOptions(fieldSel, stmt, placeholder = '（選択）') {
+  if (!fieldSel) return;
+  fieldSel.innerHTML = `<option value="">${placeholder}</option>`;
+  if (stmt && allFields[stmt]) {
+    Object.entries(allFields[stmt]).forEach(function([k, v]) {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = v;
+      fieldSel.appendChild(opt);
+    });
+  }
+}
+
+function configureAddItemModal(type) {
+  const fixedStatement = getFixedTargetStatement(type);
+  const tree = getCategoryTree(type);
+  const majorSel = document.getElementById('addMajorCategory');
+  const midSel = document.getElementById('addMidCategory');
+  const subSel = document.getElementById('addSubCategory');
+  const stmtSel = document.getElementById('addItemStatement');
+  const fieldSel = document.getElementById('addItemField');
+  const subGroup = document.getElementById('addSubCategoryGroup');
+  const stmtGroup = document.getElementById('addStatementGroup');
+  const fieldLabel = document.getElementById('addItemFieldLabel');
+
+  majorSel.innerHTML = '<option value="">（未設定）</option>';
+  Object.keys(tree).forEach(function(major) {
+    const opt = document.createElement('option');
+    opt.value = major;
+    opt.textContent = major;
+    majorSel.appendChild(opt);
+  });
+
+  majorSel.disabled = (type === 'pl');
+  majorSel.value = type === 'pl' ? '損益' : '';
+
+  midSel.innerHTML = '<option value="">（未設定）</option>';
+  subSel.innerHTML = '<option value="">（未設定）</option>';
+
+  if (type === 'pl' && tree['損益']) {
+    Object.keys(tree['損益']).forEach(function(mid) {
+      const opt = document.createElement('option');
+      opt.value = mid;
+      opt.textContent = mid;
+      midSel.appendChild(opt);
+    });
+  }
+
+  if (subGroup) subGroup.style.display = type === 'bs' ? '' : 'none';
+  if (stmtGroup) stmtGroup.style.display = 'none';
+  if (fieldLabel) fieldLabel.textContent = `組換え先科目（${fixedStatement}）`;
+
+  stmtSel.value = fixedStatement;
+  populateFieldOptions(fieldSel, fixedStatement, '（選択してください）');
 }
 
 // ===== AI一括推定 =====
@@ -855,16 +886,7 @@ document.querySelectorAll('.stmt-select').forEach(function(sel) {
     const type = this.dataset.type;
     const stmt = this.value;
     const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
-    if (!fieldSel) return;
-    fieldSel.innerHTML = '<option value="">（選択）</option>';
-    if (stmt && allFields[stmt]) {
-      Object.entries(allFields[stmt]).forEach(function([k, v]) {
-        const opt = document.createElement('option');
-        opt.value = k;
-        opt.textContent = v;
-        fieldSel.appendChild(opt);
-      });
-    }
+    populateFieldOptions(fieldSel, stmt, '（選択）');
   });
 });
 
@@ -968,22 +990,20 @@ document.querySelectorAll('[data-bs-target="#addItemModal"]').forEach(function(b
     document.getElementById('addItemTypeLabel').className = 'form-control-plaintext fw-bold ' +
       (type === 'pl' ? 'text-primary' : type === 'bs' ? 'text-success' : 'text-warning');
     document.getElementById('addItemName').value = '';
-    document.getElementById('addMajorCategory').value = '';
-    document.getElementById('addMidCategory').innerHTML = '<option value="">（未設定）</option>';
-    document.getElementById('addSubCategory').innerHTML = '<option value="">（未設定）</option>';
-    document.getElementById('addItemStatement').value = '';
-    document.getElementById('addItemField').innerHTML = '<option value="">（選択してください）</option>';
+    configureAddItemModal(type);
   });
 });
 
 document.getElementById('addMajorCategory').addEventListener('change', function() {
+  const type = document.getElementById('addItemType').value;
+  const tree = getCategoryTree(type);
   const major = this.value;
   const midSel = document.getElementById('addMidCategory');
   const subSel = document.getElementById('addSubCategory');
   midSel.innerHTML = '<option value="">（未設定）</option>';
   subSel.innerHTML = '<option value="">（未設定）</option>';
-  if (major && categoryTree[major]) {
-    Object.keys(categoryTree[major]).forEach(function(mid) {
+  if (major && tree[major]) {
+    Object.keys(tree[major]).forEach(function(mid) {
       const opt = document.createElement('option');
       opt.value = mid;
       opt.textContent = mid;
@@ -993,12 +1013,14 @@ document.getElementById('addMajorCategory').addEventListener('change', function(
 });
 
 document.getElementById('addMidCategory').addEventListener('change', function() {
+  const type = document.getElementById('addItemType').value;
+  const tree = getCategoryTree(type);
   const major = document.getElementById('addMajorCategory').value;
   const mid = this.value;
   const subSel = document.getElementById('addSubCategory');
   subSel.innerHTML = '<option value="">（未設定）</option>';
-  if (major && mid && categoryTree[major] && categoryTree[major][mid]) {
-    const subData = categoryTree[major][mid];
+  if (major && mid && tree[major] && tree[major][mid]) {
+    const subData = tree[major][mid];
     const subList = Array.isArray(subData) ? subData : Object.keys(subData);
     subList.forEach(function(sub) {
       const opt = document.createElement('option');
@@ -1010,17 +1032,7 @@ document.getElementById('addMidCategory').addEventListener('change', function() 
 });
 
 document.getElementById('addItemStatement').addEventListener('change', function() {
-  const stmt = this.value;
-  const fieldSel = document.getElementById('addItemField');
-  fieldSel.innerHTML = '<option value="">（選択してください）</option>';
-  if (stmt && allFields[stmt]) {
-    Object.entries(allFields[stmt]).forEach(function([k, v]) {
-      const opt = document.createElement('option');
-      opt.value = k;
-      opt.textContent = v;
-      fieldSel.appendChild(opt);
-    });
-  }
+  populateFieldOptions(document.getElementById('addItemField'), this.value, '（選択してください）');
 });
 
 document.getElementById('addItemSubmit').addEventListener('click', function() {

@@ -4888,29 +4888,51 @@ def account_master():
         bs_category_tree = {k: v for k, v in category_tree.items() if k in _BS_MAJOR_KEYS}
         mcr_category_tree = {k: v for k, v in category_tree.items() if k in _MCR_MAJOR_KEYS}
 
-        def _row_to_dict(ai):
+        def _row_to_dict(ai, stmt_type):
+            target_field = ai.target_field
+            target_statement = ai.target_statement
+
+            if stmt_type == 'pl':
+                if target_field and target_field in _PL_FIELDS:
+                    target_statement = 'PL'
+                else:
+                    target_field = None
+                    target_statement = None
+            elif stmt_type == 'bs':
+                if target_field and target_field in _BS_FIELDS:
+                    target_statement = 'BS'
+                else:
+                    target_field = None
+                    target_statement = None
+            elif stmt_type == 'mcr':
+                if target_field and target_field in _PL_FIELDS:
+                    target_statement = 'PL'
+                else:
+                    target_field = None
+                    target_statement = None
+
             return {
                 'id': ai.id,
                 'account_name': ai.account_name,
                 'is_auto_created': ai.is_auto_created,
-                'target_statement': ai.target_statement,
-                'target_field': ai.target_field,
+                'target_statement': target_statement,
+                'target_field': target_field,
                 'mapping_status': ai.mapping_status,
                 'ai_confidence': ai.ai_confidence,
                 'major_category': getattr(ai, 'major_category', None),
                 'mid_category': getattr(ai, 'mid_category', None),
-                'sub_category': getattr(ai, 'sub_category', None),
+                'sub_category': None if stmt_type in ('pl', 'mcr') else getattr(ai, 'sub_category', None),
                 'category_status': getattr(ai, 'category_status', None),
             }
 
         pl_rows = db.query(PlAccountItem).filter_by(tenant_id=tenant_id).order_by(PlAccountItem.display_order).all()
-        pl_items = [_row_to_dict(ai) for ai in pl_rows]
+        pl_items = [_row_to_dict(ai, 'pl') for ai in pl_rows]
 
         bs_rows = db.query(BsAccountItem).filter_by(tenant_id=tenant_id).order_by(BsAccountItem.display_order).all()
-        bs_items = [_row_to_dict(ai) for ai in bs_rows]
+        bs_items = [_row_to_dict(ai, 'bs') for ai in bs_rows]
 
         mcr_rows = db.query(McrAccountItem).filter_by(tenant_id=tenant_id).order_by(McrAccountItem.display_order).all()
-        mcr_items = [_row_to_dict(ai) for ai in mcr_rows]
+        mcr_items = [_row_to_dict(ai, 'mcr') for ai in mcr_rows]
 
         return render_template('account_master.html',
                                pl_items=pl_items, bs_items=bs_items, mcr_items=mcr_items,
@@ -4939,18 +4961,35 @@ def account_master_update(stmt_type, item_id):
         if not item:
             return jsonify({'success': False, 'error': '科目が見つかりません'}), 404
         data = request.get_json() or {}
-        item.target_statement = data.get('target_statement') or None
-        item.target_field = data.get('target_field') or None
-        item.mapping_status = data.get('mapping_status', 'confirmed')
-        if 'major_category' in data:
-            # PL科目は大分類を必ず「損益」に強制固定
-            if stmt_type == 'pl':
-                item.major_category = '損益'
-            else:
-                item.major_category = data.get('major_category') or None
+        raw_target_field = data.get('target_field') or None
+        allowed_fields = None
+        default_statement = None
+
+        if stmt_type == 'pl':
+            item.major_category = '損益'
+            item.sub_category = None
+            allowed_fields = _PL_FIELDS
+            default_statement = 'PL'
+        elif stmt_type == 'bs':
+            allowed_fields = _BS_FIELDS
+            default_statement = 'BS'
+        elif stmt_type == 'mcr':
+            item.sub_category = None
+            allowed_fields = _PL_FIELDS
+            default_statement = 'PL'
+
+        if raw_target_field and allowed_fields is not None and raw_target_field not in allowed_fields:
+            raw_target_field = None
+
+        item.target_field = raw_target_field
+        item.target_statement = default_statement if raw_target_field else None
+        item.mapping_status = data.get('mapping_status', 'confirmed' if raw_target_field else 'pending')
+
+        if 'major_category' in data and stmt_type != 'pl':
+            item.major_category = data.get('major_category') or None
         if 'mid_category' in data:
             item.mid_category = data.get('mid_category') or None
-        if 'sub_category' in data:
+        if 'sub_category' in data and stmt_type not in ('pl', 'mcr'):
             item.sub_category = data.get('sub_category') or None
         if 'category_status' in data:
             item.category_status = data.get('category_status') or None
@@ -5005,17 +5044,37 @@ def account_master_add(stmt_type):
         existing = db.query(model).filter_by(tenant_id=tenant_id, account_name=account_name).first()
         if existing:
             return jsonify({'success': False, 'error': 'この科目名は既に登録されています'}), 409
+        raw_target_field = data.get('target_field') or None
+        if stmt_type == 'pl':
+            major_category = '損益'
+            sub_category = None
+            allowed_fields = _PL_FIELDS
+            default_statement = 'PL'
+        elif stmt_type == 'bs':
+            major_category = data.get('major_category') or None
+            sub_category = data.get('sub_category') or None
+            allowed_fields = _BS_FIELDS
+            default_statement = 'BS'
+        else:
+            major_category = data.get('major_category') or None
+            sub_category = None
+            allowed_fields = _PL_FIELDS
+            default_statement = 'PL'
+
+        if raw_target_field and raw_target_field not in allowed_fields:
+            raw_target_field = None
+
         new_item = model(
             tenant_id=tenant_id,
             account_name=account_name,
             display_order=9999,
             is_auto_created=False,
-            target_statement=data.get('target_statement') or None,
-            target_field=data.get('target_field') or None,
-            mapping_status=data.get('mapping_status', 'confirmed'),
-            major_category=data.get('major_category') or None,
+            target_statement=default_statement if raw_target_field else None,
+            target_field=raw_target_field,
+            mapping_status='confirmed' if raw_target_field else 'pending',
+            major_category=major_category,
             mid_category=data.get('mid_category') or None,
-            sub_category=data.get('sub_category') or None,
+            sub_category=sub_category,
             category_status=data.get('category_status', 'uncategorized'),
         )
         db.add(new_item)
@@ -5119,7 +5178,7 @@ def account_master_ai_suggest():
     "major_category": "<大分類（分類ツリーの最上位キー）>",
     "mid_category": "<中分類（大分類の下のキー）>",
     "sub_category": "<小分類（上記の小分類選択肢リストから選ぶ。該当なければ空文字）>",
-    "target_statement": "<組換え先帳票: PL/BS/MCR/空文字>",
+    "target_statement": "<組換え先帳票: PL/BS/空文字>",
     "target_field": "<組換え先科目のキー（組換え先フィールド一覧のキー）、なければ空文字>"
   }}
 ]
@@ -5131,7 +5190,8 @@ def account_master_ai_suggest():
 - stmt_type が 'pl' の科目は target_field に必ず PLフィールドのキーのみ使用する（BS・ MCRフィールドのキーは絶対使用しない）
 - stmt_type が 'bs' の科目は target_statement を 'BS' または空文字にする
 - stmt_type が 'bs' の科目は target_field に必ず BSフィールドのキーのみ使用する
-- stmt_type が 'mcr' の科目は target_statement を 'MCR' または 'PL' にする
+- stmt_type が 'mcr' の科目は target_statement を 'PL' または空文字にする
+- stmt_type が 'mcr' の科目は target_field に必ず PLフィールドのキーのみ使用する
 - sub_category は必ず上記の小分類選択肢リストに存在する値を使用すること。存在しない値は絶対に使用しない
 - 分類ツリーに存在しないカテゴリは使用しない
 - 組換え先フィールドに存在しないキーは使用しない
@@ -5160,19 +5220,28 @@ def account_master_ai_suggest():
     # PLの大分類を強制的に「損益」に上書き、MCRキーが混入した場合はnullに変換
     pl_keys = set(_PL_FIELDS.keys())
     bs_keys = set(_BS_FIELDS.keys())
-    mcr_keys_set = set(_MCR_FIELDS.keys())
     stmt_type_map = {it['id']: it['stmt_type'] for it in items}
     for s in suggestions:
         stype = stmt_type_map.get(s.get('id'))
         if stype == 'pl':
             s['major_category'] = '損益'
-            # MCRまたはBSのキーが設定された場合はnullにクリア
-            if s.get('target_field') and s['target_field'] not in pl_keys:
+            s['sub_category'] = ''
+            if s.get('target_field') and s['target_field'] in pl_keys:
+                s['target_statement'] = 'PL'
+            else:
                 s['target_field'] = ''
                 s['target_statement'] = ''
         elif stype == 'bs':
-            # PLまたはMCRのキーが設定された場合はnullにクリア
-            if s.get('target_field') and s['target_field'] not in bs_keys:
+            if s.get('target_field') and s['target_field'] in bs_keys:
+                s['target_statement'] = 'BS'
+            else:
+                s['target_field'] = ''
+                s['target_statement'] = ''
+        elif stype == 'mcr':
+            s['sub_category'] = ''
+            if s.get('target_field') and s['target_field'] in pl_keys:
+                s['target_statement'] = 'PL'
+            else:
                 s['target_field'] = ''
                 s['target_statement'] = ''
     return jsonify({'success': True, 'suggestions': suggestions})
@@ -5204,23 +5273,27 @@ def account_master_bulk_save():
             if not item:
                 errors.append(f'科目ID {item_id} が見つかりません')
                 continue
-            # PL科目は大分類を必ず「損益」に強制固定
             if stmt_type == 'pl':
                 item.major_category = '損益'
+                item.sub_category = None
+                allowed_fields = _PL_FIELDS
+                default_statement = 'PL'
+            elif stmt_type == 'bs':
+                item.major_category = it.get('major_category') or None
+                item.sub_category = it.get('sub_category') or None
+                allowed_fields = _BS_FIELDS
+                default_statement = 'BS'
             else:
                 item.major_category = it.get('major_category') or None
+                item.sub_category = None
+                allowed_fields = _PL_FIELDS
+                default_statement = 'PL'
             item.mid_category = it.get('mid_category') or None
-            item.sub_category = it.get('sub_category') or None
-            # 各席票種別に正しいフィールドキーのみ許可するバリデーション
+            # 各帳票種別に正しいフィールドキーのみ許可するバリデーション
             raw_tf = it.get('target_field') or None
-            raw_ts = it.get('target_statement') or None
-            if stmt_type == 'pl' and raw_tf and raw_tf not in _PL_FIELDS:
+            if raw_tf and raw_tf not in allowed_fields:
                 raw_tf = None
-                raw_ts = None
-            elif stmt_type == 'bs' and raw_tf and raw_tf not in _BS_FIELDS:
-                raw_tf = None
-                raw_ts = None
-            item.target_statement = raw_ts
+            item.target_statement = default_statement if raw_tf else None
             item.target_field = raw_tf
             # 組換え先科目が設定されている場合のみ確定済にする
             if item.target_field:
