@@ -58,7 +58,7 @@
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center py-3">
         {% set editable_items = (pl_items + bs_items + mcr_items) | rejectattr('is_summary') | list %}
-        {% set cat_confirmed = editable_items | selectattr('target_field') | selectattr('mid_category') | list | length %}
+        {% set cat_confirmed = editable_items | selectattr('is_confirmed') | list | length %}
         {% set total_count = editable_items | length %}
         <div class="fs-3 fw-bold text-info">{{ cat_confirmed }}/{{ total_count }}</div>
         <div class="text-muted small">分類確定済</div>
@@ -122,7 +122,7 @@
           </thead>
           <tbody>
             {% for item in pl_items %}
-            <tr class="{% if item.is_summary %}table-secondary summary-row{% elif item.target_field and item.mid_category %}table-success{% elif item.major_category or item.mid_category or item.target_field %}table-warning{% endif %}" id="pl-row-{{ item.id }}" data-is-summary="{{ 1 if item.is_summary else 0 }}">
+            <tr class="{% if item.is_summary %}table-secondary summary-row{% elif item.is_confirmed %}table-success{% elif item.is_partial %}table-warning{% endif %}" id="pl-row-{{ item.id }}" data-is-summary="{{ 1 if item.is_summary else 0 }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <div class="d-flex flex-column gap-1">
@@ -140,9 +140,9 @@
               <td>
                 {% if item.is_summary %}
                   <span class="badge bg-secondary category-badge">集計行</span>
-                {% elif item.target_field and item.mid_category %}
+                {% elif item.is_confirmed %}
                   <span class="badge bg-success category-badge">確定済</span>
-                {% elif item.major_category or item.mid_category or item.target_field %}
+                {% elif item.is_partial %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
                   <span class="badge bg-light text-muted border category-badge">未分類</span>
@@ -232,7 +232,7 @@
           </thead>
           <tbody>
             {% for item in bs_items %}
-            <tr class="{% if item.is_summary %}table-secondary summary-row{% elif item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="bs-row-{{ item.id }}" data-is-summary="{{ 1 if item.is_summary else 0 }}">
+            <tr class="{% if item.is_summary %}table-secondary summary-row{% elif item.is_confirmed %}table-success{% elif item.is_partial %}table-warning{% endif %}" id="bs-row-{{ item.id }}" data-is-summary="{{ 1 if item.is_summary else 0 }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <div class="d-flex flex-column gap-1">
@@ -250,9 +250,9 @@
               <td>
                 {% if item.is_summary %}
                   <span class="badge bg-secondary category-badge">集計行</span>
-                {% elif item.target_field and item.mid_category %}
+                {% elif item.is_confirmed %}
                   <span class="badge bg-success category-badge">確定済</span>
-                {% elif item.major_category or item.mid_category or item.target_field %}
+                {% elif item.is_partial %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
                   <span class="badge bg-light text-muted border category-badge">未分類</span>
@@ -357,7 +357,7 @@
           </thead>
           <tbody>
             {% for item in mcr_items %}
-            <tr class="{% if item.is_summary %}table-secondary summary-row{% elif item.target_field %}table-success{% elif item.major_category or item.mid_category %}table-warning{% endif %}" id="mcr-row-{{ item.id }}" data-is-summary="{{ 1 if item.is_summary else 0 }}">
+            <tr class="{% if item.is_summary %}table-secondary summary-row{% elif item.is_confirmed %}table-success{% elif item.is_partial %}table-warning{% endif %}" id="mcr-row-{{ item.id }}" data-is-summary="{{ 1 if item.is_summary else 0 }}">
               <td class="text-muted small">{{ loop.index }}</td>
               <td>
                 <div class="d-flex flex-column gap-1">
@@ -375,9 +375,9 @@
               <td>
                 {% if item.is_summary %}
                   <span class="badge bg-secondary category-badge">集計行</span>
-                {% elif item.target_field and item.mid_category %}
+                {% elif item.is_confirmed %}
                   <span class="badge bg-success category-badge">確定済</span>
-                {% elif item.major_category or item.mid_category or item.target_field %}
+                {% elif item.is_partial %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
                   <span class="badge bg-light text-muted border category-badge">未分類</span>
@@ -850,26 +850,26 @@ function runBulkSave(stmtType) {
       const id = parseInt(row.id.replace(stmtType + '-row-', ''));
       const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${stmtType}"]`);
       const midSel = document.querySelector(`.mid-select[data-id="${id}"][data-type="${stmtType}"]`);
+      const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${stmtType}"]`);
       const hasField = fieldSel && fieldSel.value && fieldSel.value !== '';
       const hasMid = midSel && midSel.value && midSel.value !== '';
+      const hasMajor = majorSel ? (majorSel.value && majorSel.value !== '') : (stmtType === 'pl');
       row.className = row.className.replace(/table-(success|warning|secondary|light)/g, '').trim();
       const badge = row.querySelector('.category-badge');
-      if (hasField && hasMid) {
+      if (hasField && hasMid && hasMajor) {
         row.classList.add('table-success');
         if (badge) {
           badge.className = 'badge bg-success category-badge';
           badge.textContent = '確定済';
         }
         confirmedCount++;
-      } else if (hasField || hasMid) {
+      } else if (hasField || hasMid || hasMajor) {
         row.classList.add('table-warning');
         if (badge) {
           badge.className = 'badge bg-warning text-dark category-badge';
           badge.textContent = 'AI推定';
         }
       } else {
-        const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${stmtType}"]`);
-        const hasMajor = majorSel && majorSel.value && majorSel.value !== '';
         if (hasMajor) {
           row.classList.add('table-warning');
           if (badge) {
@@ -971,18 +971,23 @@ document.querySelectorAll('.save-btn').forEach(function(btn) {
     const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
 
     const accountName = nameInput ? nameInput.value.trim() : '';
+    const majorVal = majorSel ? majorSel.value && majorSel.value !== '' : (type === 'pl');
     const hasField = fieldSel && fieldSel.value && fieldSel.value !== '';
     const hasMidVal = midSel && midSel.value && midSel.value !== '';
     if (!accountName) {
       showToast('科目名を入力してください', 'warning');
       return;
     }
-    if (!hasField) {
-      showToast('組換え先科目を選択してください', 'warning');
+    if (!majorVal) {
+      showToast('大分類を選択してください', 'warning');
       return;
     }
     if (!hasMidVal) {
       showToast('中分類を選択してください', 'warning');
+      return;
+    }
+    if (!hasField) {
+      showToast('組換え先科目を選択してください', 'warning');
       return;
     }
     const payload = {

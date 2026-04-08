@@ -5104,8 +5104,7 @@ def account_master():
                 account_name = row.get('account_name')
                 if account_name in order_map:
                     return order_map[account_name]
-                is_confirmed = (row.get('mapping_status') == 'confirmed') or bool(row.get('target_field') and row.get('mid_category'))
-                if is_confirmed:
+                if row.get('is_confirmed'):
                     return _field_rank(row)
                 return default_rank
 
@@ -5122,6 +5121,12 @@ def account_master():
 
         summary_sync = {'changed': False}
 
+        def _clean_value(value):
+            if value is None:
+                return None
+            value = str(value).strip()
+            return value or None
+
         def _row_to_dict(ai, stmt_type):
             is_summary = _is_fixed_summary_account(ai.account_name)
             if is_summary and (ai.target_statement is not None or ai.target_field is not None or ai.mapping_status != 'ignored' or ai.ai_confidence is not None):
@@ -5131,27 +5136,52 @@ def account_master():
                 ai.ai_confidence = None
                 summary_sync['changed'] = True
 
-            target_field = None if is_summary else ai.target_field
-            target_statement = None if is_summary else ai.target_statement
+            major_category = _clean_value(getattr(ai, 'major_category', None))
+            mid_category = _clean_value(getattr(ai, 'mid_category', None))
+            sub_category = _clean_value(getattr(ai, 'sub_category', None))
+            target_field = None if is_summary else _clean_value(ai.target_field)
+            target_statement = None if is_summary else _clean_value(ai.target_statement)
 
             if stmt_type == 'pl':
+                major_category = '損益'
+                valid_mid_categories = set(pl_category_tree.get('損益', {}).keys())
+                if mid_category not in valid_mid_categories:
+                    mid_category = None
+                sub_category = None
                 if target_field and target_field in _PL_FIELDS:
                     target_statement = 'PL'
                 else:
                     target_field = None
                     target_statement = None
             elif stmt_type == 'bs':
+                if major_category not in bs_category_tree:
+                    major_category = None
+                valid_mid_categories = set(bs_category_tree.get(major_category, {}).keys()) if major_category else set()
+                if mid_category not in valid_mid_categories:
+                    mid_category = None
+                valid_sub_categories = set(bs_category_tree.get(major_category, {}).get(mid_category, [])) if major_category and mid_category else set()
+                if sub_category not in valid_sub_categories:
+                    sub_category = None
                 if target_field and target_field in _BS_FIELDS:
                     target_statement = 'BS'
                 else:
                     target_field = None
                     target_statement = None
             elif stmt_type == 'mcr':
+                if major_category not in mcr_category_tree:
+                    major_category = None
+                valid_mid_categories = set(mcr_category_tree.get(major_category, {}).keys()) if major_category else set()
+                if mid_category not in valid_mid_categories:
+                    mid_category = None
+                sub_category = None
                 if target_field and target_field in _PL_FIELDS:
                     target_statement = 'PL'
                 else:
                     target_field = None
                     target_statement = None
+
+            is_confirmed = bool(not is_summary and major_category and mid_category and target_field)
+            is_partial = bool(not is_summary and (major_category or mid_category or target_field))
 
             return {
                 'id': ai.id,
@@ -5159,13 +5189,15 @@ def account_master():
                 'display_order': getattr(ai, 'display_order', None),
                 'is_auto_created': ai.is_auto_created,
                 'is_summary': is_summary,
+                'is_confirmed': is_confirmed,
+                'is_partial': is_partial,
                 'target_statement': target_statement,
                 'target_field': target_field,
                 'mapping_status': ai.mapping_status,
                 'ai_confidence': ai.ai_confidence,
-                'major_category': getattr(ai, 'major_category', None),
-                'mid_category': getattr(ai, 'mid_category', None),
-                'sub_category': None if stmt_type in ('pl', 'mcr') else getattr(ai, 'sub_category', None),
+                'major_category': major_category,
+                'mid_category': mid_category,
+                'sub_category': sub_category,
                 'category_status': getattr(ai, 'category_status', None),
             }
 
