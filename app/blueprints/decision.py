@@ -4403,6 +4403,7 @@ def pdf_apply():
                         cat = _SECTION_TO_CATEGORY.get(section)
                         new_item = account_model(
                             tenant_id=tenant_id,
+                            company_id=company_id,
                             account_name=account_name,
                             display_order=order_start + order_idx,
                             is_auto_created=True,
