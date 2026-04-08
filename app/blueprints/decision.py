@@ -4910,10 +4910,91 @@ _MCR_FIELD_GROUPS = [
     {'label': '4. 総製造費用・仕掛品・製造原価', 'options': ['total_manufacturing_cost_current', 'beginning_wip', 'ending_wip', 'total_manufacturing_cost']},
 ]
 
+# 製造原価報告書の科目も、組換え先は損益計算書（PL）の項目へ統一する
+_MCR_TARGET_FIELDS = _PL_FIELDS
+_MCR_TARGET_FIELD_GROUPS = _PL_FIELD_GROUPS
+_MCR_LEGACY_TO_PL_FIELD_MAP = {
+    'beginning_raw_material': 'beginning_inventory',
+    'raw_material_purchase': 'manufacturing_cost',
+    'ending_raw_material': 'ending_inventory',
+    'material_cost': 'manufacturing_cost',
+    'labor_cost_manufacturing': 'labor_cost',
+    'outsourcing_cost': 'general_expenses',
+    'freight_manufacturing': 'general_expenses',
+    'meeting_cost_manufacturing': 'general_expenses',
+    'travel_cost_manufacturing': 'general_expenses',
+    'communication_cost_manufacturing': 'general_expenses',
+    'supplies_manufacturing': 'general_expenses',
+    'vehicle_cost_manufacturing': 'general_expenses',
+    'rent_manufacturing': 'general_expenses',
+    'insurance_manufacturing': 'general_expenses',
+    'depreciation_manufacturing': 'capital_regeneration_cost',
+    'repair_cost_manufacturing': 'capital_regeneration_cost',
+    'other_manufacturing_cost': 'general_expenses',
+    'manufacturing_expenses_total': 'general_expenses',
+    'total_manufacturing_cost_current': 'manufacturing_cost',
+    'beginning_wip': 'beginning_inventory',
+    'ending_wip': 'ending_inventory',
+    'total_manufacturing_cost': 'manufacturing_cost',
+}
+
+
+def _get_target_field_config(stmt_type):
+    """帳票種別ごとの組換え先設定を返す。MCR は PL の組換え先を利用する。"""
+    normalized = (stmt_type or '').lower()
+    if normalized == 'pl':
+        return {
+            'allowed_fields': _PL_FIELDS,
+            'field_groups': _PL_FIELD_GROUPS,
+            'default_statement': 'PL',
+        }
+    if normalized == 'bs':
+        return {
+            'allowed_fields': _BS_FIELDS,
+            'field_groups': _BS_FIELD_GROUPS,
+            'default_statement': 'BS',
+        }
+    if normalized == 'mcr':
+        return {
+            'allowed_fields': _MCR_TARGET_FIELDS,
+            'field_groups': _MCR_TARGET_FIELD_GROUPS,
+            'default_statement': 'PL',
+        }
+    return {
+        'allowed_fields': {},
+        'field_groups': [],
+        'default_statement': None,
+    }
+
+
+def _normalize_target_field(stmt_type, target_field):
+    """保存済みの組換え先キーを正規化する。旧MCRキーは対応するPLキーへ変換する。"""
+    if target_field is None:
+        return None
+
+    normalized = str(target_field).strip() or None
+    if not normalized:
+        return None
+
+    config = _get_target_field_config(stmt_type)
+    allowed_fields = config['allowed_fields']
+    stmt_type = (stmt_type or '').lower()
+
+    if normalized in allowed_fields:
+        return normalized
+
+    if stmt_type == 'mcr':
+        migrated = _MCR_LEGACY_TO_PL_FIELD_MAP.get(normalized)
+        if migrated in allowed_fields:
+            return migrated
+
+    return None
+
+
 _ALL_FIELDS = {
     'PL': _PL_FIELDS,
     'BS': _BS_FIELDS,
-    'MCR': _MCR_FIELDS,
+    'MCR': _MCR_TARGET_FIELDS,
 }
 
 _FIXED_SUMMARY_ACCOUNT_NAMES = {
@@ -5139,7 +5220,7 @@ def account_master():
         field_order_maps = {
             'pl': {key: idx for idx, key in enumerate(_PL_FIELDS.keys())},
             'bs': {key: idx for idx, key in enumerate(_BS_FIELDS.keys())},
-            'mcr': {key: idx for idx, key in enumerate(_MCR_FIELDS.keys())},
+            'mcr': {key: idx for idx, key in enumerate(_MCR_TARGET_FIELDS.keys())},
         }
 
         def _sort_items_for_display(items, stmt_type):
@@ -5225,11 +5306,14 @@ def account_master():
                 if mid_category not in valid_mid_categories:
                     mid_category = None
                 sub_category = None
-                if target_field and target_field in _MCR_FIELDS:
-                    target_statement = 'MCR'
-                else:
-                    target_field = None
-                    target_statement = None
+                normalized_target_field = _normalize_target_field('mcr', target_field)
+                normalized_target_statement = 'PL' if normalized_target_field else None
+                if normalized_target_field != target_field or normalized_target_statement != target_statement:
+                    ai.target_field = normalized_target_field
+                    ai.target_statement = normalized_target_statement
+                    summary_sync['changed'] = True
+                target_field = normalized_target_field
+                target_statement = normalized_target_statement
 
             is_confirmed = bool(not is_summary and major_category and mid_category and target_field)
             is_partial = bool(not is_summary and (major_category or mid_category or target_field))
@@ -5266,12 +5350,12 @@ def account_master():
 
         return render_template('account_master.html',
                                pl_items=pl_items, bs_items=bs_items, mcr_items=mcr_items,
-                               pl_fields=_PL_FIELDS, bs_fields=_BS_FIELDS, mcr_fields=_MCR_FIELDS,
+                               pl_fields=_PL_FIELDS, bs_fields=_BS_FIELDS, mcr_fields=_MCR_TARGET_FIELDS,
                                all_fields=_ALL_FIELDS,
-                               field_groups={'PL': _PL_FIELD_GROUPS, 'BS': _BS_FIELD_GROUPS, 'MCR': _MCR_FIELD_GROUPS},
+                               field_groups={'PL': _PL_FIELD_GROUPS, 'BS': _BS_FIELD_GROUPS, 'MCR': _MCR_TARGET_FIELD_GROUPS},
                                pl_field_groups=_PL_FIELD_GROUPS,
                                bs_field_groups=_BS_FIELD_GROUPS,
-                               mcr_field_groups=_MCR_FIELD_GROUPS,
+                               mcr_field_groups=_MCR_TARGET_FIELD_GROUPS,
                                category_tree=category_tree,
                                pl_category_tree=pl_category_tree,
                                bs_category_tree=bs_category_tree,
@@ -5325,9 +5409,10 @@ def account_master_update(stmt_type, item_id):
             default_statement = 'BS'
         elif stmt_type == 'mcr':
             item.sub_category = None
-            allowed_fields = _MCR_FIELDS
-            default_statement = 'MCR'
+            allowed_fields = _MCR_TARGET_FIELDS
+            default_statement = 'PL'
 
+        raw_target_field = _normalize_target_field(stmt_type, raw_target_field)
         if raw_target_field and allowed_fields is not None and raw_target_field not in allowed_fields:
             raw_target_field = None
 
@@ -5410,9 +5495,10 @@ def account_master_add(stmt_type):
         else:
             major_category = data.get('major_category') or None
             sub_category = None
-            allowed_fields = _MCR_FIELDS
-            default_statement = 'MCR'
+            allowed_fields = _MCR_TARGET_FIELDS
+            default_statement = 'PL'
 
+        raw_target_field = _normalize_target_field(stmt_type, raw_target_field)
         if raw_target_field and raw_target_field not in allowed_fields:
             raw_target_field = None
 
@@ -5489,7 +5575,7 @@ def account_master_ai_suggest():
     all_fields_str = _json.dumps({
         'PL': _PL_FIELDS,
         'BS': _BS_FIELDS,
-        'MCR': _MCR_FIELDS,
+        'MCR': _MCR_TARGET_FIELDS,
     }, ensure_ascii=False)
 
     category_tree_str = _json.dumps(category_tree, ensure_ascii=False)
@@ -5543,8 +5629,8 @@ def account_master_ai_suggest():
 - stmt_type が 'pl' の科目は target_field に必ず PLフィールドのキーのみ使用する（BS・ MCRフィールドのキーは絶対使用しない）
 - stmt_type が 'bs' の科目は target_statement を 'BS' または空文字にする
 - stmt_type が 'bs' の科目は target_field に必ず BSフィールドのキーのみ使用する
-- stmt_type が 'mcr' の科目は target_statement を 'MCR' または空文字にする
-- stmt_type が 'mcr' の科目は target_field に必ず MCRフィールドのキーのみ使用する
+- stmt_type が 'mcr' の科目は target_statement を 'PL' または空文字にする
+- stmt_type が 'mcr' の科目は target_field に必ず PLフィールドのキーのみ使用する
 - sub_category は必ず上記の小分類選択肢リストに存在する値を使用すること。存在しない値は絶対に使用しない
 - 分類ツリーに存在しないカテゴリは使用しない
 - 組換え先フィールドに存在しないキーは使用しない
@@ -5570,10 +5656,10 @@ def account_master_ai_suggest():
     except Exception as e:
         return jsonify({'success': False, 'error': f'AI応答のパースに失敗: {str(e)}', 'raw': raw}), 500
 
-    # PLの大分類を強制的に「損益」に上書き、MCRキーが混入した場合はnullに変換
+    # PLの大分類を強制的に「損益」に上書きし、MCRの組換え先はPLキーへ正規化する
     pl_keys = set(_PL_FIELDS.keys())
     bs_keys = set(_BS_FIELDS.keys())
-    mcr_keys = set(_MCR_FIELDS.keys())
+    mcr_keys = set(_MCR_TARGET_FIELDS.keys())
     stmt_type_map = {it['id']: it['stmt_type'] for it in items}
     for s in suggestions:
         stype = stmt_type_map.get(s.get('id'))
@@ -5593,8 +5679,10 @@ def account_master_ai_suggest():
                 s['target_statement'] = ''
         elif stype == 'mcr':
             s['sub_category'] = ''
-            if s.get('target_field') and s['target_field'] in mcr_keys:
-                s['target_statement'] = 'MCR'
+            normalized_target_field = _normalize_target_field('mcr', s.get('target_field'))
+            if normalized_target_field and normalized_target_field in mcr_keys:
+                s['target_field'] = normalized_target_field
+                s['target_statement'] = 'PL'
             else:
                 s['target_field'] = ''
                 s['target_statement'] = ''
@@ -5657,11 +5745,11 @@ def account_master_bulk_save():
             else:
                 item.major_category = it.get('major_category') or None
                 item.sub_category = None
-                allowed_fields = _MCR_FIELDS
-                default_statement = 'MCR'
+                allowed_fields = _MCR_TARGET_FIELDS
+                default_statement = 'PL'
             item.mid_category = it.get('mid_category') or None
             # 各帳票種別に正しいフィールドキーのみ許可するバリデーション
-            raw_tf = it.get('target_field') or None
+            raw_tf = _normalize_target_field(stmt_type, it.get('target_field') or None)
             if raw_tf and raw_tf not in allowed_fields:
                 raw_tf = None
             item.target_statement = default_statement if raw_tf else None

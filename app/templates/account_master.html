@@ -425,7 +425,7 @@
                   {% endif %}
                 </select>
               </td>
-              <input type="hidden" class="stmt-select" data-id="{{ item.id }}" data-type="mcr" value="MCR">
+              <input type="hidden" class="stmt-select" data-id="{{ item.id }}" data-type="mcr" value="{{ item.target_statement or 'PL' }}">
               <td>
                 <select class="form-select form-select-sm field-select" data-id="{{ item.id }}" data-type="mcr" {% if item.is_summary %}disabled{% endif %}>
                   <option value="">（選択）</option>
@@ -618,7 +618,7 @@ function getCategoryTree(type) {
 
 function getFixedTargetStatement(type) {
   if (type === 'bs') return 'BS';
-  if (type === 'mcr') return 'MCR';
+  if (type === 'mcr') return 'PL';
   return 'PL';
 }
 

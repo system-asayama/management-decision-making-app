@@ -265,26 +265,32 @@ def estimate_mappings_for_bs(tenant_id: int, account_items: list) -> list:
 def estimate_mappings_for_mcr(tenant_id: int, account_items: list) -> list:
     """
     製造原価報告書科目マスタのAIマッピング推定
+
+    MCRの科目は、組換え先としては損益計算書（PL）の項目へ寄せる。
     """
     unmapped_items = [item for item in account_items if item.mapping_status in ('unmapped', None)]
     if not unmapped_items:
         return []
     
-    _, _, mcr_desc = build_fields_description()
+    pl_desc, _, _ = build_fields_description()
     
     account_names = [{"id": item.id, "name": item.account_name} for item in unmapped_items]
     
     prompt = f"""あなたは日本の会計・財務の専門家です。
-以下の製造原価報告書（MCR）の勘定科目名を、指定された組換えMCRのフィールドにマッピングしてください。
+以下の製造原価報告書（MCR）の勘定科目名を、指定された組換えPLのフィールドにマッピングしてください。
 
-【組換えMCRのフィールド一覧】
-{mcr_desc}
+【組換えPLのフィールド一覧】
+{pl_desc}
 
 【マッピングルール】
 - 各科目を最も適切なフィールドに1対1でマッピングしてください
 - 合計行や小計行（「〇〇合計」「〇〇計」など）は target_field を null にしてください
-- 「外注費」「外注加工費」は "outsourcing_cost" にマッピング
-- 製造系の経費（「（製造）」が付くもの）は対応するフィールドにマッピング
+- 「期首原材料棚卸高」「期首仕掛品棚卸高」は "beginning_inventory" にマッピング
+- 「当期原材料仕入高」「材料費計」「総製造費用」「製造原価合計」は "manufacturing_cost" にマッピング
+- 「期末原材料棚卸高」「期末仕掛品棚卸高」は "ending_inventory" にマッピング
+- 「労務費計」は "labor_cost" にマッピング
+- 「減価償却費」「修繕費」は "capital_regeneration_cost" にマッピング
+- その他の製造経費（外注加工費、荷造運賃、旅費交通費、消耗品費など）は原則 "general_expenses" にマッピング
 - confidence は 0.0〜1.0 の信頼度
 
 【マッピング対象科目】
@@ -292,7 +298,7 @@ def estimate_mappings_for_mcr(tenant_id: int, account_items: list) -> list:
 
 以下のJSON形式で回答してください（他のテキストは不要）:
 [
-  {{"id": 科目ID, "target_statement": "MCR", "target_field": "フィールド名またはnull", "confidence": 0.95}},
+  {{"id": 科目ID, "target_statement": "PL", "target_field": "フィールド名またはnull", "confidence": 0.95}},
   ...
 ]"""
 
@@ -322,7 +328,7 @@ def get_all_target_fields():
     return {
         "PL": PL_FIELDS,
         "BS": BS_FIELDS,
-        "MCR": MCR_FIELDS,
+        "MCR": PL_FIELDS,
     }
 
 
