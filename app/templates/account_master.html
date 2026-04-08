@@ -53,7 +53,7 @@
     </div>
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center py-3">
-        {% set cat_confirmed = (pl_items + bs_items + mcr_items) | selectattr('target_field') | list | length %}
+        {% set cat_confirmed = (pl_items + bs_items + mcr_items) | selectattr('target_field') | selectattr('mid_category') | list | length %}
         {% set total_count = pl_items|length + bs_items|length + mcr_items|length %}
         <div class="fs-3 fw-bold text-info">{{ cat_confirmed }}/{{ total_count }}</div>
         <div class="text-muted small">分類確定済</div>
@@ -223,9 +223,9 @@
                 {% endif %}
               </td>
               <td>
-                {% if item.target_field %}
+                {% if item.target_field and item.mid_category %}
                   <span class="badge bg-success category-badge">確定済</span>
-                {% elif item.major_category or item.mid_category %}
+                {% elif item.major_category or item.mid_category or item.target_field %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
                   <span class="badge bg-light text-muted border category-badge">未分類</span>
@@ -337,9 +337,9 @@
                 {% endif %}
               </td>
               <td>
-                {% if item.target_field %}
+                {% if item.target_field and item.mid_category %}
                   <span class="badge bg-success category-badge">確定済</span>
-                {% elif item.major_category or item.mid_category %}
+                {% elif item.major_category or item.mid_category or item.target_field %}
                   <span class="badge bg-warning text-dark category-badge">AI推定</span>
                 {% else %}
                   <span class="badge bg-light text-muted border category-badge">未分類</span>
@@ -749,21 +749,29 @@ function runBulkSave(stmtType) {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-save me-1"></i>一括保存';
     if (!data.success) { showToast('保存失敗: ' + (data.error || ''), 'danger'); return; }
-    // 全行のバッジを更新（組換え先科目が設定されている行のみ確定済に）
+    // 全行のバッジを更新（組換え先科目と中分類の両方が設定されている行のみ確定済に）
     let confirmedCount = 0;
     rows.forEach(function(row) {
       const id = parseInt(row.id.replace(stmtType + '-row-', ''));
       const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${stmtType}"]`);
+      const midSel = document.querySelector(`.mid-select[data-id="${id}"][data-type="${stmtType}"]`);
       const hasField = fieldSel && fieldSel.value && fieldSel.value !== '';
+      const hasMid = midSel && midSel.value && midSel.value !== '';
       row.className = row.className.replace(/table-(success|warning|secondary|light)/g, '').trim();
       const badge = row.querySelector('.category-badge');
-      if (hasField) {
+      if (hasField && hasMid) {
         row.classList.add('table-success');
         if (badge) {
           badge.className = 'badge bg-success category-badge';
           badge.textContent = '確定済';
         }
         confirmedCount++;
+      } else if (hasField || hasMid) {
+        row.classList.add('table-warning');
+        if (badge) {
+          badge.className = 'badge bg-warning text-dark category-badge';
+          badge.textContent = 'AI推定';
+        }
       } else {
         const majorSel = document.querySelector(`.major-select[data-id="${id}"][data-type="${stmtType}"]`);
         const hasMajor = majorSel && majorSel.value && majorSel.value !== '';
@@ -872,8 +880,13 @@ document.querySelectorAll('.save-btn').forEach(function(btn) {
     const fieldSel = document.querySelector(`.field-select[data-id="${id}"][data-type="${type}"]`);
 
     const hasField = fieldSel && fieldSel.value && fieldSel.value !== '';
+    const hasMidVal = midSel && midSel.value && midSel.value !== '';
     if (!hasField) {
       showToast('組換え先科目を選択してください', 'warning');
+      return;
+    }
+    if (!hasMidVal) {
+      showToast('中分類を選択してください', 'warning');
       return;
     }
     const payload = {
@@ -899,7 +912,7 @@ document.querySelectorAll('.save-btn').forEach(function(btn) {
         if (row) {
           row.className = row.className.replace(/table-(success|warning|secondary|light)/g, '').trim();
           row.classList.add('table-success');
-          // バッジを「確定済」に更新
+          // バッジを「確定済」に更新（中分類と組換え先科目の両方が設定済みの場合）
           const badge = row.querySelector('.category-badge');
           if (badge) {
             badge.className = 'badge bg-success category-badge';
