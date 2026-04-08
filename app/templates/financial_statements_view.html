@@ -145,17 +145,27 @@
                         <td colspan="2" class="ps-2">{{ section }}</td>
                       </tr>
                       {# 科目行 #}
+                      {% set ns = namespace(section_total=0, has_explicit_total=false) %}
                       {% for acc in accounts %}
+                      {% set acc_name = (acc.name or '') | trim %}
+                      {% set is_explicit_total = acc_name == section or acc_name == (section ~ '計') or acc_name == (section ~ '　計') or acc_name == (section ~ '合計') or '合計' in acc_name or acc_name[-1:] == '計' or '利益' in acc_name %}
+                      {% if is_explicit_total %}
+                        {% set ns.has_explicit_total = true %}
+                      {% else %}
+                        {% set ns.section_total = ns.section_total + (acc.amount or 0) %}
+                      {% endif %}
                       <tr>
                         <td class="ps-4">{{ acc.name }}</td>
                         <td class="text-end pe-3">{{ acc.amount | comma }}</td>
                       </tr>
                       {% endfor %}
-                      {# セクション合計行 #}
+                      {# セクション合計行（元データに合計行がない場合のみ表示） #}
+                      {% if not ns.has_explicit_total and accounts %}
                       <tr style="font-weight:700;">
                         <td class="ps-2">{{ section }}　計</td>
-                        <td class="text-end pe-3">{{ accounts | sum(attribute='amount') | comma }}</td>
+                        <td class="text-end pe-3">{{ ns.section_total | comma }}</td>
                       </tr>
+                      {% endif %}
                       {% endfor %}
                       {# sectionなし科目 #}
                       {% if item.bs_no_section %}
@@ -215,17 +225,27 @@
                         <td colspan="2" class="ps-2">{{ section }}</td>
                       </tr>
                       {# 科目行 #}
+                      {% set ns = namespace(section_total=0, has_explicit_total=false) %}
                       {% for acc in accounts %}
+                      {% set acc_name = (acc.name or '') | trim %}
+                      {% set is_explicit_total = acc_name == section or acc_name == (section ~ '計') or acc_name == (section ~ '　計') or acc_name == (section ~ '合計') or '合計' in acc_name or acc_name[-1:] == '計' or '利益' in acc_name %}
+                      {% if is_explicit_total %}
+                        {% set ns.has_explicit_total = true %}
+                      {% else %}
+                        {% set ns.section_total = ns.section_total + (acc.amount or 0) %}
+                      {% endif %}
                       <tr>
                         <td class="ps-4">{{ acc.name }}</td>
                         <td class="text-end pe-3">{{ acc.amount | comma }}</td>
                       </tr>
                       {% endfor %}
-                      {# セクション合計行 #}
+                      {# セクション合計行（元データに合計行がない場合のみ表示） #}
+                      {% if not ns.has_explicit_total and accounts %}
                       <tr style="font-weight:700;">
                         <td class="ps-2">{{ section }}　計</td>
-                        <td class="text-end pe-3">{{ accounts | sum(attribute='amount') | comma }}</td>
+                        <td class="text-end pe-3">{{ ns.section_total | comma }}</td>
                       </tr>
+                      {% endif %}
                       {% endfor %}
                       {# sectionなし科目 #}
                       {% if item.pl_no_section %}
@@ -281,17 +301,27 @@
                         <td colspan="2" class="ps-2">{{ section }}</td>
                       </tr>
                       {# 科目行 #}
+                      {% set ns = namespace(section_total=0, has_explicit_total=false) %}
                       {% for acc in accounts %}
+                      {% set acc_name = (acc.name or '') | trim %}
+                      {% set is_explicit_total = acc_name == section or acc_name == (section ~ '計') or acc_name == (section ~ '　計') or acc_name == (section ~ '合計') or '合計' in acc_name or acc_name[-1:] == '計' or '利益' in acc_name %}
+                      {% if is_explicit_total %}
+                        {% set ns.has_explicit_total = true %}
+                      {% else %}
+                        {% set ns.section_total = ns.section_total + (acc.amount or 0) %}
+                      {% endif %}
                       <tr>
                         <td class="ps-4">{{ acc.name }}</td>
                         <td class="text-end pe-3">{{ acc.amount | comma }}</td>
                       </tr>
                       {% endfor %}
-                      {# セクション合計行 #}
+                      {# セクション合計行（元データに合計行がない場合のみ表示） #}
+                      {% if not ns.has_explicit_total and accounts %}
                       <tr style="font-weight:700;">
                         <td class="ps-2">{{ section }}　計</td>
-                        <td class="text-end pe-3">{{ accounts | sum(attribute='amount') | comma }}</td>
+                        <td class="text-end pe-3">{{ ns.section_total | comma }}</td>
                       </tr>
+                      {% endif %}
                       {% endfor %}
                       {# sectionなし科目 #}
                       {% if item.mcr_no_section %}
