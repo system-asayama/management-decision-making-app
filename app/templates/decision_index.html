@@ -3,18 +3,13 @@
 {% block title %}経営意思決定アプリ{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <!-- ウェルカムメッセージ -->
-    <div class="row">
-        <div class="col-12">
-            <div class="alert alert-success" role="alert">
-                <h4 class="alert-heading"><i class="fas fa-check-circle me-2"></i>経営意思決定アプリへようこそ！</h4>
-                <p>財務分析とシミュレーションで経営意思決定を支援します。</p>
-                <hr>
-                <p class="mb-0">テナントID: {{ tenant_id }}</p>
-            </div>
-        </div>
+<div class="container-fluid mt-4 px-3 px-md-4">
+  <div class="card shadow-sm border-0 mb-4" style="background: linear-gradient(135deg, #0056b3 0%, #007bff 100%);">
+    <div class="card-body text-white py-4">
+      <h3 class="mb-1 fw-bold"><i class="fas fa-chart-bar me-2"></i>経営意思決定アプリ</h3>
+      <p class="mb-0 opacity-75">財務分析とシミュレーションで経営意思決定を支援します。</p>
     </div>
+  </div>
 
     <!-- 機能カード -->
     <div class="row mt-4">

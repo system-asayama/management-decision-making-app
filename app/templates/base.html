@@ -2,12 +2,29 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>{% block title %}ログインシステム{% endblock %}</title>
+  <title>{% block title %}経営意思決定アプリ{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Bootstrap 5 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin: 2rem; }
-    .container { max-width: 1400px; margin: 0 auto; padding: 0 1rem; }
-    header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+    body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background-color: #f8f9fa; margin: 0; padding: 0; }
+    /* ナビゲーションバー */
+    .app-navbar { background: linear-gradient(135deg, #0056b3 0%, #007bff 100%); padding: 0.6rem 1.5rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    .app-navbar .app-title { color: #fff; font-weight: 700; font-size: 1.1rem; text-decoration: none; }
+    .app-navbar .app-title:hover { color: #e0ecff; }
+    .app-navbar .user-info { font-size: 0.85rem; color: rgba(255,255,255,0.9); text-align: right; }
+    .app-navbar .user-info .user-name { font-weight: 600; color: #fff; }
+    .app-navbar .owner-badge { display: inline-block; background: #ffd700; color: #333; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-left: 0.4rem; }
+    /* メインコンテンツ */
+    .main-wrapper { max-width: 1400px; margin: 0 auto; padding: 1.5rem 1rem; }
+    /* 旧コンテナー互换 */
+    .container { max-width: 1400px; }
+    /* ホバーカード */
+    .hover-card { transition: transform 0.15s, box-shadow 0.15s; }
+    .hover-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important; }
+    /* 旧スタイル互换（準Bootstrapclassesを持たない要素向け） */
     .user-info { font-size: 0.9rem; color: #555; text-align: right; }
     .user-info .user-name { font-weight: 600; color: #333; }
     .user-info .user-role { color: #666; }
@@ -31,51 +48,59 @@
     footer { margin-top: 2rem; color: #777; font-size: .9rem; }
     /* btn-xs（Bootstrapにない）*/
     .btn-xs { padding: .2rem .4rem; font-size: .75rem; border-radius: .2rem; }
+    /* フッター */
+    .app-footer { text-align: center; color: #aaa; font-size: 0.85rem; padding: 1.5rem 0; margin-top: 2rem; border-top: 1px solid #e9ecef; }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1 style="margin:0;">{% block header %}{% endblock %}</h1>
-      {% if session.get('user_id') %}
-      <div class="user-info">
-        <div class="user-name">{{ session.get('user_name', '') }}</div>
-        <div class="user-role">
-          {% if session.get('role') == 'system_admin' %}
-            システム管理者
-          {% elif session.get('role') == 'tenant_admin' %}
-            テナント管理者
-          {% elif session.get('role') == 'admin' %}
-            店舗管理者
-          {% elif session.get('is_employee') %}
-            従業員
-          {% endif %}
-          {% if session.get('is_owner') %}
-            <span class="owner-badge">オーナー</span>
-          {% endif %}
-        </div>
+  <!-- ナビゲーションバー -->
+  <nav class="app-navbar">
+    <a href="{% block nav_home_url %}/decision/{% endblock %}" class="app-title">
+      <i class="fas fa-chart-line me-2"></i>{% block header %}経営意思決定アプリ{% endblock %}
+    </a>
+    {% if session.get('user_id') %}
+    <div class="user-info">
+      <div class="user-name">{{ session.get('user_name', '') }}</div>
+      <div>
+        {% if session.get('role') == 'system_admin' %}システム管理者
+        {% elif session.get('role') == 'tenant_admin' %}テナント管理者
+        {% elif session.get('role') == 'admin' %}店舗管理者
+        {% elif session.get('is_employee') %}従業員
+        {% endif %}
+        {% if session.get('is_owner') %}<span class="owner-badge">オーナー</span>{% endif %}
       </div>
-      {% endif %}
-    </header>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-        <div class="alert {{ 'alert-success' if category == 'success'
-                             else ('alert-warning' if category == 'warning'
-                                   else 'alert-error') }}">
-          {{ message }}
-        </div>
-      {% endfor %}
+    </div>
     {% endif %}
-    {% endwith %}
+  </nav>
 
+  <!-- フラッシュメッセージ -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div style="max-width:1400px; margin:0.5rem auto; padding:0 1rem;">
+    {% for category, message in messages %}
+    <div class="alert {% if category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% elif category == 'danger' %}alert-danger{% else %}alert-info{% endif %} alert-dismissible fade show mt-2" role="alert">
+      {% if category == 'success' %}<i class="fas fa-check-circle me-2"></i>
+      {% elif category == 'warning' %}<i class="fas fa-exclamation-triangle me-2"></i>
+      {% elif category == 'danger' %}<i class="fas fa-times-circle me-2"></i>
+      {% else %}<i class="fas fa-info-circle me-2"></i>{% endif %}
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <!-- メインコンテンツ -->
+  <div class="main-wrapper">
     {% block content %}{% endblock %}
-
-    <footer>© {{ 2025 }} 会計アプリ</footer>
   </div>
 
+  <footer class="app-footer">© 2025 経営意思決定アプリ</footer>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="{{ url_for('static', filename='js/comma_input.js') }}"></script>
   {% block extra_scripts %}{% endblock %}
 </body>

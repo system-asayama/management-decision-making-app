@@ -1,8 +1,5 @@
 {% extends "base.html" %}
-{% block extra_head %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-{% endblock %}
+
 {% block title %}勘定科目マスタ管理{% endblock %}
 {% block content %}
 <div class="container-fluid mt-4 px-3 px-md-4">
@@ -601,7 +598,6 @@
 }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const allFields = {{ all_fields | tojson | safe }};
 const fieldGroups = {{ field_groups | default({}, true) | tojson | safe }};

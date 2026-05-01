@@ -3,24 +3,27 @@
 {% block title %}経営シミュレーション{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="max-w-7xl mx-auto">
-        <h1 class="text-3xl font-bold mb-6">経営シミュレーション</h1>
-        
-        <p class="text-gray-600 mb-6">過去の実績データをベースに、将来の財務状況をシミュレーションします。</p>
+<div class="container-fluid mt-4 px-3 px-md-4">
+    <div class="">
+        <div class="card shadow-sm border-0 mb-4" style="background: linear-gradient(135deg, #6f42c1 0%, #9b59b6 100%);">
+    <div class="card-body text-white py-4">
+      <h3 class="mb-1 fw-bold"><i class="fas fa-calculator me-2"></i>経営シミュレーション</h3>
+      <p class="mb-0 opacity-75">過去の実績データをベースに、将来の財務状況をシミュレーションします。</p>
+    </div>
+  </div>
         
         <!-- シミュレーション設定 -->
-        <div class="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 class="text-xl font-semibold mb-4">シミュレーション設定</h2>
+        <div class="card shadow-sm mb-4 p-4">
+            <h2 class="fw-semibold mb-3 fs-5">シミュレーション設定</h2>
             
             <form id="simulation_form">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="row g-3">
                     <!-- 企業選択 -->
                     <div>
-                        <label for="company_id" class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="company_id" class="form-label fw-medium">
                             企業 <span class="text-red-500">*</span>
                         </label>
-                        <select id="company_id" name="company_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        <select id="company_id" name="company_id" class="form-select" required>
                             <option value="">選択してください</option>
                             {% for company in companies %}
                             <option value="{{ company.id }}">{{ company.name }}</option>
@@ -30,29 +33,29 @@
                     
                     <!-- ベース年度選択 -->
                     <div>
-                        <label for="base_fiscal_year_id" class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="base_fiscal_year_id" class="form-label fw-medium">
                             ベース年度 <span class="text-red-500">*</span>
                         </label>
-                        <select id="base_fiscal_year_id" name="base_fiscal_year_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" disabled required>
+                        <select id="base_fiscal_year_id" name="base_fiscal_year_id" class="form-select" disabled required>
                             <option value="">まず企業を選択してください</option>
                         </select>
                     </div>
                     
                     <!-- 予測年数 -->
                     <div>
-                        <label for="forecast_years" class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="forecast_years" class="form-label fw-medium">
                             予測年数 <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" id="forecast_years" name="forecast_years" min="1" max="10" value="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        <input type="number" id="forecast_years" name="forecast_years" min="1" max="10" value="5" class="form-select" required>
                         <p class="text-sm text-gray-500 mt-1">1〜10年の範囲で設定してください</p>
                     </div>
                     
                     <!-- 売上高成長率 -->
                     <div>
-                        <label for="sales_growth_rate" class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="sales_growth_rate" class="form-label fw-medium">
                             売上高成長率（%） <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" id="sales_growth_rate" name="sales_growth_rate" step="0.1" value="5.0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        <input type="number" id="sales_growth_rate" name="sales_growth_rate" step="0.1" value="5.0" class="form-select" required>
                         <p class="text-sm text-gray-500 mt-1">例: 5.0 = 年5%成長</p>
                     </div>
                 </div>
@@ -66,7 +69,7 @@
                     <div id="advanced_settings" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label for="operating_margin" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="operating_margin" class="form-label fw-medium">
                                     営業利益率（%）
                                 </label>
                                 <input type="number" id="operating_margin" name="operating_margin" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
@@ -74,7 +77,7 @@
                             </div>
                             
                             <div>
-                                <label for="ordinary_margin" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="ordinary_margin" class="form-label fw-medium">
                                     経常利益率（%）
                                 </label>
                                 <input type="number" id="ordinary_margin" name="ordinary_margin" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
@@ -82,7 +85,7 @@
                             </div>
                             
                             <div>
-                                <label for="net_margin" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="net_margin" class="form-label fw-medium">
                                     当期純利益率（%）
                                 </label>
                                 <input type="number" id="net_margin" name="net_margin" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
@@ -90,7 +93,7 @@
                             </div>
                             
                             <div>
-                                <label for="asset_turnover" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="asset_turnover" class="form-label fw-medium">
                                     総資産回転率
                                 </label>
                                 <input type="number" id="asset_turnover" name="asset_turnover" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
@@ -98,7 +101,7 @@
                             </div>
                             
                             <div>
-                                <label for="debt_ratio" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="debt_ratio" class="form-label fw-medium">
                                     負債比率（%）
                                 </label>
                                 <input type="number" id="debt_ratio" name="debt_ratio" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
@@ -129,8 +132,8 @@
             </div>
             
             <!-- 予測データテーブル -->
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
-                <h3 class="text-xl font-semibold mb-4">予測データ</h3>
+            <div class="card shadow-sm mb-4 p-4">
+                <h3 class="fw-semibold mb-3 fs-5">予測データ</h3>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -152,18 +155,18 @@
             
             <!-- グラフ表示 -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div class="bg-white rounded-lg shadow p-6">
+                <div class="card shadow-sm p-4">
                     <h3 class="text-lg font-semibold mb-4">売上高・利益推移</h3>
                     <canvas id="sales_profit_chart"></canvas>
                 </div>
                 
-                <div class="bg-white rounded-lg shadow p-6">
+                <div class="card shadow-sm p-4">
                     <h3 class="text-lg font-semibold mb-4">総資産・純資産推移</h3>
                     <canvas id="assets_chart"></canvas>
                 </div>
             </div>
             
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <div class="card shadow-sm mb-4 p-4">
                 <h3 class="text-lg font-semibold mb-4">財務指標推移</h3>
                 <canvas id="ratios_chart"></canvas>
             </div>
@@ -176,7 +179,7 @@
                 <p class="text-sm text-green-600">楽観・標準・悲観の3つのシナリオで予測しました</p>
             </div>
             
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <div class="card shadow-sm mb-4 p-4">
                 <h3 class="text-lg font-semibold mb-4">シナリオ比較グラフ</h3>
                 <canvas id="scenario_chart"></canvas>
             </div>
