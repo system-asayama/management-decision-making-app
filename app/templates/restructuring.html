@@ -366,7 +366,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr class="table-primary">
+                                <tr style="background:#e8f4fd;">
                                     <td><strong>1. 売上高</strong></td>
                                     <td class="text-end fw-bold" id="sum_sales">-</td>
                                 </tr>
@@ -374,75 +374,87 @@
                                     <td>2. 売上原価</td>
                                     <td class="text-end" id="sum_cost_of_sales">-</td>
                                 </tr>
-                                <tr class="table-success">
-                                    <td><strong>4. 売上総利益</strong></td>
-                                    <td class="text-end fw-bold text-success" id="sum_gross_profit">-</td>
+                                <tr style="background:#f8f9fa;">
+                                    <td>&nbsp;&nbsp;（１）期首棚卸高</td>
+                                    <td class="text-end text-muted" id="sum_opening_inventory">-</td>
+                                </tr>
+                                <tr style="background:#f8f9fa;">
+                                    <td>&nbsp;&nbsp;（２）当期製造（工事）原価</td>
+                                    <td class="text-end text-muted" id="sum_manufacturing_cost">-</td>
+                                </tr>
+                                <tr style="background:#f8f9fa;">
+                                    <td>&nbsp;&nbsp;（３）期末棚卸高</td>
+                                    <td class="text-end text-muted" id="sum_closing_inventory">-</td>
+                                </tr>
+                                <tr style="background:#d4edda;">
+                                    <td><strong>　売上総利益</strong></td>
+                                    <td class="text-end fw-bold" id="sum_gross_profit">-</td>
                                 </tr>
                                 <tr>
-                                    <td>5. 外部経費調整</td>
+                                    <td>　外部経費調整</td>
                                     <td class="text-end" id="sum_external_cost">-</td>
                                 </tr>
-                                <tr class="table-success">
-                                    <td><strong>6. 粗付加価値</strong></td>
-                                    <td class="text-end fw-bold text-success" id="sum_gross_added_value">-</td>
+                                <tr style="background:#d4edda;">
+                                    <td><strong>　粗付加価値</strong></td>
+                                    <td class="text-end fw-bold" id="sum_gross_added_value">-</td>
                                 </tr>
                                 <tr>
                                     <td>3. 販売費及び一般管理費</td>
                                     <td class="text-end" id="sum_sga">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;（１）人件費</td>
                                     <td class="text-end text-muted" id="sum_labor_cost">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;（２）役員報酬</td>
                                     <td class="text-end text-muted" id="sum_exec_comp">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;（３）資本再生費</td>
                                     <td class="text-end text-muted" id="sum_cap_regen">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;（４）研究開発費</td>
                                     <td class="text-end text-muted" id="sum_rd">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;（５）一般経費</td>
                                     <td class="text-end text-muted" id="sum_general">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;&nbsp;&nbsp;①固定費</td>
                                     <td class="text-end text-muted" id="sum_general_fixed">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;&nbsp;&nbsp;②変動費</td>
                                     <td class="text-end text-muted" id="sum_general_variable">-</td>
                                 </tr>
-                                <tr class="table-primary">
-                                    <td><strong>　営業利益</strong></td>
-                                    <td class="text-end fw-bold text-primary" id="sum_operating_income">-</td>
+                                <tr style="background:#cce5ff;">
+                                    <td><strong>　　営業利益</strong></td>
+                                    <td class="text-end fw-bold" id="sum_operating_income">-</td>
                                 </tr>
                                 <tr>
-                                    <td>4. 営業外損益</td>
+                                    <td>4. 営業外損益（損益）</td>
                                     <td class="text-end" id="sum_non_op">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;（１）金融損益</td>
                                     <td class="text-end text-muted" id="sum_financial">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;（２）その他の損益</td>
                                     <td class="text-end text-muted" id="sum_other_non_op">-</td>
                                 </tr>
-                                <tr class="table-primary">
-                                    <td><strong>　経常利益</strong></td>
-                                    <td class="text-end fw-bold text-primary" id="sum_ordinary_income">-</td>
+                                <tr style="background:#cce5ff;">
+                                    <td><strong>　　経常利益</strong></td>
+                                    <td class="text-end fw-bold" id="sum_ordinary_income">-</td>
                                 </tr>
                                 <tr>
                                     <td>5. 特別損益</td>
                                     <td class="text-end" id="sum_extraordinary">-</td>
                                 </tr>
-                                <tr class="table-warning">
+                                <tr style="background:#fff3cd;">
                                     <td><strong>　税引前当期純利益</strong></td>
                                     <td class="text-end fw-bold" id="sum_income_before_tax">-</td>
                                 </tr>
@@ -450,7 +462,7 @@
                                     <td>&nbsp;&nbsp;法人税等</td>
                                     <td class="text-end" id="sum_taxes">-</td>
                                 </tr>
-                                <tr class="table-warning">
+                                <tr style="background:#fff3cd;">
                                     <td><strong>　当期純利益</strong></td>
                                     <td class="text-end fw-bold" id="sum_net_income">-</td>
                                 </tr>
@@ -458,23 +470,23 @@
                                     <td>6. 利益処分</td>
                                     <td class="text-end"></td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;（１）配当金</td>
                                     <td class="text-end text-muted" id="sum_dividend">-</td>
                                 </tr>
-                                <tr class="table-success">
+                                <tr style="background:#d4edda;">
                                     <td><strong>&nbsp;&nbsp;（２）内部留保</strong></td>
-                                    <td class="text-end fw-bold text-success" id="sum_retained">-</td>
+                                    <td class="text-end fw-bold" id="sum_retained">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;&nbsp;&nbsp;①利益準備金積立額</td>
                                     <td class="text-end text-muted" id="sum_legal_reserve">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;&nbsp;&nbsp;②その他剰余金積立額</td>
                                     <td class="text-end text-muted" id="sum_voluntary_reserve">-</td>
                                 </tr>
-                                <tr class="table-light">
+                                <tr style="background:#f8f9fa;">
                                     <td>&nbsp;&nbsp;&nbsp;&nbsp;③繰越利益剰余金増加</td>
                                     <td class="text-end text-muted" id="sum_retained_earnings_increase">-</td>
                                 </tr>
@@ -1166,6 +1178,9 @@ function recalculate() {
     // サマリー更新
     updateSummary('sum_sales', sales);
     updateSummary('sum_cost_of_sales', costOfSales);
+    updateSummary('sum_opening_inventory', beginInv);
+    updateSummary('sum_manufacturing_cost', mfgCost);
+    updateSummary('sum_closing_inventory', endInv);
     updateSummary('sum_gross_profit', grossProfit);
     updateSummary('sum_external_cost', extCost);
     updateSummary('sum_gross_added_value', grossAddedValue);
