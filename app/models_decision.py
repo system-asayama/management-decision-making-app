@@ -278,7 +278,10 @@ class RestructuredBS(Base):
     short_term_borrowings = Column(BigInteger, default=0, nullable=False)     # 短期借入金
     current_portion_long_term = Column(BigInteger, default=0, nullable=False) # 1年以内返済の長期借入金
     discounted_notes = Column(BigInteger, default=0, nullable=False)          # 割引手形
-    other_current_liabilities = Column(BigInteger, default=0, nullable=False) # その他流動負債
+    income_taxes_payable = Column(BigInteger, default=0, nullable=False)        # 未払法人税等
+    bonus_reserve = Column(BigInteger, default=0, nullable=False)               # 賞与引当金
+    other_allowances = Column(BigInteger, default=0, nullable=False)            # その他引当金
+    other_current_liabilities = Column(BigInteger, default=0, nullable=False)   # その他流動負債
     # 流動負債合計
     current_liabilities = Column(BigInteger, default=0, nullable=False)
     # 6. 長期借入金

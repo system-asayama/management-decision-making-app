@@ -758,40 +758,68 @@
                     </div>
                     <div class="card-body">
 
+                        <!-- IV 流動負債 -->
+                        <h6 class="fw-bold text-danger border-bottom pb-1 mb-2">IV 流動負債</h6>
+
                         <!-- 4. 買掛債務 -->
-                        <h6 class="fw-bold text-danger border-bottom pb-1 mb-2">4. 買掛債務</h6>
-                        <div class="row g-2 mb-3">
-                            <div class="col-12">
-                                <label class="form-label fw-bold">買掛債務 合計</label>
-                                <input type="text" name="trade_payables" id="trade_payables" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.trade_payables if rbs else '' }}" placeholder="0">
-                                <div class="form-text">買掛金・工事未払金・支払手形・裏書手形・未払金</div>
+                        <div class="ms-2 mb-2">
+                            <div class="fw-bold text-muted small mb-1">4 買掛債務</div>
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <input type="text" name="trade_payables" id="trade_payables" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.trade_payables if rbs else '' }}" placeholder="0">
+                                    <div class="form-text">買掛金・工事未払金・支払手形・裏書手形・未払金</div>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- 5. 短期借入金 -->
-                        <h6 class="fw-bold text-danger border-bottom pb-1 mb-2">5. 短期借入金</h6>
-                        <div class="row g-2 mb-3">
-                            <div class="col-12">
-                                <label class="form-label text-muted small">短期借入金</label>
-                                <input type="text" name="short_term_borrowings" id="short_term_borrowings" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.short_term_borrowings if rbs else '' }}" placeholder="0">
+                        <!-- 5. 短期借入金・手形債務 -->
+                        <div class="ms-2 mb-2">
+                            <div class="fw-bold text-muted small mb-1">5 短期借入金・手形債務</div>
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(2) 短期借入金</label>
+                                    <input type="text" name="short_term_borrowings" id="short_term_borrowings" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.short_term_borrowings if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">長期借入金（1年以内返済）</label>
+                                    <input type="text" name="current_portion_long_term" id="current_portion_long_term" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.current_portion_long_term if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(3) 割引手形</label>
+                                    <input type="text" name="discounted_notes" id="discounted_notes" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.discounted_notes if rbs else '' }}" placeholder="0">
+                                </div>
                             </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small">1年以内返済の長期借入金</label>
-                                <input type="text" name="current_portion_long_term" id="current_portion_long_term" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.current_portion_long_term if rbs else '' }}" placeholder="0">
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small">割引手形</label>
-                                <input type="text" name="discounted_notes" id="discounted_notes" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.discounted_notes if rbs else '' }}" placeholder="0">
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small">その他流動負債</label>
-                                <input type="text" name="other_current_liabilities" id="other_current_liabilities" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.other_current_liabilities if rbs else '' }}" placeholder="0">
-                                <div class="form-text">未払法人税等・賞与引当金・貸倒引当金等</div>
+                        </div>
+
+                        <!-- 6. その他流動負債・引当金 -->
+                        <div class="ms-2 mb-3">
+                            <div class="fw-bold text-muted small mb-1">6 その他流動負債・引当金</div>
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(4) 未払法人税等</label>
+                                    <input type="text" name="income_taxes_payable" id="income_taxes_payable" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.income_taxes_payable if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(5) 賞与引当金</label>
+                                    <input type="text" name="bonus_reserve" id="bonus_reserve" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.bonus_reserve if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(6) その他引当金</label>
+                                    <input type="text" name="other_allowances" id="other_allowances" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.other_allowances if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(7) その他</label>
+                                    <input type="text" name="other_current_liabilities" id="other_current_liabilities" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.other_current_liabilities if rbs else '' }}" placeholder="0">
+                                    <div class="form-text">未払費用・未払金等</div>
+                                </div>
                             </div>
                         </div>
 
@@ -804,33 +832,41 @@
                             </div>
                         </div>
 
-                        <!-- 6. 長期借入金 -->
-                        <h6 class="fw-bold text-danger border-bottom pb-1 mb-2">6. 長期借入金</h6>
-                        <div class="row g-2 mb-3">
-                            <div class="col-12">
-                                <label class="form-label text-muted small">長期借入金</label>
-                                <input type="text" name="long_term_borrowings" id="long_term_borrowings" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.long_term_borrowings if rbs else '' }}" placeholder="0">
-                                <div class="form-text">役員借入金は別表示</div>
+                        <!-- V 固定負債 -->
+                        <h6 class="fw-bold text-danger border-bottom pb-1 mb-2">V 固定負債</h6>
+
+                        <!-- 長期借入金 -->
+                        <div class="ms-2 mb-3">
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(1) 長期借入金</label>
+                                    <input type="text" name="long_term_borrowings" id="long_term_borrowings" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.long_term_borrowings if rbs else '' }}" placeholder="0">
+                                    <div class="form-text">役員借入金は別表示</div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(2) 役員等借入金</label>
+                                    <input type="text" name="executive_borrowings" id="executive_borrowings" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.executive_borrowings if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(3) 退職給付引当金</label>
+                                    <input type="text" name="retirement_benefit_liability" id="retirement_benefit_liability" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.retirement_benefit_liability if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(4) その他固定負債</label>
+                                    <input type="text" name="other_fixed_liabilities" id="other_fixed_liabilities" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.other_fixed_liabilities if rbs else '' }}" placeholder="0">
+                                </div>
                             </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small">役員等借入金</label>
-                                <input type="text" name="executive_borrowings" id="executive_borrowings" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.executive_borrowings if rbs else '' }}" placeholder="0">
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small">退職給付引当金</label>
-                                <input type="text" name="retirement_benefit_liability" id="retirement_benefit_liability" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.retirement_benefit_liability if rbs else '' }}" placeholder="0">
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small">その他固定負債</label>
-                                <input type="text" name="other_fixed_liabilities" id="other_fixed_liabilities" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.other_fixed_liabilities if rbs else '' }}" placeholder="0">
-                            </div>
-                            <div class="col-12 mt-1">
-                                <label class="form-label fw-bold">固定負債 合計</label>
-                                <input type="text" name="fixed_liabilities" id="fixed_liabilities" class="form-control js-comma-int text-end fw-bold bg-light"
+                        </div>
+
+                        <!-- 固定負債合計 -->
+                        <div class="row g-2 mb-3 p-2 bg-danger bg-opacity-10 rounded">
+                            <div class="col-6"><span class="fw-bold text-danger">固定負債 合計</span></div>
+                            <div class="col-6">
+                                <input type="text" name="fixed_liabilities" id="fixed_liabilities" class="form-control js-comma-int text-end fw-bold text-danger bg-white"
                                     value="{{ rbs.fixed_liabilities if rbs else '' }}" placeholder="0" readonly>
                             </div>
                         </div>
@@ -953,74 +989,74 @@
                                 <tr>
                                     <td class="table-primary fw-bold">I 流動資産</td>
                                     <td class="text-end table-primary fw-bold" id="sum_current_assets">-</td>
-                                    <td class="table-danger fw-bold">流動負債</td>
+                                    <td class="table-danger fw-bold">IV 流動負債</td>
                                     <td class="text-end table-danger fw-bold" id="sum_current_liabilities">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-3">1 当座資産</td>
                                     <td class="text-end text-muted small fw-bold" id="sum_quick_assets">-</td>
-                                    <td class="text-muted small ps-3">(1) 買掛債務</td>
+                                    <td class="text-muted small ps-3">4 買掛債務</td>
                                     <td class="text-end text-muted small" id="sum_trade_payables">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-4">(1) 手許現預金</td>
                                     <td class="text-end text-muted small" id="sum_cash">-</td>
-                                    <td class="text-muted small ps-3">(2) 短期借入金</td>
-                                    <td class="text-end text-muted small" id="sum_st_borrow">-</td>
+                                    <td class="text-muted small ps-3">5 短期借入金・手形債務</td>
+                                    <td class="text-end text-muted small fw-bold" id="sum_short_term_group">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-4">(2) 運用預金</td>
                                     <td class="text-end text-muted small" id="sum_inv_dep">-</td>
-                                    <td class="text-muted small ps-3">長期借入金（1年以内）</td>
-                                    <td class="text-end text-muted small" id="sum_current_portion">-</td>
+                                    <td class="text-muted small ps-4">(2) 短期借入金</td>
+                                    <td class="text-end text-muted small" id="sum_st_borrow">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-4">(3) 有価証券</td>
                                     <td class="text-end text-muted small" id="sum_securities">-</td>
-                                    <td class="text-muted small ps-3">(3) 割引手形</td>
-                                    <td class="text-end text-muted small" id="sum_discounted_notes">-</td>
+                                    <td class="text-muted small ps-4">長期借入金（1年以内）</td>
+                                    <td class="text-end text-muted small" id="sum_current_portion">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-3">2 売掛債権</td>
                                     <td class="text-end text-muted small" id="sum_receivables">-</td>
-                                    <td class="text-muted small ps-3">(7) その他流動負債</td>
-                                    <td class="text-end text-muted small" id="sum_other_cl">-</td>
+                                    <td class="text-muted small ps-4">(3) 割引手形</td>
+                                    <td class="text-end text-muted small" id="sum_discounted_notes">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-3">3 棚卸資産</td>
                                     <td class="text-end text-muted small" id="sum_inventory">-</td>
-                                    <td class="table-danger fw-bold">固定負債</td>
-                                    <td class="text-end table-danger fw-bold" id="sum_fixed_liabilities">-</td>
+                                    <td class="text-muted small ps-3">6 その他流動負債・引当金</td>
+                                    <td class="text-end text-muted small fw-bold" id="sum_other_cl_group">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-3">4 その他</td>
                                     <td class="text-end text-muted small" id="sum_other_current">-</td>
-                                    <td class="text-muted small ps-3">(1) 長期借入金</td>
-                                    <td class="text-end text-muted small" id="sum_lt_borrow">-</td>
+                                    <td class="text-muted small ps-4">(4) 未払法人税等</td>
+                                    <td class="text-end text-muted small" id="sum_income_taxes">-</td>
                                 </tr>
                                 <tr>
                                     <td class="table-primary fw-bold">II 固定資産</td>
                                     <td class="text-end table-primary fw-bold" id="sum_fixed_assets">-</td>
-                                    <td class="text-muted small ps-3">(2) 役員等借入金</td>
-                                    <td class="text-end text-muted small" id="sum_exec_borrow">-</td>
+                                    <td class="text-muted small ps-4">(5) 賞与引当金</td>
+                                    <td class="text-end text-muted small" id="sum_bonus">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-3">有形固定資産</td>
                                     <td class="text-end text-muted small fw-bold" id="sum_tangible">-</td>
-                                    <td class="text-muted small ps-3">(3) 退職給付引当金</td>
-                                    <td class="text-end text-muted small" id="sum_retirement">-</td>
+                                    <td class="text-muted small ps-4">(6) その他引当金</td>
+                                    <td class="text-end text-muted small" id="sum_other_allowances">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-4">(1) 土地</td>
                                     <td class="text-end text-muted small" id="sum_land">-</td>
-                                    <td class="text-muted small ps-3">(4) その他固定負債</td>
-                                    <td class="text-end text-muted small" id="sum_other_fl">-</td>
+                                    <td class="text-muted small ps-4">(7) その他</td>
+                                    <td class="text-end text-muted small" id="sum_other_cl">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-4">(2) 建物・附属設備等</td>
                                     <td class="text-end text-muted small" id="sum_buildings">-</td>
-                                    <td></td>
-                                    <td></td>
+                                    <td class="table-danger fw-bold">V 固定負債</td>
+                                    <td class="text-end table-danger fw-bold" id="sum_fixed_liabilities">-</td>
                                 </tr>
                                 <tr>
                                     <td class="text-muted small ps-4">(3) 機械装置</td>
@@ -1409,8 +1445,14 @@ function recalculateBS() {
     const stBorrow = parseNum('short_term_borrowings');
     const curPortion = parseNum('current_portion_long_term');
     const discNotes = parseNum('discounted_notes');
+    const shortTermGroup = stBorrow + curPortion + discNotes;
+    setVal('short_term_group_total', shortTermGroup); // 内部参考用
+    const incomeTaxes = parseNum('income_taxes_payable');
+    const bonusReserve = parseNum('bonus_reserve');
+    const otherAllowances = parseNum('other_allowances');
     const otherCL = parseNum('other_current_liabilities');
-    const currentLiabilities = tradePayables + stBorrow + curPortion + discNotes + otherCL;
+    const otherCLGroup = incomeTaxes + bonusReserve + otherAllowances + otherCL;
+    const currentLiabilities = tradePayables + shortTermGroup + otherCLGroup;
     setVal('current_liabilities', currentLiabilities);
 
     const ltBorrow = parseNum('long_term_borrowings');
@@ -1463,9 +1505,14 @@ function recalculateBS() {
 
     updateSummary('sum_current_liabilities', currentLiabilities);
     updateSummary('sum_trade_payables', tradePayables);
+    updateSummary('sum_short_term_group', shortTermGroup);
     updateSummary('sum_st_borrow', stBorrow);
     updateSummary('sum_current_portion', curPortion);
     updateSummary('sum_discounted_notes', discNotes);
+    updateSummary('sum_other_cl_group', otherCLGroup);
+    updateSummary('sum_income_taxes', incomeTaxes);
+    updateSummary('sum_bonus', bonusReserve);
+    updateSummary('sum_other_allowances', otherAllowances);
     updateSummary('sum_other_cl', otherCL);
     updateSummary('sum_fixed_liabilities', fixedLiabilities);
     updateSummary('sum_lt_borrow', ltBorrow);
