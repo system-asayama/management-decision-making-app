@@ -3936,6 +3936,39 @@ def pl_restructuring():
         return jsonify({'error': str(_e), 'traceback': _tb}), 500
     finally:
         db.close()
+# ==================== PL自動読み取りAPI ======================
+@bp.route('/pl-auto-fill', methods=['GET'])
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def pl_auto_fill():
+    """勘定科目マスタのtarget_fieldとPlStatementValueの金額を集計してJSONで返す"""
+    tenant_id = session.get("tenant_id")
+    fiscal_year_id = request.args.get("fiscal_year_id", type=int)
+    if not fiscal_year_id:
+        return jsonify({"error": "fiscal_year_id is required"}), 400
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(PlAccountItem, PlStatementValue)
+            .join(PlStatementValue,
+                  (PlStatementValue.account_item_id == PlAccountItem.id) &
+                  (PlStatementValue.fiscal_year_id == fiscal_year_id))
+            .filter(
+                PlAccountItem.tenant_id == tenant_id,
+                PlAccountItem.target_field.isnot(None),
+                PlAccountItem.target_field != ""
+            )
+            .all()
+        )
+        result = {}
+        for ai, sv in rows:
+            field = ai.target_field
+            if field not in result:
+                result[field] = 0
+            result[field] += sv.amount
+        return jsonify(result)
+    finally:
+        db.close()
+
 # ==================== BS組換え ======================
 
 @bp.route('/bs-restructuring', methods=['GET', 'POST'])
