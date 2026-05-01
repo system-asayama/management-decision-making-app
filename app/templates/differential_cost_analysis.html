@@ -580,5 +580,19 @@ function displayContinueOrDiscontinueResults(data) {
 function formatNumber(num) {
     return Math.round(num).toLocaleString();
 }
+
+// ===== URLパラメータから企業を自動選択 =====
+document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    const companyId = params.get('company_id');
+    if (companyId) {
+        const sel = document.getElementById('companySelect');
+        if (sel) {
+            sel.value = companyId;
+            // changeイベントを発火して会計年度を自動読み込み
+            sel.dispatchEvent(new Event('change'));
+        }
+    }
+});
 </script>
 {% endblock %}
