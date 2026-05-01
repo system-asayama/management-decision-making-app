@@ -474,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const params = new URLSearchParams(window.location.search);
     const companyId = params.get('company_id');
     if (companyId) {
-        const sel = document.getElementById('companySelect');
+        const sel = document.getElementById('company_id');
         if (sel) {
             sel.value = companyId;
             // changeイベントを発火して会計年度を自動読み込み
