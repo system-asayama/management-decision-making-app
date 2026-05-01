@@ -4069,6 +4069,39 @@ def bs_restructuring():
         )
     finally:
         db.close()
+# ==================== BS自動読み取りAPI ====================
+@bp.route('/bs-auto-fill', methods=['GET'])
+@require_roles(ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+def bs_auto_fill():
+    """勘定科目マスタのtarget_fieldとBsStatementValueの金額を集計してJSONで返す"""
+    tenant_id = session.get('tenant_id')
+    fiscal_year_id = request.args.get('fiscal_year_id', type=int)
+    if not fiscal_year_id:
+        return jsonify({'error': 'fiscal_year_id is required'}), 400
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(BsAccountItem, BsStatementValue)
+            .join(BsStatementValue,
+                  (BsStatementValue.account_item_id == BsAccountItem.id) &
+                  (BsStatementValue.fiscal_year_id == fiscal_year_id))
+            .filter(
+                BsAccountItem.tenant_id == tenant_id,
+                BsAccountItem.target_field.isnot(None),
+                BsAccountItem.target_field != ''
+            )
+            .all()
+        )
+        result = {}
+        for ai, sv in rows:
+            field = ai.target_field
+            if field not in result:
+                result[field] = 0
+            result[field] += sv.amount
+        return jsonify(result)
+    finally:
+        db.close()
+
 
 
 ## ==================== PDF財務諸表読み取り ====================
