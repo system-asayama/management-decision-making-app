@@ -3901,9 +3901,17 @@ def restructuring():
                 rbs.cash_on_hand = pi('cash_on_hand')
                 rbs.investment_deposits = pi('investment_deposits')
                 rbs.marketable_securities = pi('marketable_securities')
+                rbs.quick_assets = pi('quick_assets')
                 rbs.trade_receivables = pi('trade_receivables')
                 rbs.inventory_assets = pi('inventory_assets')
+                rbs.other_current_assets = pi('other_current_assets')
                 rbs.current_assets = pi('current_assets')
+                rbs.land = pi('land')
+                rbs.buildings_and_attached = pi('buildings_and_attached')
+                rbs.machinery_and_equipment = pi('machinery_and_equipment')
+                rbs.vehicles = pi('vehicles')
+                rbs.tools_furniture = pi('tools_furniture')
+                rbs.other_tangible = pi('other_tangible')
                 rbs.tangible_fixed_assets = pi('tangible_fixed_assets')
                 rbs.intangible_fixed_assets = pi('intangible_fixed_assets')
                 rbs.investments_and_other = pi('investments_and_other')
@@ -4854,19 +4862,20 @@ _PL_FIELD_GROUPS = [
 ]
 
 _BS_FIELDS = {
-    'cash_on_hand': '① 手許現預金',
-    'investment_deposits': '② 運用預金',
-    'marketable_securities': '③ 有価証券',
-    'other_current_assets': '④ その他（流動資産）',
-    'trade_receivables': '売掛債権',
-    'inventory_assets': '棚卸資産',
+    'cash_on_hand': '(1) 手許現預金',
+    'investment_deposits': '(2) 運用預金',
+    'marketable_securities': '(3) 有価証券',
+    'quick_assets': '当座資産合計',
+    'other_current_assets': '4 その他（流動資産）',
+    'trade_receivables': '2 売掛債権',
+    'inventory_assets': '3 棚卸資産',
     'land': '(1) 土地',
-    'buildings_and_attached_facilities': '(2) 建物・附属設備等',
+    'buildings_and_attached': '(2) 建物・附属設備等',
     'machinery_and_equipment': '(3) 機械装置',
-    'vehicles_and_transport_equipment': '(4) 車輌運搬具',
-    'tools_furniture_and_fixtures': '(5) 工具・器具・備品',
-    'other_tangible_fixed_assets': '(6) その他（有形固定資産）',
-    'tangible_fixed_assets': '有形固定資産（合計）',
+    'vehicles': '(4) 車輌運搬具',
+    'tools_furniture': '(5) 工具・器具・備品',
+    'other_tangible': '(6) その他（有形固定資産）',
+    'tangible_fixed_assets': '有形固定資産合計',
     'intangible_fixed_assets': '無形固定資産',
     'investments_and_other': '投資その他の資産',
     'deferred_assets': '繰延資産',
@@ -4907,7 +4916,7 @@ _BS_FIELD_GROUPS = [
     {'label': '資産の部 / 2. 売掛債権', 'options': ['trade_receivables']},
     {'label': '資産の部 / 3. 棚卸資産', 'options': ['inventory_assets']},
     {'label': '資産の部 / 4. その他流動資産', 'options': ['other_current_assets']},
-    {'label': '資産の部 / 固定資産 / 1. 有形固定資産', 'options': ['land', 'buildings_and_attached_facilities', 'machinery_and_equipment', 'vehicles_and_transport_equipment', 'tools_furniture_and_fixtures', 'other_tangible_fixed_assets', 'tangible_fixed_assets']},
+    {'label': '資産の部 / 固定資産 / 1. 有形固定資産', 'options': ['land', 'buildings_and_attached', 'machinery_and_equipment', 'vehicles', 'tools_furniture', 'other_tangible', 'tangible_fixed_assets']},
     {'label': '資産の部 / 固定資産 / 2. 無形固定資産', 'options': ['intangible_fixed_assets']},
     {'label': '資産の部 / 固定資産 / 3. 投資その他の資産', 'options': ['investments_and_other']},
     {'label': '資産の部 / III. 繰延資産', 'options': ['deferred_assets']},
@@ -4920,7 +4929,7 @@ _BS_FIELD_GROUPS = [
     {'label': '純資産の部 / 3. 利益剰余金', 'options': ['legal_reserve_bs', 'voluntary_reserve_bs', 'retained_earnings_carried', 'retained_earnings']},
     {'label': '純資産の部 / IV. 評価・換算差額等', 'options': ['valuation_and_translation_adjustments']},
     {'label': '純資産の部 / V. 自己株式', 'options': ['treasury_stock']},
-    {'label': '参考：合計項目', 'options': ['current_assets', 'tangible_fixed_assets', 'fixed_assets', 'total_assets', 'current_liabilities', 'fixed_liabilities', 'total_liabilities', 'net_assets', 'total_liabilities_and_net_assets']},
+    {'label': '参考：合計項目', 'options': ['quick_assets', 'current_assets', 'tangible_fixed_assets', 'fixed_assets', 'total_assets', 'current_liabilities', 'fixed_liabilities', 'total_liabilities', 'net_assets', 'total_liabilities_and_net_assets']},
 ]
 
 _MCR_FIELDS = {

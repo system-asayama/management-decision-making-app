@@ -249,10 +249,21 @@ class RestructuredBS(Base):
     trade_receivables = Column(BigInteger, default=0, nullable=False)         # 売掛債権（売掛金＋受取手形）
     # 3. 棚卸資産
     inventory_assets = Column(BigInteger, default=0, nullable=False)          # 棚卸資産
+    # 4. その他流動資産
+    other_current_assets = Column(BigInteger, default=0, nullable=False)      # その他流動資産
+    # 当座資産合計（①+②+③）
+    quick_assets = Column(BigInteger, default=0, nullable=False)              # 当座資産合計
     # 流動資産合計
     current_assets = Column(BigInteger, default=0, nullable=False)
     # 固定資産
-    tangible_fixed_assets = Column(BigInteger, default=0, nullable=False)     # 有形固定資産
+    # 有形固定資産内訳
+    land = Column(BigInteger, default=0, nullable=False)                      # 土地
+    buildings_and_attached = Column(BigInteger, default=0, nullable=False)    # 建物・附属設備等
+    machinery_and_equipment = Column(BigInteger, default=0, nullable=False)   # 機械装置
+    vehicles = Column(BigInteger, default=0, nullable=False)                  # 車輌運搬具
+    tools_furniture = Column(BigInteger, default=0, nullable=False)           # 工具・器具・備品
+    other_tangible = Column(BigInteger, default=0, nullable=False)            # その他有形固定資産
+    tangible_fixed_assets = Column(BigInteger, default=0, nullable=False)     # 有形固定資産合計
     intangible_fixed_assets = Column(BigInteger, default=0, nullable=False)   # 無形固定資産
     investments_and_other = Column(BigInteger, default=0, nullable=False)     # 投資その他資産
     deferred_assets = Column(BigInteger, default=0, nullable=False)           # 繰延資産

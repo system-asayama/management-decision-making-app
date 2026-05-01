@@ -566,47 +566,76 @@
                     </div>
                     <div class="card-body">
 
+                        <!-- I 流動資産 -->
+                        <h6 class="fw-bold text-primary border-bottom pb-1 mb-2">I 流動資産</h6>
+
                         <!-- 1. 当座資産 -->
-                        <h6 class="fw-bold text-primary border-bottom pb-1 mb-2">1. 当座資産</h6>
-                        <div class="row g-2 mb-3">
-                            <div class="col-12">
-                                <label class="form-label text-muted small">①手許現預金</label>
-                                <input type="text" name="cash_on_hand" id="cash_on_hand" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.cash_on_hand if rbs else '' }}" placeholder="0">
-                                <div class="form-text">現金・小口現金・受取小切手・利息のつかない預金</div>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small">②運用預金</label>
-                                <input type="text" name="investment_deposits" id="investment_deposits" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.investment_deposits if rbs else '' }}" placeholder="0">
-                                <div class="form-text">定期預貯金・定期積金・外貨預金等</div>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small">③有価証券</label>
-                                <input type="text" name="marketable_securities" id="marketable_securities" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.marketable_securities if rbs else '' }}" placeholder="0">
+                        <div class="ms-2 mb-2">
+                            <div class="fw-bold text-muted small mb-1">1 当座資産</div>
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(1) 手許現預金</label>
+                                    <input type="text" name="cash_on_hand" id="cash_on_hand" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.cash_on_hand if rbs else '' }}" placeholder="0">
+                                    <div class="form-text">現金・小口現金・受取小切手・利息のつかない預金</div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(2) 運用預金</label>
+                                    <input type="text" name="investment_deposits" id="investment_deposits" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.investment_deposits if rbs else '' }}" placeholder="0">
+                                    <div class="form-text">定期預豌金・定期積金・外貨預金等</div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(3) 有価証券</label>
+                                    <input type="text" name="marketable_securities" id="marketable_securities" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.marketable_securities if rbs else '' }}" placeholder="0">
+                                </div>
+                                <!-- 当座資産 合計 -->
+                                <div class="col-12 p-1 bg-light rounded">
+                                    <div class="row g-1 align-items-center">
+                                        <div class="col-6"><span class="text-muted small fw-bold">当座資産 合計</span></div>
+                                        <div class="col-6">
+                                            <input type="text" name="quick_assets" id="quick_assets" class="form-control form-control-sm js-comma-int text-end fw-bold bg-white"
+                                                value="{{ rbs.quick_assets if rbs else '' }}" placeholder="0" readonly>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <!-- 2. 売掛債権 -->
-                        <h6 class="fw-bold text-primary border-bottom pb-1 mb-2">2. 売掛債権</h6>
-                        <div class="row g-2 mb-3">
-                            <div class="col-12">
-                                <label class="form-label fw-bold">売掛債権 合計</label>
-                                <input type="text" name="trade_receivables" id="trade_receivables" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.trade_receivables if rbs else '' }}" placeholder="0">
-                                <div class="form-text">売掛金＋受取手形（割引手形・裏書手形を含む）＋未収金</div>
+                        <div class="ms-2 mb-2">
+                            <div class="fw-bold text-muted small mb-1">2 売掛債権</div>
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <input type="text" name="trade_receivables" id="trade_receivables" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.trade_receivables if rbs else '' }}" placeholder="0">
+                                    <div class="form-text">売掛金＋受取手形（割引手形・裏書手形を含む）＋未収金</div>
+                                </div>
                             </div>
                         </div>
 
                         <!-- 3. 棚卸資産 -->
-                        <h6 class="fw-bold text-primary border-bottom pb-1 mb-2">3. 棚卸資産</h6>
-                        <div class="row g-2 mb-3">
-                            <div class="col-12">
-                                <label class="form-label fw-bold">棚卸資産 合計</label>
-                                <input type="text" name="inventory_assets" id="inventory_assets" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.inventory_assets if rbs else '' }}" placeholder="0">
-                                <div class="form-text">製品・商品・仕掛品・材料・貯蔵品等</div>
+                        <div class="ms-2 mb-2">
+                            <div class="fw-bold text-muted small mb-1">3 棚卸資産</div>
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <input type="text" name="inventory_assets" id="inventory_assets" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.inventory_assets if rbs else '' }}" placeholder="0">
+                                    <div class="form-text">製品・商品・仕掛品・材料・貯蔵品等</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. その他 -->
+                        <div class="ms-2 mb-3">
+                            <div class="fw-bold text-muted small mb-1">4 その他</div>
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <input type="text" name="other_current_assets" id="other_current_assets" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.other_current_assets if rbs else '' }}" placeholder="0">
+                                    <div class="form-text">前払費用・未收収益・短期貸付金等</div>
+                                </div>
                             </div>
                         </div>
 
@@ -619,33 +648,95 @@
                             </div>
                         </div>
 
-                        <!-- 固定資産 -->
-                        <h6 class="fw-bold text-primary border-bottom pb-1 mb-2">固定資産</h6>
-                        <div class="row g-2 mb-3">
-                            <div class="col-12">
-                                <label class="form-label text-muted small">有形固定資産</label>
-                                <input type="text" name="tangible_fixed_assets" id="tangible_fixed_assets" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.tangible_fixed_assets if rbs else '' }}" placeholder="0">
+                        <!-- II 固定資産 -->
+                        <h6 class="fw-bold text-primary border-bottom pb-1 mb-2">II 固定資産</h6>
+
+                        <!-- 有形固定資産 -->
+                        <div class="ms-2 mb-2">
+                            <div class="fw-bold text-muted small mb-1">有形固定資産</div>
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(1) 土地</label>
+                                    <input type="text" name="land" id="land" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.land if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(2) 建物・附属設備等</label>
+                                    <input type="text" name="buildings_and_attached" id="buildings_and_attached" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.buildings_and_attached if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(3) 機械装置</label>
+                                    <input type="text" name="machinery_and_equipment" id="machinery_and_equipment" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.machinery_and_equipment if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(4) 車輌運搬具</label>
+                                    <input type="text" name="vehicles" id="vehicles" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.vehicles if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(5) 工具・器具・備品</label>
+                                    <input type="text" name="tools_furniture" id="tools_furniture" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.tools_furniture if rbs else '' }}" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">(6) その他</label>
+                                    <input type="text" name="other_tangible" id="other_tangible" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.other_tangible if rbs else '' }}" placeholder="0">
+                                </div>
+                                <!-- 有形固定資産 合計 -->
+                                <div class="col-12 p-1 bg-light rounded">
+                                    <div class="row g-1 align-items-center">
+                                        <div class="col-6"><span class="text-muted small fw-bold">有形固定資産 合計</span></div>
+                                        <div class="col-6">
+                                            <input type="text" name="tangible_fixed_assets" id="tangible_fixed_assets" class="form-control form-control-sm js-comma-int text-end fw-bold bg-white"
+                                                value="{{ rbs.tangible_fixed_assets if rbs else '' }}" placeholder="0" readonly>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small">無形固定資産</label>
-                                <input type="text" name="intangible_fixed_assets" id="intangible_fixed_assets" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.intangible_fixed_assets if rbs else '' }}" placeholder="0">
+                        </div>
+
+                        <!-- 無形固定資産 -->
+                        <div class="ms-2 mb-2">
+                            <div class="fw-bold text-muted small mb-1">無形固定資産</div>
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <input type="text" name="intangible_fixed_assets" id="intangible_fixed_assets" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.intangible_fixed_assets if rbs else '' }}" placeholder="0">
+                                </div>
                             </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small">投資その他の資産</label>
-                                <input type="text" name="investments_and_other" id="investments_and_other" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.investments_and_other if rbs else '' }}" placeholder="0">
+                        </div>
+
+                        <!-- 投資その他の資産 -->
+                        <div class="ms-2 mb-2">
+                            <div class="fw-bold text-muted small mb-1">投資その他の資産</div>
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <input type="text" name="investments_and_other" id="investments_and_other" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.investments_and_other if rbs else '' }}" placeholder="0">
+                                </div>
                             </div>
-                            <div class="col-12">
-                                <label class="form-label text-muted small">繰延資産</label>
-                                <input type="text" name="deferred_assets" id="deferred_assets" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.deferred_assets if rbs else '' }}" placeholder="0">
-                            </div>
-                            <div class="col-12 mt-1">
-                                <label class="form-label fw-bold">固定資産 合計</label>
-                                <input type="text" name="fixed_assets" id="fixed_assets" class="form-control js-comma-int text-end fw-bold bg-light"
+                        </div>
+
+                        <!-- 固定資産 合計 -->
+                        <div class="row g-2 mb-3 p-2 bg-primary bg-opacity-10 rounded">
+                            <div class="col-6"><span class="fw-bold text-primary">固定資産 合計</span></div>
+                            <div class="col-6">
+                                <input type="text" name="fixed_assets" id="fixed_assets" class="form-control js-comma-int text-end fw-bold text-primary bg-white"
                                     value="{{ rbs.fixed_assets if rbs else '' }}" placeholder="0" readonly>
+                            </div>
+                        </div>
+
+                        <!-- III 繰延資産 -->
+                        <h6 class="fw-bold text-primary border-bottom pb-1 mb-2">III 繰延資産</h6>
+                        <div class="ms-2 mb-3">
+                            <div class="row g-2 ms-1">
+                                <div class="col-12">
+                                    <input type="text" name="deferred_assets" id="deferred_assets" class="form-control js-comma-int text-end"
+                                        value="{{ rbs.deferred_assets if rbs else '' }}" placeholder="0">
+                                </div>
                             </div>
                         </div>
 
@@ -860,70 +951,118 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td class="table-primary fw-bold">流動資産</td>
+                                    <td class="table-primary fw-bold">I 流動資産</td>
                                     <td class="text-end table-primary fw-bold" id="sum_current_assets">-</td>
                                     <td class="table-danger fw-bold">流動負債</td>
                                     <td class="text-end table-danger fw-bold" id="sum_current_liabilities">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">①手許現預金</td>
-                                    <td class="text-end text-muted small" id="sum_cash">-</td>
+                                    <td class="text-muted small ps-3">1 当座資産</td>
+                                    <td class="text-end text-muted small fw-bold" id="sum_quick_assets">-</td>
                                     <td class="text-muted small ps-3">(1) 買掛債務</td>
                                     <td class="text-end text-muted small" id="sum_trade_payables">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">②運用預金</td>
-                                    <td class="text-end text-muted small" id="sum_inv_dep">-</td>
+                                    <td class="text-muted small ps-4">(1) 手許現預金</td>
+                                    <td class="text-end text-muted small" id="sum_cash">-</td>
                                     <td class="text-muted small ps-3">(2) 短期借入金</td>
                                     <td class="text-end text-muted small" id="sum_st_borrow">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">③有価証券</td>
-                                    <td class="text-end text-muted small" id="sum_securities">-</td>
-                                    <td class="text-muted small ps-3">長期借入金（1年以内支払い）</td>
+                                    <td class="text-muted small ps-4">(2) 運用預金</td>
+                                    <td class="text-end text-muted small" id="sum_inv_dep">-</td>
+                                    <td class="text-muted small ps-3">長期借入金（1年以内）</td>
                                     <td class="text-end text-muted small" id="sum_current_portion">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">2. 売掛債権</td>
-                                    <td class="text-end text-muted small" id="sum_receivables">-</td>
+                                    <td class="text-muted small ps-4">(3) 有価証券</td>
+                                    <td class="text-end text-muted small" id="sum_securities">-</td>
                                     <td class="text-muted small ps-3">(3) 割引手形</td>
                                     <td class="text-end text-muted small" id="sum_discounted_notes">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">3. 棚卸資産</td>
-                                    <td class="text-end text-muted small" id="sum_inventory">-</td>
+                                    <td class="text-muted small ps-3">2 売掛債権</td>
+                                    <td class="text-end text-muted small" id="sum_receivables">-</td>
                                     <td class="text-muted small ps-3">(7) その他流動負債</td>
                                     <td class="text-end text-muted small" id="sum_other_cl">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="table-primary fw-bold">固定資産</td>
-                                    <td class="text-end table-primary fw-bold" id="sum_fixed_assets">-</td>
+                                    <td class="text-muted small ps-3">3 棚卸資産</td>
+                                    <td class="text-end text-muted small" id="sum_inventory">-</td>
                                     <td class="table-danger fw-bold">固定負債</td>
                                     <td class="text-end table-danger fw-bold" id="sum_fixed_liabilities">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">有形固定資産</td>
-                                    <td class="text-end text-muted small" id="sum_tangible">-</td>
+                                    <td class="text-muted small ps-3">4 その他</td>
+                                    <td class="text-end text-muted small" id="sum_other_current">-</td>
                                     <td class="text-muted small ps-3">(1) 長期借入金</td>
                                     <td class="text-end text-muted small" id="sum_lt_borrow">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">無形固定資産</td>
-                                    <td class="text-end text-muted small" id="sum_intangible">-</td>
+                                    <td class="table-primary fw-bold">II 固定資産</td>
+                                    <td class="text-end table-primary fw-bold" id="sum_fixed_assets">-</td>
                                     <td class="text-muted small ps-3">(2) 役員等借入金</td>
                                     <td class="text-end text-muted small" id="sum_exec_borrow">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">投資その他の資産</td>
-                                    <td class="text-end text-muted small" id="sum_investments">-</td>
+                                    <td class="text-muted small ps-3">有形固定資産</td>
+                                    <td class="text-end text-muted small fw-bold" id="sum_tangible">-</td>
                                     <td class="text-muted small ps-3">(3) 退職給付引当金</td>
                                     <td class="text-end text-muted small" id="sum_retirement">-</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted small ps-3">繰延資産</td>
-                                    <td class="text-end text-muted small" id="sum_deferred">-</td>
+                                    <td class="text-muted small ps-4">(1) 土地</td>
+                                    <td class="text-end text-muted small" id="sum_land">-</td>
                                     <td class="text-muted small ps-3">(4) その他固定負債</td>
                                     <td class="text-end text-muted small" id="sum_other_fl">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small ps-4">(2) 建物・附属設備等</td>
+                                    <td class="text-end text-muted small" id="sum_buildings">-</td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small ps-4">(3) 機械装置</td>
+                                    <td class="text-end text-muted small" id="sum_machinery">-</td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small ps-4">(4) 車輌運搬具</td>
+                                    <td class="text-end text-muted small" id="sum_vehicles">-</td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small ps-4">(5) 工具・器具・備品</td>
+                                    <td class="text-end text-muted small" id="sum_tools">-</td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small ps-4">(6) その他</td>
+                                    <td class="text-end text-muted small" id="sum_other_tangible">-</td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small ps-3">無形固定資産</td>
+                                    <td class="text-end text-muted small" id="sum_intangible">-</td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small ps-3">投資その他の資産</td>
+                                    <td class="text-end text-muted small" id="sum_investments">-</td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small ps-3">III 繰延資産</td>
+                                    <td class="text-end text-muted small" id="sum_deferred">-</td>
+                                    <td></td>
+                                    <td></td>
                                 </tr>
                                 <tr>
                                     <td></td>
@@ -1234,19 +1373,35 @@ function recalculateBS() {
     const cashOnHand = parseNum('cash_on_hand');
     const invDep = parseNum('investment_deposits');
     const securities = parseNum('marketable_securities');
+    // 当座資産合計 = 手許現預金 + 運用預金 + 有価証券
+    const quickAssets = cashOnHand + invDep + securities;
+    setVal('quick_assets', quickAssets);
+
     const receivables = parseNum('trade_receivables');
     const inventory = parseNum('inventory_assets');
-    const currentAssets = cashOnHand + invDep + securities + receivables + inventory;
+    const otherCurrent = parseNum('other_current_assets');
+    // 流動資産合計 = 当座資産 + 売掛債権 + 棚卸資産 + その他
+    const currentAssets = quickAssets + receivables + inventory + otherCurrent;
     setVal('current_assets', currentAssets);
 
-    const tangible = parseNum('tangible_fixed_assets');
+    // 有形固定資産内訳
+    const land = parseNum('land');
+    const buildings = parseNum('buildings_and_attached');
+    const machinery = parseNum('machinery_and_equipment');
+    const vehicles = parseNum('vehicles');
+    const tools = parseNum('tools_furniture');
+    const otherTangible = parseNum('other_tangible');
+    // 有形固定資産合計
+    const tangible = land + buildings + machinery + vehicles + tools + otherTangible;
+    setVal('tangible_fixed_assets', tangible);
+
     const intangible = parseNum('intangible_fixed_assets');
     const investments = parseNum('investments_and_other');
     const deferred = parseNum('deferred_assets');
-    const fixedAssets = tangible + intangible + investments + deferred;
+    const fixedAssets = tangible + intangible + investments;
     setVal('fixed_assets', fixedAssets);
 
-    const totalAssets = currentAssets + fixedAssets;
+    const totalAssets = currentAssets + fixedAssets + deferred;
     setVal('total_assets', totalAssets);
 
     // 負債の部
@@ -1286,13 +1441,21 @@ function recalculateBS() {
 
     // サマリー更新
     updateSummary('sum_current_assets', currentAssets);
+    updateSummary('sum_quick_assets', quickAssets);
     updateSummary('sum_cash', cashOnHand);
     updateSummary('sum_inv_dep', invDep);
     updateSummary('sum_securities', securities);
     updateSummary('sum_receivables', receivables);
     updateSummary('sum_inventory', inventory);
+    updateSummary('sum_other_current', otherCurrent);
     updateSummary('sum_fixed_assets', fixedAssets);
     updateSummary('sum_tangible', tangible);
+    updateSummary('sum_land', land);
+    updateSummary('sum_buildings', buildings);
+    updateSummary('sum_machinery', machinery);
+    updateSummary('sum_vehicles', vehicles);
+    updateSummary('sum_tools', tools);
+    updateSummary('sum_other_tangible', otherTangible);
     updateSummary('sum_intangible', intangible);
     updateSummary('sum_investments', investments);
     updateSummary('sum_deferred', deferred);
