@@ -85,7 +85,8 @@
                             <div class="col-12">
                                 <label class="form-label text-muted small">（１）期首棚卸高</label>
                                 <input type="text" name="beginning_inventory" id="beginning_inventory" class="form-control form-control-sm js-comma-int text-end bg-light"
-                                    value="{{ rpl.beginning_inventory if rpl else '' }}" placeholder="0" readonly data-allow-autofill="true">
+                                    value="{{ rpl.beginning_inventory if rpl else '' }}" placeholder="0" readonly data-allow-autofill="true" aria-describedby="beginning_inventory_help">
+                                <div id="beginning_inventory_help" class="form-text">内訳3項目の合計が自動反映されます。</div>
                             </div>
                             <div class="col-4">
                                 <label class="form-label text-muted small">&nbsp;&nbsp;①材料棚卸高</label>
@@ -110,7 +111,8 @@
                             <div class="col-12">
                                 <label class="form-label text-muted small">（３）期末棚卸高</label>
                                 <input type="text" name="ending_inventory" id="ending_inventory" class="form-control form-control-sm js-comma-int text-end bg-light"
-                                    value="{{ rpl.ending_inventory if rpl else '' }}" placeholder="0" readonly data-allow-autofill="true">
+                                    value="{{ rpl.ending_inventory if rpl else '' }}" placeholder="0" readonly data-allow-autofill="true" aria-describedby="ending_inventory_help">
+                                <div id="ending_inventory_help" class="form-text">内訳3項目の合計が自動反映されます。</div>
                             </div>
                             <div class="col-4">
                                 <label class="form-label text-muted small">&nbsp;&nbsp;①材料棚卸高</label>
