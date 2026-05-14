@@ -112,6 +112,12 @@ def run_migrations():
             # 経営意思決定アプリ（SQLAlchemy）: balance_sheets に担保力用カラムを追加
             ("balance_sheets", "land_market_value", "INTEGER DEFAULT 0 NOT NULL"),
             ("balance_sheets", "securities_market_value", "INTEGER DEFAULT 0 NOT NULL"),
+            ("restructured_pl", "beginning_inventory_material", "BIGINT DEFAULT 0 NOT NULL"),
+            ("restructured_pl", "beginning_inventory_wip", "BIGINT DEFAULT 0 NOT NULL"),
+            ("restructured_pl", "beginning_inventory_goods", "BIGINT DEFAULT 0 NOT NULL"),
+            ("restructured_pl", "ending_inventory_material", "BIGINT DEFAULT 0 NOT NULL"),
+            ("restructured_pl", "ending_inventory_wip", "BIGINT DEFAULT 0 NOT NULL"),
+            ("restructured_pl", "ending_inventory_goods", "BIGINT DEFAULT 0 NOT NULL"),
         ]
         
         added_count = 0

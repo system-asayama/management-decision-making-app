@@ -166,7 +166,7 @@
                       <optgroup label="{{ group.label }}">
                         {% for key in group.options %}
                           {% if key in pl_fields %}
-                            <option value="{{ key }}" {% if item.target_field == key %}selected{% endif %}>{{ pl_fields[key] }}</option>
+                            <option value="{{ key }}" {% if item.target_field == key %}selected{% endif %} {% if key in ['beginning_inventory', 'ending_inventory'] %}disabled{% endif %}>{{ pl_fields[key] }}</option>
                           {% endif %}
                         {% endfor %}
                       </optgroup>

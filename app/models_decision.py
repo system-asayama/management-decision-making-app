@@ -178,8 +178,14 @@ class RestructuredPL(Base):
     cost_of_sales = Column(BigInteger, default=0, nullable=False)
     # 売上原価内訳
     beginning_inventory = Column(BigInteger, default=0, nullable=False)      # 期首棚卸高
+    beginning_inventory_material = Column(BigInteger, default=0, nullable=False)  # 期首材料棚卸高
+    beginning_inventory_wip = Column(BigInteger, default=0, nullable=False)       # 期首仕掛品棚卸高
+    beginning_inventory_goods = Column(BigInteger, default=0, nullable=False)     # 期首商品棚卸高
     manufacturing_cost = Column(BigInteger, default=0, nullable=False)        # 当期製造（工事）原価
     ending_inventory = Column(BigInteger, default=0, nullable=False)          # 期末棚卸高
+    ending_inventory_material = Column(BigInteger, default=0, nullable=False)     # 期末材料棚卸高
+    ending_inventory_wip = Column(BigInteger, default=0, nullable=False)          # 期末仕掛品棚卸高
+    ending_inventory_goods = Column(BigInteger, default=0, nullable=False)        # 期末商品棚卸高
     # 売上総利益
     gross_profit = Column(BigInteger, default=0, nullable=False)
     # 外部経費調整（労務費＋減価償却費＋修繕費）
