@@ -4042,7 +4042,9 @@ def pl_auto_fill():
             if field not in result:
                 result[field] = 0
             result[field] += sv.amount
-        return jsonify(result)
+        # PlStatementValueは円単位、組換えフォームは千円単位なので1000で割る
+        result_in_thousands = {k: round(v / 1000) for k, v in result.items()}
+        return jsonify(result_in_thousands)
     finally:
         db.close()
 
@@ -4088,13 +4090,12 @@ def bs_auto_fill():
             if field not in result:
                 result[field] = 0
             result[field] += sv.amount
-        return jsonify(result)
+        # BsStatementValueは円単位、組換えフォームは千円単位なので1000で割る
+        result_in_thousands = {k: round(v / 1000) for k, v in result.items()}
+        return jsonify(result_in_thousands)
     finally:
         db.close()
-
-
-
-## ==================== PDF財務諸表読み取り ====================
+## ==================== PDF財務諸表読み取り取り ====================
 import os
 import tempfile
 from ..services.pdf_parser_service import parse_financial_pdf, reparse_with_instruction
