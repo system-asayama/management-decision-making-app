@@ -5243,7 +5243,10 @@ def account_master():
                         changed = True
 
                 if is_summary:
-                    if row.target_statement is not None or row.target_field is not None or row.mapping_status != 'ignored' or row.ai_confidence is not None:
+                    # confirmed（ユーザーが手動確認済み）の科目はtarget_fieldを保護する
+                    if row.mapping_status == 'confirmed':
+                        pass  # confirmed科目は上書きしない
+                    elif row.target_statement is not None or row.target_field is not None or row.mapping_status != 'ignored' or row.ai_confidence is not None:
                         row.target_statement = None
                         row.target_field = None
                         row.mapping_status = 'ignored'
@@ -5351,18 +5354,25 @@ def account_master():
 
         def _row_to_dict(ai, stmt_type):
             is_summary = _is_fixed_summary_account(ai.account_name)
-            if is_summary and (ai.target_statement is not None or ai.target_field is not None or ai.mapping_status != 'ignored' or ai.ai_confidence is not None):
-                ai.target_statement = None
-                ai.target_field = None
-                ai.mapping_status = 'ignored'
-                ai.ai_confidence = None
-                summary_sync['changed'] = True
+            # confirmed（ユーザーが手動確認済み）の科目はtarget_fieldを保護する
+            if is_summary and ai.mapping_status != 'confirmed':
+                if (ai.target_statement is not None or ai.target_field is not None or ai.mapping_status != 'ignored' or ai.ai_confidence is not None):
+                    ai.target_statement = None
+                    ai.target_field = None
+                    ai.mapping_status = 'ignored'
+                    ai.ai_confidence = None
+                    summary_sync['changed'] = True
 
             major_category = _clean_value(getattr(ai, 'major_category', None))
             mid_category = _clean_value(getattr(ai, 'mid_category', None))
             sub_category = _clean_value(getattr(ai, 'sub_category', None))
-            target_field = None if is_summary else _clean_value(ai.target_field)
-            target_statement = None if is_summary else _clean_value(ai.target_statement)
+            # confirmed科目は集計行でもtarget_fieldを表示する
+            if is_summary and ai.mapping_status == 'confirmed':
+                target_field = _clean_value(ai.target_field)
+                target_statement = _clean_value(ai.target_statement)
+            else:
+                target_field = None if is_summary else _clean_value(ai.target_field)
+                target_statement = None if is_summary else _clean_value(ai.target_statement)
 
             if stmt_type == 'pl':
                 major_category = '損益'
@@ -5371,6 +5381,9 @@ def account_master():
                     mid_category = None
                 sub_category = None
                 if target_field and target_field in _PL_FIELDS:
+                    target_statement = 'PL'
+                elif ai.mapping_status == 'confirmed' and target_field:
+                    # confirmed科目は_PL_FIELDSになくてもtarget_fieldを保護する
                     target_statement = 'PL'
                 else:
                     target_field = None
@@ -5385,6 +5398,9 @@ def account_master():
                 if sub_category not in valid_sub_categories:
                     sub_category = None
                 if target_field and target_field in _BS_FIELDS:
+                    target_statement = 'BS'
+                elif ai.mapping_status == 'confirmed' and target_field:
+                    # confirmed科目は_BS_FIELDSになくてもtarget_fieldを保護する
                     target_statement = 'BS'
                 else:
                     target_field = None
@@ -5405,8 +5421,13 @@ def account_master():
                 target_field = normalized_target_field
                 target_statement = normalized_target_statement
 
-            is_confirmed = bool(not is_summary and major_category and mid_category and target_field)
-            is_partial = bool(not is_summary and (major_category or mid_category or target_field))
+            # confirmed科目は集計行でもis_confirmed=Trueにする
+            if is_summary and ai.mapping_status == 'confirmed' and target_field:
+                is_confirmed = True
+                is_partial = True
+            else:
+                is_confirmed = bool(not is_summary and major_category and mid_category and target_field)
+                is_partial = bool(not is_summary and (major_category or mid_category or target_field))
 
             return {
                 'id': ai.id,
