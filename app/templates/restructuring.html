@@ -1387,6 +1387,10 @@ function recalculate() {
 
 // フォーム送信前にカンマを除去
 document.getElementById('plRestructuringForm').addEventListener('submit', function() {
+    // readonlyフィールドもPOSTに含めるため一時解除
+    document.querySelectorAll('#plRestructuringForm [readonly]').forEach(function(el) {
+        el.removeAttribute('readonly');
+    });
     document.querySelectorAll('.js-comma-int').forEach(function(el) {
         el.value = el.value.replace(/,/g, '');
     });
@@ -1546,6 +1550,10 @@ function recalculateBS() {
 
 
 document.getElementById('bsRestructuringForm').addEventListener('submit', function() {
+    // readonlyフィールドもPOSTに含めるため一時解除
+    document.querySelectorAll('#bsRestructuringForm [readonly]').forEach(function(el) {
+        el.removeAttribute('readonly');
+    });
     document.querySelectorAll('.js-comma-int').forEach(function(el) {
         el.value = el.value.replace(/,/g, '');
     });
@@ -1583,9 +1591,13 @@ function autoFillFromPdf() {
             let filled = 0;
             Object.keys(data).forEach(function(field) {
                 const el = document.getElementById(field);
-                if (el && !el.readOnly) {
+                if (el) {
+                    const wasReadOnly = el.readOnly;
+                    // readonlyでも自動読み取り時は一時解除して書き込む
+                    if (wasReadOnly) { el.removeAttribute('readonly'); }
                     const val = parseInt(data[field]) || 0;
                     el.value = val.toLocaleString('ja-JP');
+                    if (wasReadOnly) { el.setAttribute('readonly', true); }
                     filled++;
                 }
             });
