@@ -109,4 +109,5 @@ def test_inventory_breakdown_markup_exists_in_templates():
 
     assert 'id="beginning_inventory"' in pl_restructuring
     assert 'id="ending_inventory"' in pl_restructuring
-    assert "field === 'beginning_inventory' || field === 'ending_inventory'" in pl_restructuring
+    assert 'data-allow-autofill="true"' in pl_restructuring
+    assert "el.dataset.allowAutofill === 'true'" in pl_restructuring
