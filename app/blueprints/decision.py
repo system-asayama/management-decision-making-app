@@ -3952,8 +3952,14 @@ def restructuring():
                     db.add(rpl)
                 rpl.sales = pi('sales')
                 rpl.beginning_inventory = pi('beginning_inventory')
+                rpl.beginning_inventory_material = pi('beginning_inventory_material')
+                rpl.beginning_inventory_wip = pi('beginning_inventory_wip')
+                rpl.beginning_inventory_goods = pi('beginning_inventory_goods')
                 rpl.manufacturing_cost = pi('manufacturing_cost')
                 rpl.ending_inventory = pi('ending_inventory')
+                rpl.ending_inventory_material = pi('ending_inventory_material')
+                rpl.ending_inventory_wip = pi('ending_inventory_wip')
+                rpl.ending_inventory_goods = pi('ending_inventory_goods')
                 rpl.cost_of_sales = pi('cost_of_sales')
                 rpl.gross_profit = pi('gross_profit')
                 rpl.external_cost_adjustment = pi('external_cost_adjustment')
@@ -4044,6 +4050,20 @@ def pl_auto_fill():
             result[field] += sv.amount
         # PlStatementValueは円単位、組換えフォームは千円単位なので1000で割る
         result_in_thousands = {k: round(v / 1000) for k, v in result.items()}
+        _beg_children = (
+            result_in_thousands.get('beginning_inventory_material', 0)
+            + result_in_thousands.get('beginning_inventory_wip', 0)
+            + result_in_thousands.get('beginning_inventory_goods', 0)
+        )
+        if _beg_children:
+            result_in_thousands['beginning_inventory'] = _beg_children
+        _end_children = (
+            result_in_thousands.get('ending_inventory_material', 0)
+            + result_in_thousands.get('ending_inventory_wip', 0)
+            + result_in_thousands.get('ending_inventory_goods', 0)
+        )
+        if _end_children:
+            result_in_thousands['ending_inventory'] = _end_children
         return jsonify(result_in_thousands)
     finally:
         db.close()
@@ -4826,9 +4846,15 @@ def run_migration_raw_tables():
 _PL_FIELDS = {
     'sales': '1. 売上高',
     'cost_of_sales': '2. 売上原価（合計）',
-    'beginning_inventory': '（1）期首棚卸高',
+    'beginning_inventory': '（1）期首棚卸高（合計）',
+    'beginning_inventory_material': '　　①期首材料棚卸高',
+    'beginning_inventory_wip': '　　②期首仕掛品棚卸高',
+    'beginning_inventory_goods': '　　③期首商品棚卸高',
     'manufacturing_cost': '（2）当期製造（工事）原価',
-    'ending_inventory': '（3）期末棚卸高',
+    'ending_inventory': '（3）期末棚卸高（合計）',
+    'ending_inventory_material': '　　①期末材料棚卸高',
+    'ending_inventory_wip': '　　②期末仕掛品棚卸高',
+    'ending_inventory_goods': '　　③期末商品棚卸高',
     'gross_profit': '売上総利益',
     'external_cost_adjustment': '5. 外部経費調整',
     'gross_added_value': '6. 粗付加価値',
@@ -4857,7 +4883,7 @@ _PL_FIELDS = {
 
 _PL_FIELD_GROUPS = [
     {'label': '1. 売上高', 'options': ['sales']},
-    {'label': '2. 売上原価', 'options': ['beginning_inventory', 'manufacturing_cost', 'ending_inventory', 'cost_of_sales']},
+    {'label': '2. 売上原価', 'options': ['beginning_inventory', 'beginning_inventory_material', 'beginning_inventory_wip', 'beginning_inventory_goods', 'manufacturing_cost', 'ending_inventory', 'ending_inventory_material', 'ending_inventory_wip', 'ending_inventory_goods', 'cost_of_sales']},
     {'label': '売上総利益・付加価値', 'options': ['gross_profit', 'external_cost_adjustment', 'gross_added_value']},
     {'label': '3. 販売費及び一般管理費', 'options': ['labor_cost', 'executive_compensation', 'capital_regeneration_cost', 'research_development_expenses', 'general_expenses', 'general_expenses_fixed', 'general_expenses_variable', 'selling_general_admin_expenses']},
     {'label': '4. 営業外損益', 'options': ['operating_income', 'financial_profit_loss', 'other_non_operating', 'ordinary_income']},

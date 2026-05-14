@@ -163,13 +163,13 @@
                   <option value="">（選択）</option>
                   {% if pl_field_groups %}
                     {% for group in pl_field_groups %}
-                      <optgroup label="{{ group.label }}">
-                        {% for key in group.options %}
+                        <optgroup label="{{ group.label }}">
+                          {% for key in group.options %}
                           {% if key in pl_fields %}
-                            <option value="{{ key }}" {% if item.target_field == key %}selected{% endif %}>{{ pl_fields[key] }}</option>
+                            <option value="{{ key }}" {% if item.target_field == key %}selected{% endif %} {% if key in ['beginning_inventory', 'ending_inventory'] %}disabled{% endif %}>{{ pl_fields[key] }}</option>
                           {% endif %}
-                        {% endfor %}
-                      </optgroup>
+                          {% endfor %}
+                        </optgroup>
                     {% endfor %}
                   {% else %}
                     {% for k, v in pl_fields.items() %}
