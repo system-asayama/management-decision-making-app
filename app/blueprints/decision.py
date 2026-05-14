@@ -4056,20 +4056,20 @@ def pl_auto_fill():
             result[field] += sv.amount
         # PlStatementValueは円単位、組換えフォームは千円単位なので1000で割る
         result_in_thousands = {k: round(v / 1000) for k, v in result.items()}
-        _beg_children = (
+        beginning_inventory_total = (
             result_in_thousands.get('beginning_inventory_material', 0)
             + result_in_thousands.get('beginning_inventory_wip', 0)
             + result_in_thousands.get('beginning_inventory_goods', 0)
         )
-        if _beg_children:
-            result_in_thousands['beginning_inventory'] = _beg_children
-        _end_children = (
+        if beginning_inventory_total:
+            result_in_thousands['beginning_inventory'] = beginning_inventory_total
+        ending_inventory_total = (
             result_in_thousands.get('ending_inventory_material', 0)
             + result_in_thousands.get('ending_inventory_wip', 0)
             + result_in_thousands.get('ending_inventory_goods', 0)
         )
-        if _end_children:
-            result_in_thousands['ending_inventory'] = _end_children
+        if ending_inventory_total:
+            result_in_thousands['ending_inventory'] = ending_inventory_total
         return jsonify(result_in_thousands)
     finally:
         db.close()
