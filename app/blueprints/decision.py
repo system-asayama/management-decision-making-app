@@ -3950,16 +3950,22 @@ def restructuring():
                 if rpl is None:
                     rpl = RestructuredPL(fiscal_year_id=fiscal_year_id)
                     db.add(rpl)
+                beginning_inventory_material = pi('beginning_inventory_material')
+                beginning_inventory_wip = pi('beginning_inventory_wip')
+                beginning_inventory_goods = pi('beginning_inventory_goods')
+                ending_inventory_material = pi('ending_inventory_material')
+                ending_inventory_wip = pi('ending_inventory_wip')
+                ending_inventory_goods = pi('ending_inventory_goods')
                 rpl.sales = pi('sales')
-                rpl.beginning_inventory = pi('beginning_inventory')
-                rpl.beginning_inventory_material = pi('beginning_inventory_material')
-                rpl.beginning_inventory_wip = pi('beginning_inventory_wip')
-                rpl.beginning_inventory_goods = pi('beginning_inventory_goods')
+                rpl.beginning_inventory = beginning_inventory_material + beginning_inventory_wip + beginning_inventory_goods
+                rpl.beginning_inventory_material = beginning_inventory_material
+                rpl.beginning_inventory_wip = beginning_inventory_wip
+                rpl.beginning_inventory_goods = beginning_inventory_goods
                 rpl.manufacturing_cost = pi('manufacturing_cost')
-                rpl.ending_inventory = pi('ending_inventory')
-                rpl.ending_inventory_material = pi('ending_inventory_material')
-                rpl.ending_inventory_wip = pi('ending_inventory_wip')
-                rpl.ending_inventory_goods = pi('ending_inventory_goods')
+                rpl.ending_inventory = ending_inventory_material + ending_inventory_wip + ending_inventory_goods
+                rpl.ending_inventory_material = ending_inventory_material
+                rpl.ending_inventory_wip = ending_inventory_wip
+                rpl.ending_inventory_goods = ending_inventory_goods
                 rpl.cost_of_sales = pi('cost_of_sales')
                 rpl.gross_profit = pi('gross_profit')
                 rpl.external_cost_adjustment = pi('external_cost_adjustment')
