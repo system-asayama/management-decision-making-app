@@ -3909,6 +3909,13 @@ def restructuring():
                     pl_ai_map = {ai.account_name: ai.target_field for ai in pl_ai_q.all()}
                     for row in otb_pl_items:
                         row['target_field'] = pl_ai_map.get(row.get('name')) or ''
+                    # bs_account_itemsからaccount_name -> target_fieldのマッピングを取得して付加
+                    bs_ai_q = db.query(BsAccountItem)
+                    if tenant_id:
+                        bs_ai_q = bs_ai_q.filter(BsAccountItem.tenant_id == tenant_id)
+                    bs_ai_map = {ai.account_name: ai.target_field for ai in bs_ai_q.all()}
+                    for row in otb_bs_items:
+                        row['target_field'] = bs_ai_map.get(row.get('name')) or ''
                     # mcr_account_itemsからaccount_name -> target_fieldのマッピングを取得して付加
                     if otb.mcr_items:
                         try:
@@ -4046,6 +4053,7 @@ def restructuring():
             active_tab=active_tab,
             pl_field_labels=_PL_FIELDS,
             bs_field_labels=_BS_FIELDS,
+            mcr_field_labels=_MCR_TARGET_FIELDS,
         )
     except Exception as _e:
         db.rollback()

@@ -544,6 +544,52 @@
         </div>
         {% endif %}
 
+        <!-- 製造原価報告書オリジナルデータ参照パネル -->
+        {% if otb_mcr_items %}
+        <div class="row mt-3">
+          <div class="col-12">
+            <div class="card border-warning">
+              <div class="card-header bg-warning text-dark fw-bold">
+                <i class="fas fa-industry me-2"></i>製造原価報告書 オリジナルデータ参照（PDFから読み取った生科目）
+                <button class="btn btn-sm btn-outline-dark ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#otbMcrPanel">
+                  表示/非表示
+                </button>
+              </div>
+              <div class="collapse show" id="otbMcrPanel">
+                <div class="card-body p-0">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th class="ps-3">科目名</th>
+                          <th class="text-end pe-3">金額（円）</th>
+                          <th class="text-center pe-3">マッピング先</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for row in otb_mcr_items %}
+                        <tr {% if '合計' in row.name or row.name.endswith('計') or '原価' in row.name %}class="fw-bold table-light"{% endif %}>
+                          <td class="ps-3">{{ row.name }}</td>
+                          <td class="text-end pe-3">{{ row.amount | comma }}</td>
+                          <td class="text-center pe-3">
+                            {% if row.get('target_field') %}
+                              <span class="badge bg-warning text-dark">{{ (mcr_field_labels or {}).get(row.get('target_field'), row.get('target_field')) }}</span>
+                            {% else %}
+                              <span class="text-muted small">-</span>
+                            {% endif %}
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
         <!-- 保存ボタン -->
         <div class="row mt-3 mb-5">
             <div class="col-12 d-flex gap-2">
@@ -1200,6 +1246,7 @@
                         <tr>
                           <th class="ps-3">科目名</th>
                           <th class="text-end pe-3">金額（円）</th>
+                          <th class="text-center pe-3">マッピング先</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1207,6 +1254,13 @@
                         <tr {% if '合計' in row.name or row.name.endswith('計') %}class="fw-bold table-light"{% endif %}>
                           <td class="ps-3">{{ row.name }}</td>
                           <td class="text-end pe-3">{{ row.amount | comma }}</td>
+                          <td class="text-center pe-3">
+                            {% if row.get('target_field') %}
+                              <span class="badge bg-info text-white">{{ (bs_field_labels or {}).get(row.get('target_field'), row.get('target_field')) }}</span>
+                            {% else %}
+                              <span class="text-muted small">-</span>
+                            {% endif %}
+                          </td>
                         </tr>
                         {% endfor %}
                       </tbody>
