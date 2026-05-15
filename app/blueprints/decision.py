@@ -4044,6 +4044,8 @@ def restructuring():
             otb_bs_items=otb_bs_items,
             otb_mcr_items=otb_mcr_items,
             active_tab=active_tab,
+            pl_field_labels=_PL_FIELDS,
+            bs_field_labels=_BS_FIELDS,
         )
     except Exception as _e:
         db.rollback()

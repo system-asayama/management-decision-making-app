@@ -517,6 +517,7 @@
                         <tr>
                           <th class="ps-3">科目名</th>
                           <th class="text-end pe-3">金額（円）</th>
+                          <th class="text-center pe-3">マッピング先</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -524,6 +525,13 @@
                         <tr {% if '合計' in row.name or row.name.endswith('計') or '利益' in row.name %}class="fw-bold table-light"{% endif %}>
                           <td class="ps-3">{{ row.name }}</td>
                           <td class="text-end pe-3">{{ row.amount | comma }}</td>
+                          <td class="text-center pe-3">
+                            {% if row.get('target_field') %}
+                              <span class="badge bg-primary">{{ (pl_field_labels or {}).get(row.get('target_field'), row.get('target_field')) }}</span>
+                            {% else %}
+                              <span class="text-muted small">-</span>
+                            {% endif %}
+                          </td>
                         </tr>
                         {% endfor %}
                       </tbody>
