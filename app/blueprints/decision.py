@@ -4237,6 +4237,12 @@ def pdf_apply():
         if not fiscal_year_id:
             return jsonify({'error': '会計年度が指定されていません'}), 400
 
+        # システム管理者ログイン時はtenant_idがNoneになるため、company_idから取得する
+        if not tenant_id and company_id:
+            company_obj = db.query(Company).filter_by(id=company_id).first()
+            if company_obj:
+                tenant_id = company_obj.tenant_id
+
         def pi(name, default=0):
             val = request.form.get(name, '')
             try:
@@ -4386,6 +4392,9 @@ def pdf_apply():
             def upsert_statement_values(items_json, account_model, value_model, order_start=0):
                 """JSON文字列から科目名・金額を取り出し、科目マスタ登録＋実績値upsertを行う"""
                 if not items_json:
+                    return
+                # tenant_idがNoneの場合は登録できないのでスキップ
+                if not tenant_id:
                     return
                 try:
                     items = json_module.loads(items_json)
