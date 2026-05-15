@@ -4113,12 +4113,18 @@ def pl_auto_fill():
         if tenant_id:
             q = q.filter(PlAccountItem.tenant_id == tenant_id)
         rows = q.all()
+        # 営業外損益フィールド：費用科目（mid_category=営業外費用）はマイナスで集計する
+        NON_OPERATING_FIELDS = {'financial_profit_loss', 'other_non_operating'}
+        EXPENSE_MID_CATEGORIES = {'営業外費用'}
         result = {}
         for ai, sv in rows:
             field = ai.target_field
             if field not in result:
                 result[field] = 0
-            result[field] += sv.amount
+            if field in NON_OPERATING_FIELDS and ai.mid_category in EXPENSE_MID_CATEGORIES:
+                result[field] -= sv.amount
+            else:
+                result[field] += sv.amount
 
         # MCRデータも集計（external_cost_adjustment・beginning_inventory・ending_inventoryなどMCR科目が持つ場合）
         mcr_q = (
