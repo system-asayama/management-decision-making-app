@@ -865,11 +865,11 @@
                         <!-- IV 流動負債 -->
                         <h6 class="fw-bold text-danger border-bottom pb-1 mb-2">IV 流動負債</h6>
 
-                        <!-- 4. 買掛債務 -->
+                        <!-- (1) 買掛債務 -->
                         <div class="ms-2 mb-2">
-                            <div class="fw-bold text-muted small mb-1">4 買掛債務</div>
                             <div class="row g-2 ms-1">
                                 <div class="col-12">
+                                    <label class="form-label text-muted small">(1) 買掛債務</label>
                                     <input type="text" name="trade_payables" id="trade_payables" class="form-control js-comma-int text-end"
                                         value="{{ rbs.trade_payables if rbs else '' }}" placeholder="0">
                                     <div class="form-text">買掛金・工事未払金・支払手形・裏書手形・未払金</div>
@@ -1095,7 +1095,7 @@
                                 <tr>
                                     <td class="text-muted small ps-3">1 当座資産</td>
                                     <td class="text-end text-muted small fw-bold" id="sum_quick_assets">-</td>
-                                    <td class="text-muted small ps-3">4 買掛債務</td>
+                                    <td class="text-muted small ps-3">(1) 買掛債務</td>
                                     <td class="text-end text-muted small" id="sum_trade_payables">-</td>
                                 </tr>
                                 <tr>
