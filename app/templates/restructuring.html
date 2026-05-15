@@ -161,7 +161,7 @@
                 <div class="card mb-3 border-success">
                     <div class="card-body bg-success bg-opacity-10">
                         <div class="row g-2 align-items-center">
-                            <div class="col-6"><span class="fw-bold text-success fs-6">粗付加価値</span><br><small class="text-muted">（売上総利益＋外部経費調整）</small></div>
+                            <div class="col-6"><span class="fw-bold text-success fs-6">粗付加価値</span><br><small class="text-muted">（売上総利益－外部経費調整）</small></div>
                             <div class="col-6">
                                 <input type="text" name="gross_added_value" id="gross_added_value" class="form-control js-comma-int text-end fw-bold text-success bg-white"
                                     value="{{ rpl.gross_added_value if rpl else '' }}" placeholder="0" readonly>
@@ -1361,7 +1361,7 @@ function recalculate() {
     if (gpEl) gpEl.value = fmt(grossProfit);
     
     const extCost = parseNum('external_cost_adjustment');
-    const grossAddedValue = grossProfit + extCost;
+    const grossAddedValue = grossProfit - extCost;
     const gavEl = document.getElementById('gross_added_value');
     if (gavEl) gavEl.value = fmt(grossAddedValue);
     
