@@ -4061,6 +4061,7 @@ def restructuring():
             mcr_field_labels=_MCR_TARGET_FIELDS,
         )
     except Exception as _e:
+        import traceback as _traceback
         db.rollback()
         _tb = _traceback.format_exc()
         return jsonify({'error': str(_e), 'traceback': _tb}), 500

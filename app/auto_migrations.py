@@ -273,31 +273,31 @@ def run_auto_migrations():
                     session.rollback()
                     logger.warning(f"{table_name}.company_id 制約変更をスキップしました: {e}")
 
-        # 7. restructured_plsテーブルにbeginning_inventory_product・ending_inventory_productカラムを追加
+        # 7. restructured_plテーブルにbeginning_inventory_product・ending_inventory_productカラムを追加
         for col_name, comment in [
             ('beginning_inventory_product', '期首製品棚卸高'),
             ('ending_inventory_product', '期末製品棚卸高'),
         ]:
-            if table_exists(session, 'restructured_pls') and not column_exists(session, 'restructured_pls', col_name):
+            if table_exists(session, 'restructured_pl') and not column_exists(session, 'restructured_pl', col_name):
                 try:
                     if db_type == 'postgresql':
                         session.execute(text(f"""
-                            ALTER TABLE restructured_pls
+                            ALTER TABLE restructured_pl
                             ADD COLUMN {col_name} BIGINT NOT NULL DEFAULT 0
                         """))
                     else:
                         session.execute(text(f"""
-                            ALTER TABLE `restructured_pls`
+                            ALTER TABLE `restructured_pl`
                             ADD COLUMN `{col_name}` BIGINT NOT NULL DEFAULT 0
                             COMMENT '{comment}'
                         """))
                     session.commit()
-                    logger.info(f"✓ restructured_pls.{col_name} カラムを追加しました")
+                    logger.info(f"✓ restructured_pl.{col_name} カラムを追加しました")
                 except Exception as e:
                     session.rollback()
-                    logger.warning(f"restructured_pls.{col_name} カラム追加をスキップしました: {e}")
+                    logger.warning(f"restructured_pl.{col_name} カラム追加をスキップしました: {e}")
             else:
-                logger.info(f"- restructured_pls.{col_name} カラムは既に存在します")
+                logger.info(f"- restructured_pl.{col_name} カラムは既に存在します")
 
         logger.info("✓ 自動マイグレーションが正常に完了しました")
         
