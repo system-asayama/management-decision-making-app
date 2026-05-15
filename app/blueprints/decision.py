@@ -3861,8 +3861,12 @@ def restructuring():
         company_id = request.args.get('company_id', type=int) or request.form.get('company_id', type=int)
         fiscal_year_id = request.args.get('fiscal_year_id', type=int) or request.form.get('fiscal_year_id', type=int)
         active_tab = request.args.get('tab', 'pl')  # 'pl' or 'bs'
-        post_type = request.args.get('type', 'pl')  # POSTの場合はtypeパラメータでPL/BSを判別
-
+        post_type = request.args.get('type', 'pl')  # POSTの場合はttypeパラメータでPL/BSを判別
+        # システム管理者ログイン時はtenant_idがNoneになるため、company_idから取得する
+        if not tenant_id and company_id:
+            company_obj = db.query(Company).filter_by(id=company_id).first()
+            if company_obj:
+                tenant_id = company_obj.tenant_id
         selected_company = None
         fiscal_years = []
         selected_fy = None
@@ -3871,7 +3875,6 @@ def restructuring():
         otb_pl_items = []
         otb_bs_items = []
         otb_mcr_items = []
-
         if company_id:
             selected_company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
             if selected_company:
@@ -3911,7 +3914,7 @@ def restructuring():
                         try:
                             otb_mcr_items_raw = json_module.loads(otb.mcr_items)
                             if isinstance(otb_mcr_items_raw, list):
-                                from app.models import McrAccountItem
+                                # McrAccountItemはmodels_decisionからインポート済み
                                 mcr_ai_q = db.query(McrAccountItem)
                                 if tenant_id:
                                     mcr_ai_q = mcr_ai_q.filter(McrAccountItem.tenant_id == tenant_id)
@@ -4073,6 +4076,13 @@ def pl_auto_fill():
         return jsonify({"error": "fiscal_year_id is required"}), 400
     db = SessionLocal()
     try:
+        # システム管理者ログイン時はtenant_idがNoneになるため、fiscal_year_idからcompany経由で取得する
+        if not tenant_id:
+            fy_obj = db.query(FiscalYear).filter_by(id=fiscal_year_id).first()
+            if fy_obj:
+                company_obj = db.query(Company).filter_by(id=fy_obj.company_id).first()
+                if company_obj:
+                    tenant_id = company_obj.tenant_id
         # PLデータを集計
         q = (
             db.query(PlAccountItem, PlStatementValue)
@@ -5150,6 +5160,7 @@ _ALL_FIELDS = {
 }
 
 _FIXED_SUMMARY_ACCOUNT_NAMES = {
+    '売上高計',
     '売上原価', '当期商品仕入', '商品売上原価', '当期製品製造原価', '製品売上原価',
     '売上総利益', '販売管理費計', '営業利益', '営業外収益', '営業外費用', '経常利益',
     '特別利益', '特別損失', '税引前当期純利益', '法人税等', '当期純利益',
