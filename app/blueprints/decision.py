@@ -3998,20 +3998,24 @@ def restructuring():
                     db.add(rpl)
                 beginning_inventory_material = pi('beginning_inventory_material')
                 beginning_inventory_wip = pi('beginning_inventory_wip')
+                beginning_inventory_product = pi('beginning_inventory_product')
                 beginning_inventory_goods = pi('beginning_inventory_goods')
                 ending_inventory_material = pi('ending_inventory_material')
                 ending_inventory_wip = pi('ending_inventory_wip')
+                ending_inventory_product = pi('ending_inventory_product')
                 ending_inventory_goods = pi('ending_inventory_goods')
                 rpl.sales = pi('sales')
-                rpl.beginning_inventory = beginning_inventory_material + beginning_inventory_wip + beginning_inventory_goods
+                rpl.beginning_inventory = beginning_inventory_material + beginning_inventory_wip + beginning_inventory_product + beginning_inventory_goods
                 rpl.beginning_inventory_material = beginning_inventory_material
                 rpl.beginning_inventory_wip = beginning_inventory_wip
+                rpl.beginning_inventory_product = beginning_inventory_product
                 rpl.beginning_inventory_goods = beginning_inventory_goods
                 rpl.manufacturing_cost = pi('manufacturing_cost')
                 rpl.current_purchases = pi('current_purchases')
-                rpl.ending_inventory = ending_inventory_material + ending_inventory_wip + ending_inventory_goods
+                rpl.ending_inventory = ending_inventory_material + ending_inventory_wip + ending_inventory_product + ending_inventory_goods
                 rpl.ending_inventory_material = ending_inventory_material
                 rpl.ending_inventory_wip = ending_inventory_wip
+                rpl.ending_inventory_product = ending_inventory_product
                 rpl.ending_inventory_goods = ending_inventory_goods
                 rpl.cost_of_sales = pi('cost_of_sales')
                 rpl.gross_profit = pi('gross_profit')
@@ -4136,11 +4140,29 @@ def pl_auto_fill():
                 mcr_result[field] = 0
             mcr_result[field] += sv.amount
         # MCRの値でPLに存在しないフィールドを補完する。同じフィールドがあればMCRを優先する
-        MCR_PRIORITY_FIELDS = {'external_cost_adjustment', 'beginning_inventory', 'ending_inventory', 'manufacturing_cost'}
+        MCR_PRIORITY_FIELDS = {
+            'external_cost_adjustment', 'beginning_inventory', 'ending_inventory', 'manufacturing_cost',
+            'beginning_inventory_material', 'beginning_inventory_wip', 'beginning_inventory_product', 'beginning_inventory_goods',
+            'ending_inventory_material', 'ending_inventory_wip', 'ending_inventory_product', 'ending_inventory_goods',
+        }
         for field, amount in mcr_result.items():
             if field not in result or field in MCR_PRIORITY_FIELDS:
                 result[field] = amount
 
+        # 期首棚卸高（合計）= 内訳の合計で上書き
+        begin_total = sum(result.get(f, 0) for f in [
+            'beginning_inventory_material', 'beginning_inventory_wip',
+            'beginning_inventory_product', 'beginning_inventory_goods'
+        ])
+        if begin_total != 0:
+            result['beginning_inventory'] = begin_total
+        # 期末棚卸高（合計）= 内訳の合計で上書き
+        end_total = sum(result.get(f, 0) for f in [
+            'ending_inventory_material', 'ending_inventory_wip',
+            'ending_inventory_product', 'ending_inventory_goods'
+        ])
+        if end_total != 0:
+            result['ending_inventory'] = end_total
         # PlStatementValueは円単位、組換えフォームは千円単位なので1000で割る
         result_in_thousands = {k: round(v / 1000) for k, v in result.items()}
         return jsonify(result_in_thousands)

@@ -180,12 +180,14 @@ class RestructuredPL(Base):
     beginning_inventory = Column(BigInteger, default=0, nullable=False)      # 期首棚卸高
     beginning_inventory_material = Column(BigInteger, default=0, nullable=False)  # 期首材料棚卸高
     beginning_inventory_wip = Column(BigInteger, default=0, nullable=False)       # 期首仕掛品棚卸高
+    beginning_inventory_product = Column(BigInteger, default=0, nullable=False)   # 期首製品棚卸高
     beginning_inventory_goods = Column(BigInteger, default=0, nullable=False)     # 期首商品棚卸高
     manufacturing_cost = Column(BigInteger, default=0, nullable=False)        # 当期製造（工事）原価
     current_purchases = Column(BigInteger, default=0, nullable=False)          # 当期仕入高
     ending_inventory = Column(BigInteger, default=0, nullable=False)          # 期末棚卸高
     ending_inventory_material = Column(BigInteger, default=0, nullable=False)     # 期末材料棚卸高
     ending_inventory_wip = Column(BigInteger, default=0, nullable=False)          # 期末仕掛品棚卸高
+    ending_inventory_product = Column(BigInteger, default=0, nullable=False)      # 期末製品棚卸高
     ending_inventory_goods = Column(BigInteger, default=0, nullable=False)        # 期末商品棚卸高
     # 売上総利益
     gross_profit = Column(BigInteger, default=0, nullable=False)

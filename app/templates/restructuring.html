@@ -103,9 +103,29 @@
                     <div class="card-body">
                         <div class="row g-2">
                             <div class="col-12">
-                                <label class="form-label text-muted small">（１）期首棚卸高</label>
-                                <input type="text" name="beginning_inventory" id="beginning_inventory" class="form-control js-comma-int text-end"
-                                    value="{{ rpl.beginning_inventory if rpl else '' }}" placeholder="0">
+                                <label class="form-label text-muted small">（１）期首棚卸高（合計）</label>
+                                <input type="text" name="beginning_inventory" id="beginning_inventory" class="form-control js-comma-int text-end bg-light"
+                                    value="{{ rpl.beginning_inventory if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                            <div class="col-12 ms-3">
+                                <label class="form-label text-muted small">①期首材料棚卸高</label>
+                                <input type="text" name="beginning_inventory_material" id="beginning_inventory_material" class="form-control form-control-sm js-comma-int text-end"
+                                    value="{{ rpl.beginning_inventory_material if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12 ms-3">
+                                <label class="form-label text-muted small">②期首仕掛品棚卸高</label>
+                                <input type="text" name="beginning_inventory_wip" id="beginning_inventory_wip" class="form-control form-control-sm js-comma-int text-end"
+                                    value="{{ rpl.beginning_inventory_wip if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12 ms-3">
+                                <label class="form-label text-muted small">③期首製品棚卸高</label>
+                                <input type="text" name="beginning_inventory_product" id="beginning_inventory_product" class="form-control form-control-sm js-comma-int text-end"
+                                    value="{{ rpl.beginning_inventory_product if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12 ms-3">
+                                <label class="form-label text-muted small">④期首商品棚卸高</label>
+                                <input type="text" name="beginning_inventory_goods" id="beginning_inventory_goods" class="form-control form-control-sm js-comma-int text-end"
+                                    value="{{ rpl.beginning_inventory_goods if rpl else '' }}" placeholder="0">
                             </div>
                             <div class="col-12">
                                 <label class="form-label text-muted small">（2）当期製造（工事）原価</label>
@@ -118,9 +138,29 @@
                                     value="{{ rpl.current_purchases if rpl else '' }}" placeholder="0">
                             </div>
                             <div class="col-12">
-                                <label class="form-label text-muted small">（4）期末棚卸高</label>
-                                <input type="text" name="ending_inventory" id="ending_inventory" class="form-control js-comma-int text-end"
-                                    value="{{ rpl.ending_inventory if rpl else '' }}" placeholder="0">
+                                <label class="form-label text-muted small">（4）期末棚卸高（合計）</label>
+                                <input type="text" name="ending_inventory" id="ending_inventory" class="form-control js-comma-int text-end bg-light"
+                                    value="{{ rpl.ending_inventory if rpl else '' }}" placeholder="0" readonly>
+                            </div>
+                            <div class="col-12 ms-3">
+                                <label class="form-label text-muted small">①期末材料棚卸高</label>
+                                <input type="text" name="ending_inventory_material" id="ending_inventory_material" class="form-control form-control-sm js-comma-int text-end"
+                                    value="{{ rpl.ending_inventory_material if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12 ms-3">
+                                <label class="form-label text-muted small">②期末仕掛品棚卸高</label>
+                                <input type="text" name="ending_inventory_wip" id="ending_inventory_wip" class="form-control form-control-sm js-comma-int text-end"
+                                    value="{{ rpl.ending_inventory_wip if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12 ms-3">
+                                <label class="form-label text-muted small">③期末製品棚卸高</label>
+                                <input type="text" name="ending_inventory_product" id="ending_inventory_product" class="form-control form-control-sm js-comma-int text-end"
+                                    value="{{ rpl.ending_inventory_product if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12 ms-3">
+                                <label class="form-label text-muted small">④期末商品棚卸高</label>
+                                <input type="text" name="ending_inventory_goods" id="ending_inventory_goods" class="form-control form-control-sm js-comma-int text-end"
+                                    value="{{ rpl.ending_inventory_goods if rpl else '' }}" placeholder="0">
                             </div>
                             <div class="col-12 mt-1">
                                 <label class="form-label fw-bold">売上原価 合計</label>
@@ -1356,10 +1396,26 @@ function initCommaInputs() {
 // 自動計算
 function recalculate() {
     const sales = parseNum('sales');
-    const beginInv = parseNum('beginning_inventory');
+    // 期首棚卸高（合計）= 内訳の合計
+    const beginMat = parseNum('beginning_inventory_material');
+    const beginWip = parseNum('beginning_inventory_wip');
+    const beginProd = parseNum('beginning_inventory_product');
+    const beginGoods = parseNum('beginning_inventory_goods');
+    const beginInvCalc = beginMat + beginWip + beginProd + beginGoods;
+    const beginInvEl = document.getElementById('beginning_inventory');
+    if (beginInvEl) { beginInvEl.removeAttribute('readonly'); beginInvEl.value = fmt(beginInvCalc); beginInvEl.setAttribute('readonly', true); }
+    const beginInv = beginInvCalc;
+    // 期末棚卸高（合計）= 内訳の合計
+    const endMat = parseNum('ending_inventory_material');
+    const endWip = parseNum('ending_inventory_wip');
+    const endProd = parseNum('ending_inventory_product');
+    const endGoods = parseNum('ending_inventory_goods');
+    const endInvCalc = endMat + endWip + endProd + endGoods;
+    const endInvEl = document.getElementById('ending_inventory');
+    if (endInvEl) { endInvEl.removeAttribute('readonly'); endInvEl.value = fmt(endInvCalc); endInvEl.setAttribute('readonly', true); }
+    const endInv = endInvCalc;
     const mfgCost = parseNum('manufacturing_cost');
     const curPurchases = parseNum('current_purchases');
-    const endInv = parseNum('ending_inventory');
     const costOfSales = beginInv + mfgCost + curPurchases - endInv;
     
     // 売上原価を自動計算
