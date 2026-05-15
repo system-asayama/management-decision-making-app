@@ -184,7 +184,10 @@ def company_fiscal_years(company_id):
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
-        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if tenant_id:
+            company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        else:
+            company = db.query(Company).filter_by(id=company_id).first()
         if not company:
             return redirect(url_for('decision.company_list'))
         fiscal_years = db.query(FiscalYear).filter_by(company_id=company_id).order_by(FiscalYear.start_date.desc()).all()
@@ -200,7 +203,10 @@ def company_financial_data(company_id):
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
-        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if tenant_id:
+            company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        else:
+            company = db.query(Company).filter_by(id=company_id).first()
         if not company:
             return redirect(url_for('decision.company_list'))
         return render_template('company_financial_data.html', company=company)
@@ -215,7 +221,10 @@ def company_financial_statements(company_id):
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
-        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if tenant_id:
+            company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        else:
+            company = db.query(Company).filter_by(id=company_id).first()
         if not company:
             return redirect(url_for('decision.company_list'))
 
@@ -359,7 +368,10 @@ def company_analysis(company_id):
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
     try:
-        company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        if tenant_id:
+            company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        else:
+            company = db.query(Company).filter_by(id=company_id).first()
         if not company:
             return redirect(url_for('decision.company_list'))
         return render_template('company_analysis.html', company=company)
