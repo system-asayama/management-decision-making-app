@@ -4036,6 +4036,7 @@ def pl_auto_fill():
         return jsonify({"error": "fiscal_year_id is required"}), 400
     db = SessionLocal()
     try:
+        # PLデータを集計
         q = (
             db.query(PlAccountItem, PlStatementValue)
             .join(PlStatementValue,
@@ -4055,6 +4056,34 @@ def pl_auto_fill():
             if field not in result:
                 result[field] = 0
             result[field] += sv.amount
+
+        # MCRデータも集計（external_cost_adjustment・beginning_inventory・ending_inventoryなどMCR科目が持つ場合）
+        mcr_q = (
+            db.query(McrAccountItem, McrStatementValue)
+            .join(McrStatementValue,
+                  (McrStatementValue.account_item_id == McrAccountItem.id) &
+                  (McrStatementValue.fiscal_year_id == fiscal_year_id))
+            .filter(
+                McrAccountItem.target_field.isnot(None),
+                McrAccountItem.target_field != ""
+            )
+        )
+        if tenant_id:
+            mcr_q = mcr_q.filter(McrAccountItem.tenant_id == tenant_id)
+        mcr_rows = mcr_q.all()
+        mcr_result = {}
+        for ai, sv in mcr_rows:
+            field = ai.target_field
+            if field not in mcr_result:
+                mcr_result[field] = 0
+            mcr_result[field] += sv.amount
+        # MCRの値でPLに存在しないフィールドを補完（一部はMCRが優先）
+        # external_cost_adjustment / beginning_inventory / ending_inventoryはMCRが正確なためMCRを優先する
+        MCR_PRIORITY_FIELDS = {'external_cost_adjustment', 'beginning_inventory', 'ending_inventory'}
+        for field, amount in mcr_result.items():
+            if field not in result or field in MCR_PRIORITY_FIELDS:
+                result[field] = amount
+
         # PlStatementValueは円単位、組換えフォームは千円単位なので1000で割る
         result_in_thousands = {k: round(v / 1000) for k, v in result.items()}
         beginning_inventory_total = (
