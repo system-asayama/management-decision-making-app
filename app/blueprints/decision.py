@@ -4089,29 +4089,14 @@ def pl_auto_fill():
             if field not in mcr_result:
                 mcr_result[field] = 0
             mcr_result[field] += sv.amount
-        # MCRの値でPLに存在しないフィールドを補完（一部はMCRが優先）
-        # external_cost_adjustment / beginning_inventory / ending_inventoryはMCRが正確なためMCRを優先する
-        MCR_PRIORITY_FIELDS = {'external_cost_adjustment', 'beginning_inventory', 'ending_inventory'}
+        # MCRの値でPLに存在しないフィールドを補完する。同じフィールドがあればMCRを優先する
+        MCR_PRIORITY_FIELDS = {'external_cost_adjustment', 'beginning_inventory', 'ending_inventory', 'manufacturing_cost'}
         for field, amount in mcr_result.items():
             if field not in result or field in MCR_PRIORITY_FIELDS:
                 result[field] = amount
 
         # PlStatementValueは円単位、組換えフォームは千円単位なので1000で割る
         result_in_thousands = {k: round(v / 1000) for k, v in result.items()}
-        beginning_inventory_total = (
-            result_in_thousands.get('beginning_inventory_material', 0)
-            + result_in_thousands.get('beginning_inventory_wip', 0)
-            + result_in_thousands.get('beginning_inventory_goods', 0)
-        )
-        if beginning_inventory_total:
-            result_in_thousands['beginning_inventory'] = beginning_inventory_total
-        ending_inventory_total = (
-            result_in_thousands.get('ending_inventory_material', 0)
-            + result_in_thousands.get('ending_inventory_wip', 0)
-            + result_in_thousands.get('ending_inventory_goods', 0)
-        )
-        if ending_inventory_total:
-            result_in_thousands['ending_inventory'] = ending_inventory_total
         return jsonify(result_in_thousands)
     finally:
         db.close()
