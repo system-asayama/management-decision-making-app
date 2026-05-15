@@ -4008,6 +4008,7 @@ def restructuring():
                 rpl.beginning_inventory_wip = beginning_inventory_wip
                 rpl.beginning_inventory_goods = beginning_inventory_goods
                 rpl.manufacturing_cost = pi('manufacturing_cost')
+                rpl.current_purchases = pi('current_purchases')
                 rpl.ending_inventory = ending_inventory_material + ending_inventory_wip + ending_inventory_goods
                 rpl.ending_inventory_material = ending_inventory_material
                 rpl.ending_inventory_wip = ending_inventory_wip
@@ -4939,7 +4940,8 @@ _PL_FIELDS = {
     'beginning_inventory_wip': '　　②期首仕掛品棚卸高',
     'beginning_inventory_goods': '　　③期首商品棚卸高',
     'manufacturing_cost': '（2）当期製造（工事）原価',
-    'ending_inventory': '（3）期末棚卸高（合計）',
+    'current_purchases': '（3）当期仕入高',
+    'ending_inventory': '（4）期末棚卸高（合計）',
     'ending_inventory_material': '　　①期末材料棚卸高',
     'ending_inventory_wip': '　　②期末仕掛品棚卸高',
     'ending_inventory_goods': '　　③期末商品棚卸高',
@@ -4971,7 +4973,7 @@ _PL_FIELDS = {
 
 _PL_FIELD_GROUPS = [
     {'label': '1. 売上高', 'options': ['sales']},
-    {'label': '2. 売上原価', 'options': ['beginning_inventory', 'beginning_inventory_material', 'beginning_inventory_wip', 'beginning_inventory_goods', 'manufacturing_cost', 'ending_inventory', 'ending_inventory_material', 'ending_inventory_wip', 'ending_inventory_goods', 'cost_of_sales']},
+    {'label': '2. 売上原価', 'options': ['beginning_inventory', 'beginning_inventory_material', 'beginning_inventory_wip', 'beginning_inventory_goods', 'manufacturing_cost', 'current_purchases', 'ending_inventory', 'ending_inventory_material', 'ending_inventory_wip', 'ending_inventory_goods', 'cost_of_sales']},
     {'label': '売上総利益・付加価値', 'options': ['gross_profit', 'external_cost_adjustment', 'gross_added_value']},
     {'label': '3. 販売費及び一般管理費', 'options': ['labor_cost', 'executive_compensation', 'capital_regeneration_cost', 'research_development_expenses', 'general_expenses', 'general_expenses_fixed', 'general_expenses_variable', 'selling_general_admin_expenses']},
     {'label': '4. 営業外損益', 'options': ['operating_income', 'financial_profit_loss', 'other_non_operating', 'ordinary_income']},

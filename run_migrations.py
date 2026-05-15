@@ -244,6 +244,7 @@ def run_migrations():
         pl_new_columns = [
             ('beginning_inventory', 'INTEGER DEFAULT 0 NOT NULL'),
             ('manufacturing_cost', 'INTEGER DEFAULT 0 NOT NULL'),
+            ('current_purchases', 'BIGINT DEFAULT 0 NOT NULL'),
             ('ending_inventory', 'INTEGER DEFAULT 0 NOT NULL'),
             ('external_cost_adjustment', 'INTEGER DEFAULT 0 NOT NULL'),
             ('gross_added_value', 'INTEGER DEFAULT 0 NOT NULL'),

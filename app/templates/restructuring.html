@@ -108,12 +108,17 @@
                                     value="{{ rpl.beginning_inventory if rpl else '' }}" placeholder="0">
                             </div>
                             <div class="col-12">
-                                <label class="form-label text-muted small">（２）当期製造（工事）原価</label>
+                                <label class="form-label text-muted small">（2）当期製造（工事）原価</label>
                                 <input type="text" name="manufacturing_cost" id="manufacturing_cost" class="form-control js-comma-int text-end"
                                     value="{{ rpl.manufacturing_cost if rpl else '' }}" placeholder="0">
                             </div>
                             <div class="col-12">
-                                <label class="form-label text-muted small">（３）期末棚卸高</label>
+                                <label class="form-label text-muted small">（3）当期仕入高</label>
+                                <input type="text" name="current_purchases" id="current_purchases" class="form-control js-comma-int text-end"
+                                    value="{{ rpl.current_purchases if rpl else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">（4）期末棚卸高</label>
                                 <input type="text" name="ending_inventory" id="ending_inventory" class="form-control js-comma-int text-end"
                                     value="{{ rpl.ending_inventory if rpl else '' }}" placeholder="0">
                             </div>
@@ -380,11 +385,15 @@
                                     <td class="text-end text-muted" id="sum_opening_inventory">-</td>
                                 </tr>
                                 <tr style="background:#f8f9fa;">
-                                    <td>&nbsp;&nbsp;（２）当期製造（工事）原価</td>
+                                    <td>&nbsp;&nbsp;（2）当期製造（工事）原価</td>
                                     <td class="text-end text-muted" id="sum_manufacturing_cost">-</td>
                                 </tr>
                                 <tr style="background:#f8f9fa;">
-                                    <td>&nbsp;&nbsp;（３）期末棚卸高</td>
+                                    <td>&nbsp;&nbsp;（3）当期仕入高</td>
+                                    <td class="text-end text-muted" id="sum_current_purchases">-</td>
+                                </tr>
+                                <tr style="background:#f8f9fa;">
+                                    <td>&nbsp;&nbsp;（4）期末棚卸高</td>
                                     <td class="text-end text-muted" id="sum_closing_inventory">-</td>
                                 </tr>
                                 <tr style="background:#d4edda;">
@@ -1349,8 +1358,9 @@ function recalculate() {
     const sales = parseNum('sales');
     const beginInv = parseNum('beginning_inventory');
     const mfgCost = parseNum('manufacturing_cost');
+    const curPurchases = parseNum('current_purchases');
     const endInv = parseNum('ending_inventory');
-    const costOfSales = beginInv + mfgCost - endInv;
+    const costOfSales = beginInv + mfgCost + curPurchases - endInv;
     
     // 売上原価を自動計算
     const cosEl = document.getElementById('cost_of_sales');
@@ -1419,6 +1429,7 @@ function recalculate() {
     updateSummary('sum_cost_of_sales', costOfSales);
     updateSummary('sum_opening_inventory', beginInv);
     updateSummary('sum_manufacturing_cost', mfgCost);
+    updateSummary('sum_current_purchases', curPurchases);
     updateSummary('sum_closing_inventory', endInv);
     updateSummary('sum_gross_profit', grossProfit);
     updateSummary('sum_external_cost', extCost);
