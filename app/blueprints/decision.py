@@ -4113,15 +4113,21 @@ def pl_auto_fill():
         if tenant_id:
             q = q.filter(PlAccountItem.tenant_id == tenant_id)
         rows = q.all()
-        # 営業外損益フィールド：費用科目（mid_category=営業外費用）はマイナスで集計する
-        NON_OPERATING_FIELDS = {'financial_profit_loss', 'other_non_operating'}
-        EXPENSE_MID_CATEGORIES = {'営業外費用'}
+        # 損益フィールドで費用・損失科目はマイナスで集計する
+        # 営業外損益: mid_category=営業外費用 → マイナス
+        # 特別損益:   mid_category=特別損失   → マイナス
+        SIGNED_FIELDS = {
+            'financial_profit_loss':    {'営業外費用'},
+            'other_non_operating':      {'営業外費用'},
+            'extraordinary_profit_loss': {'特別損失'},
+        }
         result = {}
         for ai, sv in rows:
             field = ai.target_field
             if field not in result:
                 result[field] = 0
-            if field in NON_OPERATING_FIELDS and ai.mid_category in EXPENSE_MID_CATEGORIES:
+            expense_cats = SIGNED_FIELDS.get(field, set())
+            if expense_cats and ai.mid_category in expense_cats:
                 result[field] -= sv.amount
             else:
                 result[field] += sv.amount
