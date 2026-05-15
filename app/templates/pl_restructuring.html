@@ -498,7 +498,7 @@
         </div><!-- /row -->
 
         <!-- オリジナルデータ参照パネル -->
-        {% if otb_pl_items %}
+        {% if otb_pl_items or otb_mcr_items %}
         <div class="row mt-4">
           <div class="col-12">
             <div class="card border-info">
@@ -510,12 +510,15 @@
               </div>
               <div class="collapse show" id="otbPanel">
                 <div class="card-body p-0">
+                  {% if otb_pl_items %}
+                  <div class="px-3 pt-2 pb-1 fw-bold text-muted small">損益計算書（PL）</div>
                   <div class="table-responsive">
                     <table class="table table-sm table-hover mb-0">
                       <thead class="table-light">
                         <tr>
                           <th class="ps-3">科目名</th>
                           <th class="text-end pe-3">金額（円）</th>
+                          <th class="text-center">マッピング先</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -523,11 +526,48 @@
                         <tr {% if '合計' in row.name or row.name.endswith('計') or '利益' in row.name %}class="fw-bold table-light"{% endif %}>
                           <td class="ps-3">{{ row.name }}</td>
                           <td class="text-end pe-3">{{ row.amount | comma }}</td>
+                          <td class="text-center">
+                            {% if row.target_field %}
+                            <span class="badge bg-primary">{{ row.target_field }}</span>
+                            {% else %}
+                            <span class="text-muted small">-</span>
+                            {% endif %}
+                          </td>
                         </tr>
                         {% endfor %}
                       </tbody>
                     </table>
                   </div>
+                  {% endif %}
+                  {% if otb_mcr_items %}
+                  <div class="px-3 pt-2 pb-1 fw-bold text-muted small border-top">製造原価報告書（MCR）</div>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th class="ps-3">科目名</th>
+                          <th class="text-end pe-3">金額（円）</th>
+                          <th class="text-center">マッピング先</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for row in otb_mcr_items %}
+                        <tr {% if '合計' in row.name or row.name.endswith('計') or '原価' in row.name %}class="fw-bold table-light"{% endif %}>
+                          <td class="ps-3">{{ row.name }}</td>
+                          <td class="text-end pe-3">{{ row.amount | comma }}</td>
+                          <td class="text-center">
+                            {% if row.target_field %}
+                            <span class="badge bg-success">{{ row.target_field }}</span>
+                            {% else %}
+                            <span class="text-muted small">-</span>
+                            {% endif %}
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                  {% endif %}
                 </div>
               </div>
             </div>

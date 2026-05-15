@@ -3870,6 +3870,7 @@ def restructuring():
         rbs = None
         otb_pl_items = []
         otb_bs_items = []
+        otb_mcr_items = []
 
         if company_id:
             selected_company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
@@ -3898,6 +3899,29 @@ def restructuring():
                                 otb_bs_items = []
                         except (json_module.JSONDecodeError, ValueError):
                             otb_bs_items = []
+                    # pl_account_itemsからaccount_name -> target_fieldのマッピングを取得して付加
+                    pl_ai_q = db.query(PlAccountItem)
+                    if tenant_id:
+                        pl_ai_q = pl_ai_q.filter(PlAccountItem.tenant_id == tenant_id)
+                    pl_ai_map = {ai.account_name: ai.target_field for ai in pl_ai_q.all()}
+                    for row in otb_pl_items:
+                        row['target_field'] = pl_ai_map.get(row.get('name')) or ''
+                    # mcr_account_itemsからaccount_name -> target_fieldのマッピングを取得して付加
+                    if otb.mcr_items:
+                        try:
+                            otb_mcr_items_raw = json_module.loads(otb.mcr_items)
+                            if isinstance(otb_mcr_items_raw, list):
+                                from app.models import McrAccountItem
+                                mcr_ai_q = db.query(McrAccountItem)
+                                if tenant_id:
+                                    mcr_ai_q = mcr_ai_q.filter(McrAccountItem.tenant_id == tenant_id)
+                                mcr_ai_map = {ai.account_name: ai.target_field for ai in mcr_ai_q.all()}
+                                for row in otb_mcr_items_raw:
+                                    row['target_field'] = mcr_ai_map.get(row.get('name')) or ''
+                                # テンプレートに渡すためにotb_mcr_itemsを設定
+                                otb_mcr_items = otb_mcr_items_raw
+                        except Exception:
+                            pass
 
         if request.method == 'POST':
             if not selected_fy:
@@ -4015,6 +4039,7 @@ def restructuring():
             rbs=rbs,
             otb_pl_items=otb_pl_items,
             otb_bs_items=otb_bs_items,
+            otb_mcr_items=otb_mcr_items,
             active_tab=active_tab,
         )
     except Exception as _e:
