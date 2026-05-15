@@ -1381,7 +1381,7 @@ function recalculate() {
     const sgaEl = document.getElementById('selling_general_admin_expenses');
     if (sgaEl) sgaEl.value = fmt(sga);
     
-    const operatingIncome = grossProfit - sga;
+    const operatingIncome = grossAddedValue - sga;
     const oiEl = document.getElementById('operating_income');
     if (oiEl) oiEl.value = fmt(operatingIncome);
     
