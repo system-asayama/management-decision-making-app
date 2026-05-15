@@ -8,9 +8,24 @@ from app.models_decision import BsAccountItem, BsStatementValue
 
 db = SessionLocal()
 try:
-    # capital target_fieldを持つ科目を確認
+    # 全BsAccountItemのtenant_idの分布を確認
+    from sqlalchemy import func
+    tenant_counts = db.query(BsAccountItem.tenant_id, func.count(BsAccountItem.id)).group_by(BsAccountItem.tenant_id).all()
+    print('=== BsAccountItem tenant_id distribution ===')
+    for tid, cnt in tenant_counts:
+        print(f'  tenant_id={tid}: {cnt} items')
+
+    # BsStatementValueのfiscal_year_id=34のaccount_item_idを確認
+    svs = db.query(BsStatementValue).filter(BsStatementValue.fiscal_year_id == 34).limit(5).all()
+    print('\n=== BsStatementValue fy=34 (first 5) ===')
+    for sv in svs:
+        ai = db.query(BsAccountItem).filter(BsAccountItem.id == sv.account_item_id).first()
+        if ai:
+            print(f'  ai.id={ai.id} name={ai.account_name} tenant_id={ai.tenant_id} target_field={ai.target_field} amount={sv.amount}')
+
+    # capital target_fieldを持つ科目を確認（全tenant）
     items = db.query(BsAccountItem).filter(BsAccountItem.target_field == 'capital').all()
-    print(f'capital items count: {len(items)}')
+    print(f'\n=== capital target_field items (all tenants): {len(items)} ===')
     for i in items:
         print(f'  id={i.id} name={i.account_name} tenant_id={i.tenant_id} mapping_status={i.mapping_status}')
         vals = db.query(BsStatementValue).filter(
@@ -19,34 +34,5 @@ try:
         ).all()
         for v in vals:
             print(f'    fy34 amount={v.amount}')
-
-    # tenant_id=34のBsAccountItemでtarget_fieldが設定されているものを確認
-    print('\n--- tenant_id=34 の全マッピング済み科目 ---')
-    items34 = db.query(BsAccountItem).filter(
-        BsAccountItem.tenant_id == 34,
-        BsAccountItem.target_field.isnot(None),
-        BsAccountItem.target_field != ''
-    ).all()
-    print(f'count: {len(items34)}')
-    for i in items34:
-        print(f'  {i.account_name} -> {i.target_field} (mapping_status={i.mapping_status})')
-
-    # bs_auto_fillと同じJOINクエリ
-    print('\n--- bs_auto_fill JOINクエリ (tenant_id=34, fy=34) ---')
-    q = (
-        db.query(BsAccountItem, BsStatementValue)
-        .join(BsStatementValue,
-              (BsStatementValue.account_item_id == BsAccountItem.id) &
-              (BsStatementValue.fiscal_year_id == 34))
-        .filter(
-            BsAccountItem.target_field.isnot(None),
-            BsAccountItem.target_field != '',
-            BsAccountItem.tenant_id == 34
-        )
-    )
-    rows = q.all()
-    print(f'count: {len(rows)}')
-    for ai, sv in rows:
-        print(f'  {ai.account_name} -> {ai.target_field}: {sv.amount}')
 finally:
     db.close()
