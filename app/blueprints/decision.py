@@ -4036,18 +4036,19 @@ def pl_auto_fill():
         return jsonify({"error": "fiscal_year_id is required"}), 400
     db = SessionLocal()
     try:
-        rows = (
+        q = (
             db.query(PlAccountItem, PlStatementValue)
             .join(PlStatementValue,
                   (PlStatementValue.account_item_id == PlAccountItem.id) &
                   (PlStatementValue.fiscal_year_id == fiscal_year_id))
             .filter(
-                PlAccountItem.tenant_id == tenant_id,
                 PlAccountItem.target_field.isnot(None),
                 PlAccountItem.target_field != ""
             )
-            .all()
         )
+        if tenant_id:
+            q = q.filter(PlAccountItem.tenant_id == tenant_id)
+        rows = q.all()
         result = {}
         for ai, sv in rows:
             field = ai.target_field
@@ -4098,18 +4099,19 @@ def bs_auto_fill():
         return jsonify({'error': 'fiscal_year_id is required'}), 400
     db = SessionLocal()
     try:
-        rows = (
+        q = (
             db.query(BsAccountItem, BsStatementValue)
             .join(BsStatementValue,
                   (BsStatementValue.account_item_id == BsAccountItem.id) &
                   (BsStatementValue.fiscal_year_id == fiscal_year_id))
             .filter(
-                BsAccountItem.tenant_id == tenant_id,
                 BsAccountItem.target_field.isnot(None),
                 BsAccountItem.target_field != ''
             )
-            .all()
         )
+        if tenant_id:
+            q = q.filter(BsAccountItem.tenant_id == tenant_id)
+        rows = q.all()
         result = {}
         for ai, sv in rows:
             field = ai.target_field
