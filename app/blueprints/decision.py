@@ -4226,32 +4226,6 @@ def bs_auto_fill():
                 result[field] = 0
             result[field] += sv.amount
 
-        # target_fieldが未設定の集計行に対するフォールバックマッピング
-        # 「資本金」または「資本金合計」が未マッピングの場合、自動的にcapitalに割り当てる
-        _FALLBACK_SUMMARY_MAP = {
-            '資本金': 'capital',
-            '資本金合計': 'capital',
-        }
-        if 'capital' not in result:
-            fallback_q = (
-                db.query(BsAccountItem, BsStatementValue)
-                .join(BsStatementValue,
-                      (BsStatementValue.account_item_id == BsAccountItem.id) &
-                      (BsStatementValue.fiscal_year_id == fiscal_year_id))
-                .filter(
-                    BsAccountItem.account_name.in_(list(_FALLBACK_SUMMARY_MAP.keys())),
-                    BsAccountItem.target_field.is_(None)
-                )
-            )
-            if tenant_id:
-                fallback_q = fallback_q.filter(BsAccountItem.tenant_id == tenant_id)
-            for ai, sv in fallback_q.all():
-                field = _FALLBACK_SUMMARY_MAP.get(ai.account_name)
-                if field:
-                    if field not in result:
-                        result[field] = 0
-                    result[field] += sv.amount
-
         # BsStatementValueは円単位、組換えフォームは千円単位なので1000で割る
         result_in_thousands = {k: round(v / 1000) for k, v in result.items()}
         return jsonify(result_in_thousands)
@@ -5389,6 +5363,10 @@ def account_master():
                 else:
                     if row.display_order != order_idx:
                         row.display_order = order_idx
+                        changed = True
+                    # 以前は集計行だったが現在は集計行リストから外れた科目を unmapped に戻す
+                    if not is_summary and row.mapping_status == 'ignored' and row.target_field is None:
+                        row.mapping_status = 'unmapped'
                         changed = True
 
                 if is_summary:
