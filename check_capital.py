@@ -1,9 +1,9 @@
 import sys
 import os
-sys.path.insert(0, '/app')
 os.chdir('/app')
+sys.path.insert(0, '/app')
 
-from app.database import SessionLocal
+from app.db import SessionLocal
 from app.models_decision import BsAccountItem, BsStatementValue
 
 db = SessionLocal()
