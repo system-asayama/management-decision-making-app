@@ -5265,8 +5265,8 @@ _BS_FIELD_GROUPS = [
     {'label': '純資産の部', 'options': ['capital']},
     {'label': '純資産の部 / 2. 資本剰余金', 'options': ['capital_reserve', 'other_capital_surplus', 'capital_surplus']},
     {'label': '純資産の部 / 3. 利益剰余金', 'options': ['legal_reserve_bs', 'voluntary_reserve_bs', 'retained_earnings_carried', 'retained_earnings']},
-    {'label': '純資産の部 / 4. 自己株式', 'options': ['treasury_stock']},
-    {'label': '純資産の部 / 5. 評価・換算差額等', 'options': ['valuation_difference']},
+    {'label': '純資産の部', 'options': ['treasury_stock']},
+    {'label': '純資産の部', 'options': ['valuation_difference']},
     {'label': '参考：合計項目', 'options': ['quick_assets', 'current_assets', 'tangible_fixed_assets', 'fixed_assets', 'total_assets', 'current_liabilities', 'fixed_liabilities', 'total_liabilities', 'net_assets', 'total_liabilities_and_net_assets']},
 ]
 
