@@ -5334,7 +5334,10 @@ def account_master():
             for order_idx, item in enumerate(items):
                 if not isinstance(item, dict):
                     continue
+                import re as _re
                 account_name = str(item.get('name') or item.get('account_name') or '').strip()
+                # PDFの文字間スペース（等間隔配置による抽出アーティファクト）を除去
+                account_name = _re.sub(r'(?<=\S) (?=\S)', '', account_name)
                 if not account_name or account_name in _ACCOUNT_SECTION_NAMES:
                     continue
 
@@ -5413,7 +5416,9 @@ def account_master():
             for item in items:
                 if not isinstance(item, dict):
                     continue
+                import re as _re
                 account_name = str(item.get('name') or item.get('account_name') or '').strip()
+                account_name = _re.sub(r'(?<=\S) (?=\S)', '', account_name)
                 if not account_name or account_name in _ACCOUNT_SECTION_NAMES:
                     continue
                 if account_name not in order_map:
