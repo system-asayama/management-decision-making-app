@@ -3,7 +3,7 @@ sys.path.insert(0, '/app')
 os.chdir('/app')
 
 from app import create_app
-from app.models_decision import PlAccountItem, OtbData
+from app.models_decision import PlAccountItem, OriginalTrialBalance
 from app.extensions import db
 
 app = create_app()
@@ -19,7 +19,7 @@ with app.app_context():
         print("給与手当: DBに存在しない")
     
     # 全OTBのpl_itemsを確認
-    otbs = db.session.query(OtbData).filter(OtbData.tenant_id == 1).all()
+    otbs = db.session.query(OriginalTrialBalance).filter(OriginalTrialBalance.tenant_id == 1).all()
     print(f"\n全OTB数: {len(otbs)}")
     import json
     for otb in otbs:
