@@ -4088,7 +4088,12 @@ def pl_restructuring():
 @bp.route('/pl-auto-fill', methods=['GET'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def pl_auto_fill():
-    """勘定科目マスタのtarget_fieldとPlStatementValueの金額を集計してJSONで返す"""
+    """OTBのpl_items/mcr_itemsと勘定科目マスタのtarget_fieldを突き合わせて集計しJSONで返す。
+
+    画面の「オリジナルデータ参照」パネルと同じ OTB の生データを集計ソースにする。
+    OTBが無い場合のみ PlStatementValue / McrStatementValue から集計する（後方互換）。
+    """
+    import json as _json
     tenant_id = session.get("tenant_id")
     fiscal_year_id = request.args.get("fiscal_year_id", type=int)
     if not fiscal_year_id:
@@ -4102,20 +4107,7 @@ def pl_auto_fill():
                 company_obj = db.query(Company).filter_by(id=fy_obj.company_id).first()
                 if company_obj:
                     tenant_id = company_obj.tenant_id
-        # PLデータを集計
-        q = (
-            db.query(PlAccountItem, PlStatementValue)
-            .join(PlStatementValue,
-                  (PlStatementValue.account_item_id == PlAccountItem.id) &
-                  (PlStatementValue.fiscal_year_id == fiscal_year_id))
-            .filter(
-                PlAccountItem.target_field.isnot(None),
-                PlAccountItem.target_field != ""
-            )
-        )
-        if tenant_id:
-            q = q.filter(PlAccountItem.tenant_id == tenant_id)
-        rows = q.all()
+
         # 損益フィールドで費用・損失科目はマイナスで集計する
         # 営業外損益: mid_category=営業外費用 → マイナス
         # 特別損益:   mid_category=特別損失   → マイナス
@@ -4124,37 +4116,111 @@ def pl_auto_fill():
             'other_non_operating':      {'営業外費用'},
             'extraordinary_profit_loss': {'特別損失'},
         }
-        result = {}
-        for ai, sv in rows:
-            field = ai.target_field
-            if field not in result:
-                result[field] = 0
-            expense_cats = SIGNED_FIELDS.get(field, set())
-            if expense_cats and ai.mid_category in expense_cats:
-                result[field] -= sv.amount
-            else:
-                result[field] += sv.amount
 
-        # MCRデータも集計（external_cost_adjustment・beginning_inventory・ending_inventoryなどMCR科目が持つ場合）
-        mcr_q = (
-            db.query(McrAccountItem, McrStatementValue)
-            .join(McrStatementValue,
-                  (McrStatementValue.account_item_id == McrAccountItem.id) &
-                  (McrStatementValue.fiscal_year_id == fiscal_year_id))
-            .filter(
-                McrAccountItem.target_field.isnot(None),
-                McrAccountItem.target_field != ""
+        def _build_map(model):
+            """科目名 -> (target_field, mid_category) マップを構築（正規化キーも併用）"""
+            mq = db.query(model).filter(
+                model.target_field.isnot(None),
+                model.target_field != ""
             )
-        )
-        if tenant_id:
-            mcr_q = mcr_q.filter(McrAccountItem.tenant_id == tenant_id)
-        mcr_rows = mcr_q.all()
+            if tenant_id:
+                mq = mq.filter(model.tenant_id == tenant_id)
+            by_name, by_norm = {}, {}
+            for ai in mq.all():
+                by_name[ai.account_name] = (ai.target_field, ai.mid_category)
+                by_norm.setdefault(_normalize_account_name(ai.account_name),
+                                   (ai.target_field, ai.mid_category))
+            return by_name, by_norm
+
+        def _parse_amount(item):
+            raw = item.get('amount') or item.get('value') or 0
+            try:
+                return int(str(raw).replace(',', '').replace('　', '').strip())
+            except (ValueError, TypeError):
+                return 0
+
+        def _items_from(items_json):
+            if not items_json:
+                return []
+            try:
+                items = _json.loads(items_json)
+            except (ValueError, TypeError):
+                return []
+            return items if isinstance(items, list) else []
+
+        pl_by_name, pl_by_norm = _build_map(PlAccountItem)
+        mcr_by_name, mcr_by_norm = _build_map(McrAccountItem)
+
+        result = {}
         mcr_result = {}
-        for ai, sv in mcr_rows:
-            field = ai.target_field
-            if field not in mcr_result:
-                mcr_result[field] = 0
-            mcr_result[field] += sv.amount
+
+        otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
+        pl_items = _items_from(otb.pl_items) if otb else []
+        mcr_items = _items_from(otb.mcr_items) if otb else []
+        used_otb = bool(otb) and bool(pl_items or mcr_items)
+
+        if used_otb:
+            # 1) OTBのpl_itemsから集計
+            for item in pl_items:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get('name') or item.get('account_name') or '').strip()
+                if not name:
+                    continue
+                entry = pl_by_name.get(name) or pl_by_norm.get(_normalize_account_name(name))
+                if not entry:
+                    continue
+                field, mid_category = entry
+                amount = _parse_amount(item)
+                expense_cats = SIGNED_FIELDS.get(field, set())
+                if expense_cats and mid_category in expense_cats:
+                    result[field] = result.get(field, 0) - amount
+                else:
+                    result[field] = result.get(field, 0) + amount
+            # 2) OTBのmcr_itemsから集計
+            for item in mcr_items:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get('name') or item.get('account_name') or '').strip()
+                if not name:
+                    continue
+                entry = mcr_by_name.get(name) or mcr_by_norm.get(_normalize_account_name(name))
+                if not entry:
+                    continue
+                field, _mid = entry
+                mcr_result[field] = mcr_result.get(field, 0) + _parse_amount(item)
+        else:
+            # 後方互換: OTBが無い場合は StatementValue から集計
+            pl_rows = (
+                db.query(PlAccountItem, PlStatementValue)
+                .join(PlStatementValue,
+                      (PlStatementValue.account_item_id == PlAccountItem.id) &
+                      (PlStatementValue.fiscal_year_id == fiscal_year_id))
+                .filter(PlAccountItem.target_field.isnot(None),
+                        PlAccountItem.target_field != "")
+            )
+            if tenant_id:
+                pl_rows = pl_rows.filter(PlAccountItem.tenant_id == tenant_id)
+            for ai, sv in pl_rows.all():
+                field = ai.target_field
+                expense_cats = SIGNED_FIELDS.get(field, set())
+                if expense_cats and ai.mid_category in expense_cats:
+                    result[field] = result.get(field, 0) - sv.amount
+                else:
+                    result[field] = result.get(field, 0) + sv.amount
+            mcr_rows = (
+                db.query(McrAccountItem, McrStatementValue)
+                .join(McrStatementValue,
+                      (McrStatementValue.account_item_id == McrAccountItem.id) &
+                      (McrStatementValue.fiscal_year_id == fiscal_year_id))
+                .filter(McrAccountItem.target_field.isnot(None),
+                        McrAccountItem.target_field != "")
+            )
+            if tenant_id:
+                mcr_rows = mcr_rows.filter(McrAccountItem.tenant_id == tenant_id)
+            for ai, sv in mcr_rows.all():
+                mcr_result[ai.target_field] = mcr_result.get(ai.target_field, 0) + sv.amount
+
         # MCRの値でPLに存在しないフィールドを補完する。同じフィールドがあればMCRを優先する
         MCR_PRIORITY_FIELDS = {
             'external_cost_adjustment', 'beginning_inventory', 'ending_inventory', 'manufacturing_cost',
@@ -4179,7 +4245,7 @@ def pl_auto_fill():
         ])
         if end_total != 0:
             result['ending_inventory'] = end_total
-        # PlStatementValueは円単位、組換えフォームは千円単位なので1000で割る
+        # 金額は円単位、組換えフォームは千円単位なので1000で割る
         result_in_thousands = {k: round(v / 1000) for k, v in result.items()}
         return jsonify(result_in_thousands)
     finally:
