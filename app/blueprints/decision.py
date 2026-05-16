@@ -4996,6 +4996,89 @@ def run_migration_net_assets_detail():
     return {'results': results}, 200
 
 
+@bp.route('/run-migration-resync-statement-values', methods=['GET'])
+def run_migration_resync_statement_values():
+    """OTBのbs_items/pl_items/mcr_itemsからBsStatementValue/PlStatementValue/McrStatementValueを
+    再構築するマイグレーション。科目マスタに登録済みの科目のみ対象。"""
+    import json as _json
+    from ..db import SessionLocal as _SessionLocal
+    from ..models_decision import (
+        OriginalTrialBalance, FiscalYear, Company,
+        BsAccountItem, BsStatementValue,
+        PlAccountItem, PlStatementValue,
+        McrAccountItem, McrStatementValue,
+    )
+
+    db = _SessionLocal()
+    results = []
+    try:
+        otbs = db.query(OriginalTrialBalance).all()
+        for otb in otbs:
+            fy = db.query(FiscalYear).filter(FiscalYear.id == otb.fiscal_year_id).first()
+            if not fy:
+                continue
+            company = db.query(Company).filter(Company.id == fy.company_id).first()
+            if not company:
+                continue
+            tenant_id = company.tenant_id
+
+            def _resync(items_json, account_model, value_model):
+                if not items_json:
+                    return 0
+                try:
+                    items = _json.loads(items_json)
+                except Exception:
+                    return 0
+                if not isinstance(items, list):
+                    return 0
+                existing = {
+                    row.account_name: row.id
+                    for row in db.query(account_model).filter_by(tenant_id=tenant_id).all()
+                }
+                count = 0
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    account_name = str(item.get('name') or item.get('account_name') or '').strip()
+                    if not account_name or account_name not in existing:
+                        continue
+                    account_item_id = existing[account_name]
+                    raw_amount = item.get('amount') or item.get('value') or 0
+                    try:
+                        amount = int(str(raw_amount).replace(',', '').strip())
+                    except Exception:
+                        amount = 0
+                    sv = db.query(value_model).filter_by(
+                        fiscal_year_id=otb.fiscal_year_id,
+                        account_item_id=account_item_id
+                    ).first()
+                    if sv:
+                        sv.amount = amount
+                    else:
+                        sv = value_model(
+                            fiscal_year_id=otb.fiscal_year_id,
+                            account_item_id=account_item_id,
+                            amount=amount
+                        )
+                        db.add(sv)
+                        count += 1
+                return count
+
+            n_bs  = _resync(otb.bs_items,  BsAccountItem,  BsStatementValue)
+            n_pl  = _resync(otb.pl_items,  PlAccountItem,  PlStatementValue)
+            n_mcr = _resync(otb.mcr_items, McrAccountItem, McrStatementValue)
+            results.append(f'fy_id={otb.fiscal_year_id}: BS+{n_bs} PL+{n_pl} MCR+{n_mcr}')
+
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        results.append(f'ERROR: {e}')
+    finally:
+        db.close()
+
+    return {'results': results}, 200
+
+
 # ==================== マッピング確認・確定 ====================
 
 # 組換え先フィールドの選択肢定義
