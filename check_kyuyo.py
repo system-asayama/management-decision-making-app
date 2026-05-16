@@ -1,46 +1,36 @@
 import os, sys
 sys.path.insert(0, '/app')
 os.chdir('/app')
-
 from app.db import SessionLocal
 from app.models_decision import PlAccountItem, OriginalTrialBalance, FiscalYear, Company
 import json
-
 db = SessionLocal()
 try:
+    # OTB id=67 の詳細を確認
+    otb67 = db.query(OriginalTrialBalance).filter(OriginalTrialBalance.id == 67).first()
+    if otb67:
+        fy = db.query(FiscalYear).filter(FiscalYear.id == otb67.fiscal_year_id).first()
+        company = db.query(Company).filter(Company.id == fy.company_id).first() if fy else None
+        print(f"=== OTB id=67 ===")
+        print(f"  fiscal_year_id={otb67.fiscal_year_id}")
+        if fy:
+            print(f"  FiscalYear: id={fy.id}, year_name={fy.year_name}, company_id={fy.company_id}")
+        if company:
+            print(f"  Company: id={company.id}, name={company.name}, tenant_id={company.tenant_id}")
+        if otb67.pl_items:
+            items = json.loads(otb67.pl_items)
+            for i in items:
+                if isinstance(i, dict) and '給与' in i.get('name', ''):
+                    print(f"  給与関連: {i}")
+    
     # 「給与手当」がDBに存在するか確認
     item = db.query(PlAccountItem).filter(
         PlAccountItem.tenant_id == 1,
         PlAccountItem.account_name == '給与手当'
     ).first()
     if item:
-        print(f"給与手当 found: id={item.id}, mapping_status={item.mapping_status}, target_field={item.target_field}")
+        print(f"\n給与手当 found: id={item.id}, mapping_status={item.mapping_status}, target_field={item.target_field}")
     else:
         print("給与手当: DBに存在しない")
-    
-    # tenant_id=1に属するcompany_idsを取得
-    company_ids = [c.id for c in db.query(Company).filter(Company.tenant_id == 1).all()]
-    print(f"\ntenant_id=1のcompany_ids: {company_ids}")
-    
-    # fiscal_year_idsを取得
-    fy_ids = [fy.id for fy in db.query(FiscalYear).filter(FiscalYear.company_id.in_(company_ids)).all()]
-    print(f"fiscal_year_ids: {fy_ids}")
-    
-    # 全OTBのpl_itemsを確認
-    otbs = db.query(OriginalTrialBalance).filter(OriginalTrialBalance.fiscal_year_id.in_(fy_ids)).all()
-    print(f"全OTB数: {len(otbs)}")
-    for otb in otbs:
-        if otb.pl_items:
-            try:
-                items = json.loads(otb.pl_items)
-                names = [i.get('name', '') for i in items if isinstance(i, dict)]
-                if '給与手当' in names:
-                    print(f"  OTB id={otb.id}, fiscal_year_id={otb.fiscal_year_id}: 給与手当あり")
-                else:
-                    print(f"  OTB id={otb.id}, fiscal_year_id={otb.fiscal_year_id}: 給与手当なし (pl_items count={len(items)})")
-            except Exception as e:
-                print(f"  OTB id={otb.id}: parse error {e}")
-        else:
-            print(f"  OTB id={otb.id}: pl_items=None")
 finally:
     db.close()
