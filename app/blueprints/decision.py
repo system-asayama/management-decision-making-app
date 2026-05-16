@@ -4274,6 +4274,56 @@ def bs_restructuring():
         kwargs['fiscal_year_id'] = fiscal_year_id
     return redirect(url_for('decision.restructuring', **kwargs))
 
+
+# 名前から組換え先が一意に定まる標準BS科目（マスタ自己修復時の自動マッピングに使う）
+_BS_STANDARD_ACCOUNT_FIELDS = {
+    '資本金': 'capital',
+    '資本準備金': 'capital_reserve',
+    'その他資本剰余金': 'other_capital_surplus',
+    '利益準備金': 'legal_reserve_bs',
+    '繰越利益剰余金': 'retained_earnings_carried',
+    '自己株式': 'treasury_stock',
+}
+
+
+def _ensure_bs_master_from_otb(db, tenant_id, items):
+    """OTBのbs_itemsにあってBS科目マスタに無い科目を自動作成する（マスタ自己修復）。
+
+    PDF再読取等でOTBに科目が追加されてもマスタに反映されず、組換え集計で
+    取りこぼす問題（資本金の未集計など）を恒久的に防ぐ。標準科目（名前から
+    組換え先が一意なもの）は target_field も自動補完する。作成したら True。
+    """
+    if not tenant_id or not items:
+        return False
+    existing = {ai.account_name for ai in db.query(BsAccountItem).filter_by(tenant_id=tenant_id).all()}
+    existing_norm = {_normalize_account_name(n) for n in existing}
+    created = False
+    for idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get('name') or item.get('account_name') or '').strip()
+        if not name or name in existing or _normalize_account_name(name) in existing_norm:
+            continue
+        is_summary = _is_fixed_summary_account(name)
+        std_field = None if is_summary else _BS_STANDARD_ACCOUNT_FIELDS.get(name)
+        db.add(BsAccountItem(
+            tenant_id=tenant_id,
+            account_name=name,
+            display_order=900 + idx,
+            is_auto_created=True,
+            category_status='uncategorized',
+            target_field=std_field,
+            target_statement='BS' if std_field else None,
+            mapping_status='confirmed' if std_field else ('ignored' if is_summary else 'unmapped'),
+        ))
+        existing.add(name)
+        existing_norm.add(_normalize_account_name(name))
+        created = True
+    if created:
+        db.commit()
+    return created
+
+
 @bp.route('/bs-auto-fill', methods=['GET'])
 @require_roles(ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
 def bs_auto_fill():
@@ -4289,14 +4339,36 @@ def bs_auto_fill():
         return jsonify({'error': 'fiscal_year_id is required'}), 400
     db = SessionLocal()
     try:
+        # システム管理者ログイン時は tenant_id が None になるため会計年度から補完
+        if not tenant_id:
+            fy = db.query(FiscalYear).filter_by(id=fiscal_year_id).first()
+            if fy:
+                co = db.query(Company).filter_by(id=fy.company_id).first()
+                if co:
+                    tenant_id = co.tenant_id
+
+        # OTB（PDF読取の生データ）を取得・パース
+        otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
+        items = []
+        if otb and otb.bs_items:
+            try:
+                parsed = _json.loads(otb.bs_items)
+                if isinstance(parsed, list):
+                    items = parsed
+            except (ValueError, TypeError):
+                items = []
+
+        # マスタ自己修復: OTBにあってマスタに無い科目を自動作成（資本金等の取りこぼし防止）
+        _ensure_bs_master_from_otb(db, tenant_id, items)
+
+        # 科目名 -> target_field マップ（PDF抽出時の文字間スペース差異に備え正規化キーも併用）
+        # target_field は正規キーへ解決し、解決できない不正値は除外する
         ai_q = db.query(BsAccountItem).filter(
             BsAccountItem.target_field.isnot(None),
             BsAccountItem.target_field != ''
         )
         if tenant_id:
             ai_q = ai_q.filter(BsAccountItem.tenant_id == tenant_id)
-        # 科目名 -> target_field マップ（PDF抽出時の文字間スペース差異に備え正規化キーも併用）
-        # target_field は正規キーへ解決し、解決できない不正値は除外する
         field_by_name = {}
         field_by_norm = {}
         for ai in ai_q.all():
@@ -4307,32 +4379,25 @@ def bs_auto_fill():
             field_by_norm.setdefault(_normalize_account_name(ai.account_name), canonical)
 
         result = {}
+        used_otb = False
 
         # 1) OTBのbs_items（PDF読取の生データ）から集計
-        otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
-        used_otb = False
-        if otb and otb.bs_items:
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get('name') or item.get('account_name') or '').strip()
+            if not name:
+                continue
+            field = field_by_name.get(name) or field_by_norm.get(_normalize_account_name(name))
+            if not field:
+                continue
+            raw_amount = item.get('amount') or item.get('value') or 0
             try:
-                items = _json.loads(otb.bs_items)
+                amount = int(str(raw_amount).replace(',', '').replace('　', '').strip())
             except (ValueError, TypeError):
-                items = []
-            if isinstance(items, list):
-                for item in items:
-                    if not isinstance(item, dict):
-                        continue
-                    name = str(item.get('name') or item.get('account_name') or '').strip()
-                    if not name:
-                        continue
-                    field = field_by_name.get(name) or field_by_norm.get(_normalize_account_name(name))
-                    if not field:
-                        continue
-                    raw_amount = item.get('amount') or item.get('value') or 0
-                    try:
-                        amount = int(str(raw_amount).replace(',', '').replace('　', '').strip())
-                    except (ValueError, TypeError):
-                        amount = 0
-                    result[field] = result.get(field, 0) + amount
-                    used_otb = True
+                amount = 0
+            result[field] = result.get(field, 0) + amount
+            used_otb = True
 
         # 2) OTBが無い場合はBsStatementValueから集計（後方互換）
         if not used_otb:
