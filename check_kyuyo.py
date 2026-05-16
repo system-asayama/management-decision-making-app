@@ -3,7 +3,7 @@ sys.path.insert(0, '/app')
 os.chdir('/app')
 
 from app.db import SessionLocal
-from app.models_decision import PlAccountItem, OriginalTrialBalance, FiscalYear
+from app.models_decision import PlAccountItem, OriginalTrialBalance, FiscalYear, Company
 import json
 
 db = SessionLocal()
@@ -18,9 +18,13 @@ try:
     else:
         print("給与手当: DBに存在しない")
     
-    # tenant_id=1に属するfiscal_year_idを取得
-    fy_ids = [fy.id for fy in db.query(FiscalYear).filter(FiscalYear.tenant_id == 1).all()]
-    print(f"\ntenant_id=1のfiscal_year_ids: {fy_ids}")
+    # tenant_id=1に属するcompany_idsを取得
+    company_ids = [c.id for c in db.query(Company).filter(Company.tenant_id == 1).all()]
+    print(f"\ntenant_id=1のcompany_ids: {company_ids}")
+    
+    # fiscal_year_idsを取得
+    fy_ids = [fy.id for fy in db.query(FiscalYear).filter(FiscalYear.company_id.in_(company_ids)).all()]
+    print(f"fiscal_year_ids: {fy_ids}")
     
     # 全OTBのpl_itemsを確認
     otbs = db.query(OriginalTrialBalance).filter(OriginalTrialBalance.fiscal_year_id.in_(fy_ids)).all()
