@@ -5390,20 +5390,14 @@ def account_master():
               .order_by(OriginalTrialBalance.updated_at.desc(), OriginalTrialBalance.id.desc())
               .all()
         )
-        synced_stmt_types = {'pl': False, 'bs': False, 'mcr': False}
         sync_changed = False
         for otb in latest_otbs:
-            if not synced_stmt_types['pl'] and getattr(otb, 'pl_items', None):
+            if getattr(otb, 'pl_items', None):
                 sync_changed = _sync_account_master_from_otb(otb.pl_items, PlAccountItem) or sync_changed
-                synced_stmt_types['pl'] = True
-            if not synced_stmt_types['bs'] and getattr(otb, 'bs_items', None):
+            if getattr(otb, 'bs_items', None):
                 sync_changed = _sync_account_master_from_otb(otb.bs_items, BsAccountItem) or sync_changed
-                synced_stmt_types['bs'] = True
-            if not synced_stmt_types['mcr'] and getattr(otb, 'mcr_items', None):
+            if getattr(otb, 'mcr_items', None):
                 sync_changed = _sync_account_master_from_otb(otb.mcr_items, McrAccountItem) or sync_changed
-                synced_stmt_types['mcr'] = True
-            if all(synced_stmt_types.values()):
-                break
 
         if sync_changed:
             db.commit()
