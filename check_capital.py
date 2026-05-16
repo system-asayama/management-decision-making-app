@@ -2,30 +2,39 @@ import sys, os, json
 os.chdir('/app')
 sys.path.insert(0, '/app')
 from app.db import SessionLocal
-from app.models_decision import OriginalTrialBalance, FiscalYear, Company
+from app.models_decision import OriginalTrialBalance, FiscalYear, BsAccountItem
 
 db = SessionLocal()
 try:
-    # fiscal_year_id=34のOTBを取得
-    fy = db.query(FiscalYear).filter_by(id=34).first()
-    if not fy:
-        print('FiscalYear id=34 not found')
-        exit()
+    # _ACCOUNT_SECTION_NAMES（upsert_statement_valuesと同じ定義）
+    _ACCOUNT_SECTION_NAMES = {
+        '資産', '負債', '純資産', '損益', '収益', '費用', '口座',
+        '流動資産', '固定資産', '繰延資産',
+        '流動負債', '固定負債',
+        '資本剰余金', '利益剰余金', '自己株式', '評価換算差額等', '新株予約権',
+        '販売費及び一般管理費',
+        '現金及び預金', '売上債権', '棚卸資産', '有価証券', '投資その他の資産',
+        '有形固定資産', '無形固定資産',
+        '仕入債務', 'その他流動負債', 'その他流動資産',
+        '販管費',
+    }
     
-    otbs = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=34).order_by(OriginalTrialBalance.id.desc()).all()
-    print(f'OTB count for fy=34: {len(otbs)}')
+    print('「資本金」in _ACCOUNT_SECTION_NAMES:', '資本金' in _ACCOUNT_SECTION_NAMES)
     
-    for otb in otbs[:1]:  # 最新の1件
-        print(f'OTB id={otb.id}')
-        if otb.bs_items:
-            items = json.loads(otb.bs_items)
-            print(f'bs_items count: {len(items)}')
-            # 資本金関連を探す
-            for item in items:
-                name = item.get('name') or item.get('account_name') or ''
-                if '資本' in name or '純資産' in name:
-                    print(f'  name={name!r} section={item.get("section")!r} amount={item.get("amount")}')
-        else:
-            print('bs_items is empty')
+    # bs_itemsのJSONを確認
+    otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=34).order_by(OriginalTrialBalance.id.desc()).first()
+    if otb and otb.bs_items:
+        items = json.loads(otb.bs_items)
+        for item in items:
+            name = str(item.get('name') or item.get('account_name') or '').strip()
+            if name == '資本金':
+                print(f'bs_items に「資本金」あり: {item}')
+                print(f'  → _ACCOUNT_SECTION_NAMESでスキップ: {name in _ACCOUNT_SECTION_NAMES}')
+    
+    # DBに「資本金」が存在するか確認
+    item = db.query(BsAccountItem).filter_by(tenant_id=1, account_name='資本金').first()
+    print(f'DB に「資本金」: {item}')
+    if item:
+        print(f'  id={item.id} target_field={item.target_field} mapping_status={item.mapping_status}')
 finally:
     db.close()
