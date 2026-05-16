@@ -4996,6 +4996,77 @@ def run_migration_net_assets_detail():
     return {'results': results}, 200
 
 
+@bp.route('/run-migration-add-capital-item', methods=['GET'])
+def run_migration_add_capital_item():
+    """bs_account_itemsに「資本金」科目を追加し、OTBからBsStatementValueを登録する"""
+    import json as _json
+    from ..db import SessionLocal as _SessionLocal
+    from ..models_decision import BsAccountItem, BsStatementValue, OriginalTrialBalance
+
+    db = _SessionLocal()
+    results = []
+    try:
+        # 資本金科目が既に存在するか確認
+        existing = db.query(BsAccountItem).filter_by(account_name='資本金', tenant_id=1).first()
+        if existing:
+            results.append(f'資本金 already exists: id={existing.id}')
+            capital_item = existing
+        else:
+            capital_item = BsAccountItem(
+                tenant_id=1,
+                account_name='資本金',
+                display_order=200,
+                is_auto_created=True,
+                major_category='純資産',
+                mid_category='資本金',
+                sub_category='資本金',
+                category_status='confirmed',
+                target_field='capital',
+                mapping_status='confirmed',
+            )
+            db.add(capital_item)
+            db.flush()
+            results.append(f'Added BsAccountItem id={capital_item.id} name=資本金')
+
+        # 全OTBのbs_itemsから資本金の金額を取得してBsStatementValueに登録
+        otbs = db.query(OriginalTrialBalance).all()
+        for otb in otbs:
+            if not otb.bs_items:
+                continue
+            try:
+                items = _json.loads(otb.bs_items)
+            except Exception:
+                continue
+            for it in items:
+                if it.get('name') == '資本金':
+                    amount = it.get('amount', 0)
+                    sv = db.query(BsStatementValue).filter_by(
+                        fiscal_year_id=otb.fiscal_year_id,
+                        account_item_id=capital_item.id
+                    ).first()
+                    if sv:
+                        sv.amount = amount
+                        results.append(f'Updated BsStatementValue fy_id={otb.fiscal_year_id} amount={amount}')
+                    else:
+                        sv = BsStatementValue(
+                            fiscal_year_id=otb.fiscal_year_id,
+                            account_item_id=capital_item.id,
+                            amount=amount
+                        )
+                        db.add(sv)
+                        results.append(f'Added BsStatementValue fy_id={otb.fiscal_year_id} amount={amount}')
+
+        db.commit()
+        results.append('Done')
+    except Exception as e:
+        db.rollback()
+        results.append(f'ERROR: {e}')
+    finally:
+        db.close()
+
+    return {'results': results}, 200
+
+
 @bp.route('/run-migration-resync-statement-values', methods=['GET'])
 def run_migration_resync_statement_values():
     """OTBのbs_items/pl_items/mcr_itemsからBsStatementValue/PlStatementValue/McrStatementValueを
