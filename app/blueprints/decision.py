@@ -4117,8 +4117,9 @@ def pl_auto_fill():
             'extraordinary_profit_loss': {'特別損失'},
         }
 
-        def _build_map(model):
-            """科目名 -> (target_field, mid_category) マップを構築（正規化キーも併用）"""
+        def _build_map(model, stmt):
+            """科目名 -> (target_field, mid_category) マップを構築（正規化キーも併用）。
+            target_field は正規キーへ解決し、解決できない不正値は除外する。"""
             mq = db.query(model).filter(
                 model.target_field.isnot(None),
                 model.target_field != ""
@@ -4127,9 +4128,12 @@ def pl_auto_fill():
                 mq = mq.filter(model.tenant_id == tenant_id)
             by_name, by_norm = {}, {}
             for ai in mq.all():
-                by_name[ai.account_name] = (ai.target_field, ai.mid_category)
+                canonical = _normalize_target_field(stmt, ai.target_field)
+                if not canonical:
+                    continue
+                by_name[ai.account_name] = (canonical, ai.mid_category)
                 by_norm.setdefault(_normalize_account_name(ai.account_name),
-                                   (ai.target_field, ai.mid_category))
+                                   (canonical, ai.mid_category))
             return by_name, by_norm
 
         def _parse_amount(item):
@@ -4148,8 +4152,8 @@ def pl_auto_fill():
                 return []
             return items if isinstance(items, list) else []
 
-        pl_by_name, pl_by_norm = _build_map(PlAccountItem)
-        mcr_by_name, mcr_by_norm = _build_map(McrAccountItem)
+        pl_by_name, pl_by_norm = _build_map(PlAccountItem, 'pl')
+        mcr_by_name, mcr_by_norm = _build_map(McrAccountItem, 'mcr')
 
         result = {}
         mcr_result = {}
@@ -4202,7 +4206,9 @@ def pl_auto_fill():
             if tenant_id:
                 pl_rows = pl_rows.filter(PlAccountItem.tenant_id == tenant_id)
             for ai, sv in pl_rows.all():
-                field = ai.target_field
+                field = _normalize_target_field('pl', ai.target_field)
+                if not field:
+                    continue
                 expense_cats = SIGNED_FIELDS.get(field, set())
                 if expense_cats and ai.mid_category in expense_cats:
                     result[field] = result.get(field, 0) - sv.amount
@@ -4219,7 +4225,10 @@ def pl_auto_fill():
             if tenant_id:
                 mcr_rows = mcr_rows.filter(McrAccountItem.tenant_id == tenant_id)
             for ai, sv in mcr_rows.all():
-                mcr_result[ai.target_field] = mcr_result.get(ai.target_field, 0) + sv.amount
+                field = _normalize_target_field('mcr', ai.target_field)
+                if not field:
+                    continue
+                mcr_result[field] = mcr_result.get(field, 0) + sv.amount
 
         # MCRの値でPLに存在しないフィールドを補完する。同じフィールドがあればMCRを優先する
         MCR_PRIORITY_FIELDS = {
@@ -4287,11 +4296,15 @@ def bs_auto_fill():
         if tenant_id:
             ai_q = ai_q.filter(BsAccountItem.tenant_id == tenant_id)
         # 科目名 -> target_field マップ（PDF抽出時の文字間スペース差異に備え正規化キーも併用）
+        # target_field は正規キーへ解決し、解決できない不正値は除外する
         field_by_name = {}
         field_by_norm = {}
         for ai in ai_q.all():
-            field_by_name[ai.account_name] = ai.target_field
-            field_by_norm.setdefault(_normalize_account_name(ai.account_name), ai.target_field)
+            canonical = _normalize_target_field('bs', ai.target_field)
+            if not canonical:
+                continue
+            field_by_name[ai.account_name] = canonical
+            field_by_norm.setdefault(_normalize_account_name(ai.account_name), canonical)
 
         result = {}
 
@@ -4336,7 +4349,10 @@ def bs_auto_fill():
             if tenant_id:
                 q = q.filter(BsAccountItem.tenant_id == tenant_id)
             for ai, sv in q.all():
-                result[ai.target_field] = result.get(ai.target_field, 0) + sv.amount
+                field = _normalize_target_field('bs', ai.target_field)
+                if not field:
+                    continue
+                result[field] = result.get(field, 0) + sv.amount
 
         # 金額は円単位、組換えフォームは千円単位なので1000で割る
         result_in_thousands = {k: round(v / 1000) for k, v in result.items()}
@@ -4785,8 +4801,9 @@ def pdf_apply():
                     for r in pl_results:
                         item = db2.query(PlAccountItem).get(r.get('id'))
                         if item and item.mapping_status in ('unmapped', None):
-                            item.target_statement = r.get('target_statement')
-                            item.target_field = r.get('target_field') if r.get('target_field') else None
+                            tf = _normalize_target_field('pl', r.get('target_field'))
+                            item.target_statement = r.get('target_statement') if tf else None
+                            item.target_field = tf
                             item.ai_confidence = r.get('confidence')
                             item.mapping_status = 'pending'
 
@@ -4796,8 +4813,9 @@ def pdf_apply():
                     for r in bs_results:
                         item = db2.query(BsAccountItem).get(r.get('id'))
                         if item and item.mapping_status in ('unmapped', None):
-                            item.target_statement = r.get('target_statement')
-                            item.target_field = r.get('target_field') if r.get('target_field') else None
+                            tf = _normalize_target_field('bs', r.get('target_field'))
+                            item.target_statement = r.get('target_statement') if tf else None
+                            item.target_field = tf
                             item.ai_confidence = r.get('confidence')
                             item.mapping_status = 'pending'
 
@@ -4807,8 +4825,9 @@ def pdf_apply():
                     for r in mcr_results:
                         item = db2.query(McrAccountItem).get(r.get('id'))
                         if item and item.mapping_status in ('unmapped', None):
-                            item.target_statement = r.get('target_statement')
-                            item.target_field = r.get('target_field') if r.get('target_field') else None
+                            tf = _normalize_target_field('mcr', r.get('target_field'))
+                            item.target_statement = r.get('target_statement') if tf else None
+                            item.target_field = tf
                             item.ai_confidence = r.get('confidence')
                             item.mapping_status = 'pending'
 
@@ -5259,6 +5278,62 @@ def run_migration_resync_statement_values():
     return {'results': results}, 200
 
 
+@bp.route('/run-migration-fix-target-fields', methods=['GET'])
+def run_migration_fix_target_fields():
+    """AI自動マッピングが無検証で保存した不正な target_field を正規キーへ修復する。
+
+    - 不正値（英語キーの和訳・旧キー・括弧付き等）は _normalize_target_field で
+      エイリアス解決して正しいキーへ変換する
+    - 解決できない値は None にして unmapped へ戻す
+    - 「資本金」科目の組換え先が未設定なら capital を補完する
+    """
+    db = SessionLocal()
+    results = []
+    try:
+        for model, stmt in [(PlAccountItem, 'pl'), (BsAccountItem, 'bs'), (McrAccountItem, 'mcr')]:
+            fixed = 0
+            nulled = 0
+            for it in db.query(model).all():
+                if not it.target_field:
+                    continue
+                canonical = _normalize_target_field(stmt, it.target_field)
+                if canonical == it.target_field:
+                    continue
+                if canonical:
+                    it.target_field = canonical
+                    fixed += 1
+                else:
+                    it.target_field = None
+                    it.target_statement = None
+                    if it.mapping_status == 'confirmed':
+                        it.mapping_status = 'unmapped'
+                    nulled += 1
+            results.append(f'{stmt}: 修復={fixed} 不正値クリア={nulled}')
+
+        # 「資本金」科目の組換え先が未設定なら capital を補完
+        cap_fixed = 0
+        for it in db.query(BsAccountItem).all():
+            if _is_fixed_summary_account(it.account_name):
+                continue
+            if _normalize_account_name(it.account_name) == '資本金' and not it.target_field:
+                it.target_field = 'capital'
+                it.target_statement = 'BS'
+                if it.mapping_status in (None, 'unmapped', 'pending'):
+                    it.mapping_status = 'confirmed'
+                cap_fixed += 1
+        results.append(f'資本金の組換え先補完={cap_fixed}')
+
+        db.commit()
+        results.append('Done')
+    except Exception as e:
+        db.rollback()
+        results.append(f'ERROR: {e}')
+    finally:
+        db.close()
+
+    return {'results': results}, 200
+
+
 # ==================== マッピング確認・確定 ====================
 
 # 組換え先フィールドの選択肢定義
@@ -5468,8 +5543,75 @@ def _get_target_field_config(stmt_type):
     }
 
 
+# AI自動マッピングが返した不正な組換え先値（英語キーの和訳・旧キー・括弧付き等）を
+# 正規キーへ解決するためのエイリアス表。検証なしで保存された過去データの修復にも使う。
+_TARGET_FIELD_ALIASES = {
+    'bs': {
+        # mapping_service側の旧キー（本体定義とズレていたもの）
+        'buildings_and_attached_facilities': 'buildings_and_attached',
+        'vehicles_and_transport_equipment': 'vehicles',
+        'tools_furniture_and_fixtures': 'tools_furniture',
+        'other_tangible_fixed_assets': 'other_tangible',
+        'valuation_and_translation_adjustments': 'valuation_difference',
+        # AIが英語フィールドキーを和訳して返してしまった不正値
+        '現金手持ち': 'cash_on_hand',
+        '手許現預金': 'cash_on_hand',
+        '運用預金': 'investment_deposits',
+        '投資預金': 'investment_deposits',
+        '有価証券': 'marketable_securities',
+        'その他流動資産': 'other_current_assets',
+        'その他の流動資産': 'other_current_assets',
+        '売掛債権': 'trade_receivables',
+        '棚卸資産': 'inventory_assets',
+        '土地': 'land',
+        '建物と付属物': 'buildings_and_attached',
+        '建物・附属設備等': 'buildings_and_attached',
+        '建物附属設備': 'buildings_and_attached',
+        '機械設備': 'machinery_and_equipment',
+        '機械装置': 'machinery_and_equipment',
+        '車両': 'vehicles',
+        '車輌運搬具': 'vehicles',
+        '車両運搬具': 'vehicles',
+        '工具器具備品': 'tools_furniture',
+        '工具・器具・備品': 'tools_furniture',
+        '無形固定資産': 'intangible_fixed_assets',
+        '投資その他': 'investments_and_other',
+        '投資その他の資産': 'investments_and_other',
+        '繰延資産': 'deferred_assets',
+        '買掛債務': 'trade_payables',
+        '短期借入金': 'short_term_borrowings',
+        '割引手形': 'discounted_notes',
+        '所得税支払可能額': 'income_taxes_payable',
+        '未払法人税等': 'income_taxes_payable',
+        '賞与引当金': 'bonus_reserve',
+        'その他引当金': 'other_allowances',
+        'その他流動負債': 'other_current_liabilities',
+        'その他の流動負債': 'other_current_liabilities',
+        '長期借入金': 'long_term_borrowings',
+        '役員等借入金': 'executive_borrowings',
+        '役員借入金': 'executive_borrowings',
+        '退職給付引当金': 'retirement_benefit_liability',
+        'その他固定負債': 'other_fixed_liabilities',
+        '資本金': 'capital',
+        '資本準備金': 'capital_reserve',
+        'その他資本剰余金': 'other_capital_surplus',
+        '利益準備金': 'legal_reserve_bs',
+        '任意積立金': 'voluntary_reserve_bs',
+        '繰越利益剰余金': 'retained_earnings_carried',
+        '自己株式': 'treasury_stock',
+        '評価・換算差額等': 'valuation_difference',
+        '評価換算差額等': 'valuation_difference',
+    },
+}
+
+
 def _normalize_target_field(stmt_type, target_field):
-    """保存済みの組換え先キーを正規化する。旧MCRキーは対応するPLキーへ変換する。"""
+    """保存済みの組換え先キーを正規化する。
+
+    旧MCRキーはPLキーへ変換し、AI推定が無検証で保存した不正値（英語キーの和訳・
+    旧キー・括弧付き文字列など）も _TARGET_FIELD_ALIASES 経由で正規キーへ解決する。
+    解決できない場合は None を返す。
+    """
     if target_field is None:
         return None
 
@@ -5488,6 +5630,18 @@ def _normalize_target_field(stmt_type, target_field):
         migrated = _MCR_LEGACY_TO_PL_FIELD_MAP.get(normalized)
         if migrated in allowed_fields:
             return migrated
+
+    # 括弧・引用符・空白を除去した候補も含めてエイリアス解決を試みる
+    cleaned = normalized.strip('「」『』"“”‘’\'　 ').strip()
+    alias_map = _TARGET_FIELD_ALIASES.get(stmt_type, {})
+    for cand in (normalized, cleaned):
+        if not cand:
+            continue
+        if cand in allowed_fields:
+            return cand
+        alias = alias_map.get(cand)
+        if alias and alias in allowed_fields:
+            return alias
 
     return None
 

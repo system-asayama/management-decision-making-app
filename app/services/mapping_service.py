@@ -51,11 +51,11 @@ BS_FIELDS = {
     "trade_receivables": "売掛債権",
     "inventory_assets": "棚卸資産",
     "land": "(1) 土地",
-    "buildings_and_attached_facilities": "(2) 建物・附属設備等",
+    "buildings_and_attached": "(2) 建物・附属設備等",
     "machinery_and_equipment": "(3) 機械装置",
-    "vehicles_and_transport_equipment": "(4) 車輌運搬具",
-    "tools_furniture_and_fixtures": "(5) 工具・器具・備品",
-    "other_tangible_fixed_assets": "(6) その他（有形固定資産）",
+    "vehicles": "(4) 車輌運搬具",
+    "tools_furniture": "(5) 工具・器具・備品",
+    "other_tangible": "(6) その他（有形固定資産）",
     "tangible_fixed_assets": "有形固定資産（合計）",
     "intangible_fixed_assets": "無形固定資産",
     "investments_and_other": "投資その他の資産",
@@ -80,7 +80,7 @@ BS_FIELDS = {
     "voluntary_reserve_bs": "任意積立金",
     "retained_earnings_carried": "繰越利益剰余金",
     "retained_earnings": "利益剰余金（合計）",
-    "valuation_and_translation_adjustments": "IV 評価・換算差額等",
+    "valuation_difference": "IV 評価・換算差額等",
     "treasury_stock": "V 自己株式",
     "current_assets": "流動資産合計",
     "fixed_assets": "固定資産合計",
@@ -220,9 +220,9 @@ def estimate_mappings_for_bs(tenant_id: int, account_items: list) -> list:
 - 「売掛金」「受取手形」「未収金」は "trade_receivables" にマッピング
 - 「仕掛品」「製品」「商品」「原材料」「貯蔵品」は "inventory_assets" にマッピング
 - 「前払費用」「仮払金」「立替金」「未収入金」などの資産科目は "other_current_assets" にマッピング
-- 「土地」は "land"、「建物」「建物附属設備」は "buildings_and_attached_facilities" にマッピング
-- 「機械装置」は "machinery_and_equipment"、「車両運搬具」は "vehicles_and_transport_equipment" にマッピング
-- 「工具器具備品」は "tools_furniture_and_fixtures" にマッピング
+- 「土地」は "land"、「建物」「建物附属設備」は "buildings_and_attached" にマッピング
+- 「機械装置」は "machinery_and_equipment"、「車両運搬具」は "vehicles" にマッピング
+- 「工具器具備品」は "tools_furniture" にマッピング
 - 「買掛金」「支払手形」は "trade_payables" にマッピング
 - 「短期借入金」は "short_term_borrowings"、「1年以内返済長期借入金」は "current_portion_long_term" にマッピング
 - 「長期借入金」は "long_term_borrowings"、「役員借入金」は "executive_borrowings" にマッピング
