@@ -4499,7 +4499,7 @@ def pdf_apply():
         # 勘定科目マスタ自動登録 + 財務諸表実績値保存
         # PDFから読み取った科目名が未登録の場合は新規追加し、金額を保存する
         # ============================================================
-        if company_id:
+        if company_id or tenant_id:
             def upsert_statement_values(items_json, account_model, value_model, order_start=0):
                 """JSON文字列から科目名・金額を取り出し、科目マスタ登録＋実績値upsertを行う"""
                 if not items_json:
