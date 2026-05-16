@@ -5339,6 +5339,7 @@ def run_migration_fix_target_fields():
     db = SessionLocal()
     results = []
     try:
+        import json as _json
         for model, stmt in [(PlAccountItem, 'pl'), (BsAccountItem, 'bs'), (McrAccountItem, 'mcr')]:
             fixed = 0
             nulled = 0
@@ -5371,6 +5372,54 @@ def run_migration_fix_target_fields():
                     it.mapping_status = 'confirmed'
                 cap_fixed += 1
         results.append(f'資本金の組換え先補完={cap_fixed}')
+
+        # OTBに「資本金」行があるのにマスタに「資本金」科目が無いテナントへ新規作成
+        cap_created = 0
+        checked_tenants = set()
+        for otb in db.query(OriginalTrialBalance).all():
+            if not otb.bs_items:
+                continue
+            try:
+                rows = _json.loads(otb.bs_items)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(rows, list):
+                continue
+            has_capital = any(
+                isinstance(r, dict)
+                and _normalize_account_name(r.get('name') or r.get('account_name')) == '資本金'
+                for r in rows
+            )
+            if not has_capital:
+                continue
+            fy = db.query(FiscalYear).filter_by(id=otb.fiscal_year_id).first()
+            if not fy:
+                continue
+            co = db.query(Company).filter_by(id=fy.company_id).first()
+            if not co or co.tenant_id in checked_tenants:
+                continue
+            checked_tenants.add(co.tenant_id)
+            already = any(
+                _normalize_account_name(ai.account_name) == '資本金'
+                for ai in db.query(BsAccountItem).filter_by(tenant_id=co.tenant_id).all()
+            )
+            if already:
+                continue
+            db.add(BsAccountItem(
+                tenant_id=co.tenant_id,
+                account_name='資本金',
+                display_order=200,
+                is_auto_created=True,
+                major_category='純資産',
+                mid_category='資本金',
+                sub_category='資本金',
+                category_status='confirmed',
+                target_field='capital',
+                target_statement='BS',
+                mapping_status='confirmed',
+            ))
+            cap_created += 1
+        results.append(f'資本金科目の新規作成={cap_created}')
 
         db.commit()
         results.append('Done')
