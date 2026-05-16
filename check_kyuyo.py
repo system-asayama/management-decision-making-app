@@ -2,14 +2,14 @@ import os, sys
 sys.path.insert(0, '/app')
 os.chdir('/app')
 
-from app import create_app
+from app.db import SessionLocal
 from app.models_decision import PlAccountItem, OriginalTrialBalance
-from app.extensions import db
+import json
 
-app = create_app()
-with app.app_context():
+db = SessionLocal()
+try:
     # 「給与手当」がDBに存在するか確認
-    item = db.session.query(PlAccountItem).filter(
+    item = db.query(PlAccountItem).filter(
         PlAccountItem.tenant_id == 1,
         PlAccountItem.account_name == '給与手当'
     ).first()
@@ -19,9 +19,8 @@ with app.app_context():
         print("給与手当: DBに存在しない")
     
     # 全OTBのpl_itemsを確認
-    otbs = db.session.query(OriginalTrialBalance).filter(OriginalTrialBalance.tenant_id == 1).all()
+    otbs = db.query(OriginalTrialBalance).filter(OriginalTrialBalance.tenant_id == 1).all()
     print(f"\n全OTB数: {len(otbs)}")
-    import json
     for otb in otbs:
         if otb.pl_items:
             try:
@@ -35,3 +34,5 @@ with app.app_context():
                 print(f"  OTB id={otb.id}: parse error {e}")
         else:
             print(f"  OTB id={otb.id}: pl_items=None")
+finally:
+    db.close()
