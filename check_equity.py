@@ -1,8 +1,7 @@
 import os, sys
 sys.path.insert(0, '/app')
-os.environ.setdefault('DATABASE_URL', os.environ.get('DATABASE_URL', ''))
-
-from app.database import SessionLocal
+os.chdir('/app')
+from app.db import SessionLocal
 from app.models_decision import BsAccountItem, BsStatementValue
 
 db = SessionLocal()
@@ -28,7 +27,7 @@ try:
     svs = (db.query(BsStatementValue, BsAccountItem)
            .join(BsAccountItem, BsStatementValue.account_item_id == BsAccountItem.id)
            .filter(BsStatementValue.fiscal_year_id == 34)
-           .filter(BsAccountItem.target_field.in_(equity_fields + [None]))
+           .filter(BsAccountItem.target_field.in_(equity_fields))
            .all())
     for sv, ai in svs:
         print(f"  sv.id={sv.id}, name='{ai.account_name}', target_field='{ai.target_field}', amount={sv.amount}")
