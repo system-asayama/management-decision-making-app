@@ -4359,6 +4359,55 @@ def bs_auto_fill():
         return jsonify(result_in_thousands)
     finally:
         db.close()
+
+
+@bp.route('/debug-bs-mapping', methods=['GET'])
+@require_roles(ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
+def debug_bs_mapping():
+    """診断用: BS科目マスタの target_field 現状と OTB 生科目名を返す。"""
+    import json as _json
+    fiscal_year_id = request.args.get('fiscal_year_id', type=int)
+    db = SessionLocal()
+    try:
+        tenant_id = session.get('tenant_id')
+        if fiscal_year_id and not tenant_id:
+            fy = db.query(FiscalYear).filter_by(id=fiscal_year_id).first()
+            if fy:
+                co = db.query(Company).filter_by(id=fy.company_id).first()
+                if co:
+                    tenant_id = co.tenant_id
+        q = db.query(BsAccountItem)
+        if tenant_id:
+            q = q.filter(BsAccountItem.tenant_id == tenant_id)
+        items = [
+            {'name': ai.account_name, 'target_field': ai.target_field,
+             'normalized': _normalize_target_field('bs', ai.target_field),
+             'mapping_status': ai.mapping_status, 'tenant_id': ai.tenant_id}
+            for ai in q.order_by(BsAccountItem.display_order, BsAccountItem.id).all()
+        ]
+        otb_items = []
+        if fiscal_year_id:
+            otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
+            if otb and otb.bs_items:
+                try:
+                    rows = _json.loads(otb.bs_items)
+                    if isinstance(rows, list):
+                        otb_items = [
+                            {'name': r.get('name'), 'amount': r.get('amount')}
+                            for r in rows if isinstance(r, dict)
+                        ]
+                except (ValueError, TypeError):
+                    pass
+        capital_items = [it for it in items if '資本金' in (it['name'] or '')]
+        return jsonify({
+            'tenant_id': tenant_id,
+            'bs_account_item_count': len(items),
+            'capital_related_items': capital_items,
+            'otb_bs_items': otb_items,
+            'bs_account_items': items,
+        })
+    finally:
+        db.close()
 ## ==================== PDF財務諸表読み取り取り ====================
 import os
 import tempfile
