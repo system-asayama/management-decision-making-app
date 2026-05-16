@@ -4152,9 +4152,6 @@ def pl_auto_fill():
                 return []
             return items if isinstance(items, list) else []
 
-        pl_by_name, pl_by_norm = _build_map(PlAccountItem, 'pl')
-        mcr_by_name, mcr_by_norm = _build_map(McrAccountItem, 'mcr')
-
         result = {}
         mcr_result = {}
 
@@ -4162,6 +4159,13 @@ def pl_auto_fill():
         pl_items = _items_from(otb.pl_items) if otb else []
         mcr_items = _items_from(otb.mcr_items) if otb else []
         used_otb = bool(otb) and bool(pl_items or mcr_items)
+
+        # マスタ自己修復: OTBにあってマスタに無い科目を自動作成（科目の取りこぼし防止）
+        _ensure_account_master_from_otb(db, tenant_id, PlAccountItem, pl_items)
+        _ensure_account_master_from_otb(db, tenant_id, McrAccountItem, mcr_items)
+
+        pl_by_name, pl_by_norm = _build_map(PlAccountItem, 'pl')
+        mcr_by_name, mcr_by_norm = _build_map(McrAccountItem, 'mcr')
 
         if used_otb:
             # 1) OTBのpl_itemsから集計
@@ -4286,16 +4290,19 @@ _BS_STANDARD_ACCOUNT_FIELDS = {
 }
 
 
-def _ensure_bs_master_from_otb(db, tenant_id, items):
-    """OTBのbs_itemsにあってBS科目マスタに無い科目を自動作成する（マスタ自己修復）。
+def _ensure_account_master_from_otb(db, tenant_id, model, items,
+                                    standard_fields=None, default_statement=None):
+    """OTBの科目リストにあって科目マスタに無い科目を自動作成する（マスタ自己修復）。
 
-    PDF再読取等でOTBに科目が追加されてもマスタに反映されず、組換え集計で
-    取りこぼす問題（資本金の未集計など）を恒久的に防ぐ。標準科目（名前から
-    組換え先が一意なもの）は target_field も自動補完する。作成したら True。
+    PDF再読取等でOTBに科目が追加されてもマスタへ反映されず、組換え集計で
+    取りこぼす問題（資本金の未集計でバランス不一致になる等）を恒久的に防ぐ。
+    standard_fields が与えられた場合、名前から組換え先が一意に定まる標準科目は
+    target_field も自動補完する。1件以上作成したら True を返す。
     """
     if not tenant_id or not items:
         return False
-    existing = {ai.account_name for ai in db.query(BsAccountItem).filter_by(tenant_id=tenant_id).all()}
+    standard_fields = standard_fields or {}
+    existing = {ai.account_name for ai in db.query(model).filter_by(tenant_id=tenant_id).all()}
     existing_norm = {_normalize_account_name(n) for n in existing}
     created = False
     for idx, item in enumerate(items):
@@ -4305,15 +4312,15 @@ def _ensure_bs_master_from_otb(db, tenant_id, items):
         if not name or name in existing or _normalize_account_name(name) in existing_norm:
             continue
         is_summary = _is_fixed_summary_account(name)
-        std_field = None if is_summary else _BS_STANDARD_ACCOUNT_FIELDS.get(name)
-        db.add(BsAccountItem(
+        std_field = None if is_summary else standard_fields.get(name)
+        db.add(model(
             tenant_id=tenant_id,
             account_name=name,
             display_order=900 + idx,
             is_auto_created=True,
             category_status='uncategorized',
             target_field=std_field,
-            target_statement='BS' if std_field else None,
+            target_statement=(default_statement if std_field else None),
             mapping_status='confirmed' if std_field else ('ignored' if is_summary else 'unmapped'),
         ))
         existing.add(name)
@@ -4359,7 +4366,8 @@ def bs_auto_fill():
                 items = []
 
         # マスタ自己修復: OTBにあってマスタに無い科目を自動作成（資本金等の取りこぼし防止）
-        _ensure_bs_master_from_otb(db, tenant_id, items)
+        _ensure_account_master_from_otb(db, tenant_id, BsAccountItem, items,
+                                        _BS_STANDARD_ACCOUNT_FIELDS, 'BS')
 
         # 科目名 -> target_field マップ（PDF抽出時の文字間スペース差異に備え正規化キーも併用）
         # target_field は正規キーへ解決し、解決できない不正値は除外する
