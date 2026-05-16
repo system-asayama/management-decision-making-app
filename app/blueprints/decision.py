@@ -4202,34 +4202,77 @@ def bs_restructuring():
 @bp.route('/bs-auto-fill', methods=['GET'])
 @require_roles(ROLES['TENANT_ADMIN'], ROLES['SYSTEM_ADMIN'], ROLES['ADMIN'], ROLES['EMPLOYEE'])
 def bs_auto_fill():
-    """勘定科目マスタのtarget_fieldとBsStatementValueの金額を集計してJSONで返す"""
+    """OTBのbs_itemsと勘定科目マスタのtarget_fieldを突き合わせて集計しJSONで返す。
+
+    画面の「オリジナルデータ参照」パネルと同じ OTB.bs_items を集計ソースにする。
+    OTBが無い場合のみ BsStatementValue から集計する（後方互換）。
+    """
+    import json as _json
     tenant_id = session.get('tenant_id')
     fiscal_year_id = request.args.get('fiscal_year_id', type=int)
     if not fiscal_year_id:
         return jsonify({'error': 'fiscal_year_id is required'}), 400
     db = SessionLocal()
     try:
-        q = (
-            db.query(BsAccountItem, BsStatementValue)
-            .join(BsStatementValue,
-                  (BsStatementValue.account_item_id == BsAccountItem.id) &
-                  (BsStatementValue.fiscal_year_id == fiscal_year_id))
-            .filter(
-                BsAccountItem.target_field.isnot(None),
-                BsAccountItem.target_field != ''
-            )
+        ai_q = db.query(BsAccountItem).filter(
+            BsAccountItem.target_field.isnot(None),
+            BsAccountItem.target_field != ''
         )
         if tenant_id:
-            q = q.filter(BsAccountItem.tenant_id == tenant_id)
-        rows = q.all()
-        result = {}
-        for ai, sv in rows:
-            field = ai.target_field
-            if field not in result:
-                result[field] = 0
-            result[field] += sv.amount
+            ai_q = ai_q.filter(BsAccountItem.tenant_id == tenant_id)
+        # 科目名 -> target_field マップ（PDF抽出時の文字間スペース差異に備え正規化キーも併用）
+        field_by_name = {}
+        field_by_norm = {}
+        for ai in ai_q.all():
+            field_by_name[ai.account_name] = ai.target_field
+            field_by_norm.setdefault(_normalize_account_name(ai.account_name), ai.target_field)
 
-        # BsStatementValueは円単位、組換えフォームは千円単位なので1000で割る
+        result = {}
+
+        # 1) OTBのbs_items（PDF読取の生データ）から集計
+        otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
+        used_otb = False
+        if otb and otb.bs_items:
+            try:
+                items = _json.loads(otb.bs_items)
+            except (ValueError, TypeError):
+                items = []
+            if isinstance(items, list):
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    name = str(item.get('name') or item.get('account_name') or '').strip()
+                    if not name:
+                        continue
+                    field = field_by_name.get(name) or field_by_norm.get(_normalize_account_name(name))
+                    if not field:
+                        continue
+                    raw_amount = item.get('amount') or item.get('value') or 0
+                    try:
+                        amount = int(str(raw_amount).replace(',', '').replace('　', '').strip())
+                    except (ValueError, TypeError):
+                        amount = 0
+                    result[field] = result.get(field, 0) + amount
+                    used_otb = True
+
+        # 2) OTBが無い場合はBsStatementValueから集計（後方互換）
+        if not used_otb:
+            q = (
+                db.query(BsAccountItem, BsStatementValue)
+                .join(BsStatementValue,
+                      (BsStatementValue.account_item_id == BsAccountItem.id) &
+                      (BsStatementValue.fiscal_year_id == fiscal_year_id))
+                .filter(
+                    BsAccountItem.target_field.isnot(None),
+                    BsAccountItem.target_field != ''
+                )
+            )
+            if tenant_id:
+                q = q.filter(BsAccountItem.tenant_id == tenant_id)
+            for ai, sv in q.all():
+                result[ai.target_field] = result.get(ai.target_field, 0) + sv.amount
+
+        # 金額は円単位、組換えフォームは千円単位なので1000で割る
         result_in_thousands = {k: round(v / 1000) for k, v in result.items()}
         return jsonify(result_in_thousands)
     finally:
