@@ -4977,12 +4977,12 @@ def run_migration_net_assets_detail():
 
     results = []
     new_columns = [
-        ('restructured_balance_sheets', 'capital_reserve',       'BIGINT NOT NULL DEFAULT 0'),
-        ('restructured_balance_sheets', 'other_capital_surplus', 'BIGINT NOT NULL DEFAULT 0'),
-        ('restructured_balance_sheets', 'valuation_difference',  'BIGINT NOT NULL DEFAULT 0'),
-        ('raw_balance_sheets',          'capital_reserve',       'BIGINT NOT NULL DEFAULT 0'),
-        ('raw_balance_sheets',          'other_capital_surplus', 'BIGINT NOT NULL DEFAULT 0'),
-        ('raw_balance_sheets',          'valuation_difference',  'BIGINT NOT NULL DEFAULT 0'),
+        ('restructured_bs', 'capital_reserve',       'BIGINT NOT NULL DEFAULT 0'),
+        ('restructured_bs', 'other_capital_surplus', 'BIGINT NOT NULL DEFAULT 0'),
+        ('restructured_bs', 'valuation_difference',  'BIGINT NOT NULL DEFAULT 0'),
+        ('raw_balance_sheets', 'capital_reserve',       'BIGINT NOT NULL DEFAULT 0'),
+        ('raw_balance_sheets', 'other_capital_surplus', 'BIGINT NOT NULL DEFAULT 0'),
+        ('raw_balance_sheets', 'valuation_difference',  'BIGINT NOT NULL DEFAULT 0'),
     ]
     for table, col, col_type in new_columns:
         try:
