@@ -306,11 +306,14 @@ class RestructuredBS(Base):
     # ===== 純資産の部 =====
     capital = Column(BigInteger, default=0, nullable=False)                   # 資本金
     capital_surplus = Column(BigInteger, default=0, nullable=False)           # 資本剰余金
+    capital_reserve = Column(BigInteger, default=0, nullable=False)           # 資本準備金
+    other_capital_surplus = Column(BigInteger, default=0, nullable=False)     # その他資本剰余金
     retained_earnings = Column(BigInteger, default=0, nullable=False)         # 利益剰余金
     legal_reserve_bs = Column(BigInteger, default=0, nullable=False)          # 利益準備金
     voluntary_reserve_bs = Column(BigInteger, default=0, nullable=False)      # 任意積立金
     retained_earnings_carried = Column(BigInteger, default=0, nullable=False) # 繰越利益剰余金
     treasury_stock = Column(BigInteger, default=0, nullable=False)            # 自己株式
+    valuation_difference = Column(BigInteger, default=0, nullable=False)      # 評価・換算差額等
     # 純資産合計
     net_assets = Column(BigInteger, default=0, nullable=False)
     # 負債純資産合計
@@ -1175,11 +1178,14 @@ class RawBalanceSheet(Base):
     # 純資産の部
     capital = Column(BigInteger, default=0, nullable=False)                             # 資本金
     capital_surplus = Column(BigInteger, default=0, nullable=False)                     # 資本剰余金
+    capital_reserve = Column(BigInteger, default=0, nullable=False)                     # 資本準備金
+    other_capital_surplus = Column(BigInteger, default=0, nullable=False)               # その他資本剰余金
     retained_earnings = Column(BigInteger, default=0, nullable=False)                   # 利益剰余金 合計
     legal_reserve_bs = Column(BigInteger, default=0, nullable=False)                    # 利益準備金
     voluntary_reserve_bs = Column(BigInteger, default=0, nullable=False)                # 任意積立金
     retained_earnings_carried = Column(BigInteger, default=0, nullable=False)           # 繰越利益剰余金
     treasury_stock = Column(BigInteger, default=0, nullable=False)                      # 自己株式
+    valuation_difference = Column(BigInteger, default=0, nullable=False)                # 評価・換算差額等
     net_assets = Column(BigInteger, default=0, nullable=False)                          # 純資産 合計
     total_liabilities_and_net_assets = Column(BigInteger, default=0, nullable=False)    # 負債純資産 合計
 

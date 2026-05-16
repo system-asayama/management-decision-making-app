@@ -3980,12 +3980,15 @@ def restructuring():
                 rbs.fixed_liabilities = pi('fixed_liabilities')
                 rbs.total_liabilities = pi('total_liabilities')
                 rbs.capital = pi('capital')
+                rbs.capital_reserve = pi('capital_reserve')
+                rbs.other_capital_surplus = pi('other_capital_surplus')
                 rbs.capital_surplus = pi('capital_surplus')
                 rbs.legal_reserve_bs = pi('legal_reserve_bs')
                 rbs.voluntary_reserve_bs = pi('voluntary_reserve_bs')
                 rbs.retained_earnings_carried = pi('retained_earnings_carried')
                 rbs.retained_earnings = pi('retained_earnings')
                 rbs.treasury_stock = pi('treasury_stock')
+                rbs.valuation_difference = pi('valuation_difference')
                 rbs.net_assets = pi('net_assets')
                 rbs.total_liabilities_and_net_assets = pi('total_liabilities_and_net_assets')
                 rbs.discounted_notes_note = pi('discounted_notes_note')
@@ -4965,6 +4968,34 @@ def run_migration_raw_tables():
     return {'results': results}, 200
 
 
+@bp.route('/run-migration-net-assets-detail', methods=['GET'])
+def run_migration_net_assets_detail():
+    """純資産細目カラム（capital_reserve / other_capital_surplus / valuation_difference）を
+    restructured_balance_sheets および raw_balance_sheets に追加するマイグレーション"""
+    from ..db import engine
+    from sqlalchemy import text
+
+    results = []
+    new_columns = [
+        ('restructured_balance_sheets', 'capital_reserve',       'BIGINT NOT NULL DEFAULT 0'),
+        ('restructured_balance_sheets', 'other_capital_surplus', 'BIGINT NOT NULL DEFAULT 0'),
+        ('restructured_balance_sheets', 'valuation_difference',  'BIGINT NOT NULL DEFAULT 0'),
+        ('raw_balance_sheets',          'capital_reserve',       'BIGINT NOT NULL DEFAULT 0'),
+        ('raw_balance_sheets',          'other_capital_surplus', 'BIGINT NOT NULL DEFAULT 0'),
+        ('raw_balance_sheets',          'valuation_difference',  'BIGINT NOT NULL DEFAULT 0'),
+    ]
+    for table, col, col_type in new_columns:
+        try:
+            with engine.connect() as conn:
+                conn.execute(text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type}'))
+                conn.commit()
+            results.append(f'ALTER TABLE {table} ADD COLUMN {col}: OK')
+        except Exception as e:
+            results.append(f'ALTER TABLE {table} ADD COLUMN {col}: {e}')
+
+    return {'results': results}, 200
+
+
 # ==================== マッピング確認・確定 ====================
 
 # 組換え先フィールドの選択肢定義
@@ -5058,6 +5089,7 @@ _BS_FIELDS = {
     'retained_earnings_carried': '繰越利益剰余金',
     'retained_earnings': '利益剰余金（合計）',
     'valuation_and_translation_adjustments': 'IV 評価・換算差額等',
+    'valuation_difference': '評価・換算差額等',
     'treasury_stock': 'V 自己株式',
     'current_assets': '流動資産合計',
     'fixed_assets': '固定資産合計',
@@ -5085,7 +5117,7 @@ _BS_FIELD_GROUPS = [
     {'label': '純資産の部 / 1. 資本金', 'options': ['capital']},
     {'label': '純資産の部 / 2. 資本剰余金', 'options': ['capital_reserve', 'other_capital_surplus', 'capital_surplus']},
     {'label': '純資産の部 / 3. 利益剰余金', 'options': ['legal_reserve_bs', 'voluntary_reserve_bs', 'retained_earnings_carried', 'retained_earnings']},
-    {'label': '純資産の部 / IV. 評価・換算差額等', 'options': ['valuation_and_translation_adjustments']},
+    {'label': '純資産の部 / IV. 評価・換算差額等', 'options': ['valuation_and_translation_adjustments', 'valuation_difference']},
     {'label': '純資産の部 / V. 自己株式', 'options': ['treasury_stock']},
     {'label': '参考：合計項目', 'options': ['quick_assets', 'current_assets', 'tangible_fixed_assets', 'fixed_assets', 'total_assets', 'current_liabilities', 'fixed_liabilities', 'total_liabilities', 'net_assets', 'total_liabilities_and_net_assets']},
 ]

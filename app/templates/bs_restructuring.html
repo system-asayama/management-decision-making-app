@@ -270,8 +270,18 @@
                             </div>
                             <div class="col-12">
                                 <label class="form-label text-muted small">資本剰余金</label>
-                                <input type="text" name="capital_surplus" id="capital_surplus" class="form-control js-comma-int text-end"
-                                    value="{{ rbs.capital_surplus if rbs else '' }}" placeholder="0">
+                                <input type="text" name="capital_surplus" id="capital_surplus" class="form-control js-comma-int text-end bg-light"
+                                    value="{{ rbs.capital_surplus if rbs else '' }}" placeholder="0" readonly>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">&nbsp;&nbsp;資本準備金</label>
+                                <input type="text" name="capital_reserve" id="capital_reserve" class="form-control js-comma-int text-end"
+                                    value="{{ rbs.capital_reserve if rbs else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">&nbsp;&nbsp;その他資本剰余金</label>
+                                <input type="text" name="other_capital_surplus" id="other_capital_surplus" class="form-control js-comma-int text-end"
+                                    value="{{ rbs.other_capital_surplus if rbs else '' }}" placeholder="0">
                             </div>
                             <div class="col-12">
                                 <label class="form-label text-muted small">利益剰余金（合計）</label>
@@ -297,6 +307,11 @@
                                 <label class="form-label text-muted small">自己株式</label>
                                 <input type="text" name="treasury_stock" id="treasury_stock" class="form-control js-comma-int text-end"
                                     value="{{ rbs.treasury_stock if rbs else '' }}" placeholder="0">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small">評価・換算差額等</label>
+                                <input type="text" name="valuation_difference" id="valuation_difference" class="form-control js-comma-int text-end"
+                                    value="{{ rbs.valuation_difference if rbs else '' }}" placeholder="0">
                             </div>
                         </div>
 
@@ -452,6 +467,18 @@
                                 <tr>
                                     <td></td>
                                     <td></td>
+                                    <td class="text-muted small ps-4">1 資本準備金</td>
+                                    <td class="text-end text-muted small" id="sum_capital_reserve">-</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-muted small ps-4">2 その他資本剰余金</td>
+                                    <td class="text-end text-muted small" id="sum_other_capital_surplus">-</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
                                     <td class="text-muted small ps-3">3 利益剰余金（合計）</td>
                                     <td class="text-end text-muted small" id="sum_retained_earnings">-</td>
                                 </tr>
@@ -478,6 +505,12 @@
                                     <td></td>
                                     <td class="text-muted small ps-3">V 自己株式</td>
                                     <td class="text-end text-muted small" id="sum_treasury_stock">-</td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-muted small ps-3">VI 評価・換算差額等</td>
+                                    <td class="text-end text-muted small" id="sum_valuation_difference">-</td>
                                 </tr>
                                 <tr class="table-dark">
                                     <td class="fw-bold text-white">資産合計</td>
@@ -618,7 +651,10 @@ function recalculate() {
 
     // 純資産の部
     const capital = parseNum('capital');
-    const capitalSurplus = parseNum('capital_surplus');
+    const capitalReserve = parseNum('capital_reserve');
+    const otherCapitalSurplus = parseNum('other_capital_surplus');
+    const capitalSurplus = capitalReserve + otherCapitalSurplus;
+    setVal('capital_surplus', capitalSurplus);
     const legalResBs = parseNum('legal_reserve_bs');
     const volResBs = parseNum('voluntary_reserve_bs');
     const retEarningsCarried = parseNum('retained_earnings_carried');
@@ -626,7 +662,8 @@ function recalculate() {
     setVal('retained_earnings', retainedEarnings);
 
     const treasury = parseNum('treasury_stock');
-    const netAssets = capital + capitalSurplus + retainedEarnings - treasury;
+    const valuationDiff = parseNum('valuation_difference');
+    const netAssets = capital + capitalSurplus + retainedEarnings - treasury + valuationDiff;
     setVal('net_assets', netAssets);
 
     const totalLNA = totalLiabilities + netAssets;
@@ -661,11 +698,14 @@ function recalculate() {
     updateSummary('sum_net_assets', netAssets);
     updateSummary('sum_capital', capital);
     updateSummary('sum_capital_surplus', capitalSurplus);
+    updateSummary('sum_capital_reserve', capitalReserve);
+    updateSummary('sum_other_capital_surplus', otherCapitalSurplus);
     updateSummary('sum_retained_earnings', retainedEarnings);
     updateSummary('sum_legal_reserve_bs', legalResBs);
     updateSummary('sum_voluntary_reserve_bs', volResBs);
     updateSummary('sum_retained_earnings_carried', retEarningsCarried);
     updateSummary('sum_treasury_stock', treasury);
+    updateSummary('sum_valuation_difference', valuationDiff);
     updateSummary('sum_total_l_na', totalLNA);
 
     // バランスチェック
