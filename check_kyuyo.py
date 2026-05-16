@@ -14,7 +14,7 @@ try:
         PlAccountItem.account_name == '給与手当'
     ).first()
     if item:
-        print(f"給与手当 found: id={item.id}, mapping_status={item.mapping_status}, pl_field={item.pl_field}")
+        print(f"給与手当 found: id={item.id}, mapping_status={item.mapping_status}, target_field={item.target_field}")
     else:
         print("給与手当: DBに存在しない")
     
