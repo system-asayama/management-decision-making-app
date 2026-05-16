@@ -7,19 +7,19 @@ import json
 
 db = SessionLocal()
 try:
-    # 1. PlAccountItemの「給与手当」を「給料手当」に修正
+    # 1. PlAccountItemの「給与手当」を削除（「給料手当」が既に存在するため）
     item = db.query(PlAccountItem).filter(
         PlAccountItem.tenant_id == 1,
         PlAccountItem.account_name == '給与手当'
     ).first()
     if item:
-        print(f"PlAccountItem修正前: id={item.id}, account_name={item.account_name}, mapping_status={item.mapping_status}, target_field={item.target_field}")
-        item.account_name = '給料手当'
+        print(f"PlAccountItem削除: id={item.id}, account_name={item.account_name}, mapping_status={item.mapping_status}, target_field={item.target_field}")
+        db.delete(item)
         db.flush()
-        print(f"PlAccountItem修正後: id={item.id}, account_name={item.account_name}")
+        print("PlAccountItem削除完了")
     else:
         print("PlAccountItem: 給与手当 not found")
-    
+
     # 2. OriginalTrialBalanceのpl_itemsの「給与手当」を「給料手当」に修正
     otbs = db.query(OriginalTrialBalance).all()
     for otb in otbs:
@@ -36,7 +36,7 @@ try:
                     otb.pl_items = json.dumps(items, ensure_ascii=False)
             except Exception as e:
                 print(f"OTB id={otb.id}: parse error {e}")
-    
+
     db.commit()
     print("修正完了")
 finally:
