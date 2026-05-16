@@ -5257,7 +5257,7 @@ _BS_FIELDS = {
 _BS_FIELD_GROUPS = [
     {'label': '資産の部 / I 流動資産 / 1. 当座資産', 'options': ['cash_on_hand', 'investment_deposits', 'marketable_securities']},
     {'label': '資産の部 / I 流動資産', 'options': ['trade_receivables', 'inventory_assets', 'other_current_assets']},
-    {'label': '資産の部 / II 固定資産 / 1. 有形固定資産', 'options': ['land', 'buildings_and_attached', 'machinery_and_equipment', 'vehicles', 'tools_furniture', 'other_tangible', 'tangible_fixed_assets']},
+    {'label': '資産の部 / II 固定資産 / 1. 有形固定資産', 'options': ['land', 'buildings_and_attached', 'machinery_and_equipment', 'vehicles', 'tools_furniture', 'other_tangible']},
     {'label': '資産の部 / II 固定資産', 'options': ['intangible_fixed_assets', 'investments_and_other']},
     {'label': '資産の部', 'options': ['deferred_assets']},
     {'label': '負債の部 / I 流動負債', 'options': ['trade_payables', 'short_term_borrowings', 'discounted_notes', 'income_taxes_payable', 'bonus_reserve', 'other_allowances', 'other_current_liabilities']},
