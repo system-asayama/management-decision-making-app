@@ -13,8 +13,231 @@ from types import SimpleNamespace
 bp = Blueprint('decision', __name__, url_prefix='/decision')
 
 
-def _get_dashboard_financial_statements(db, fiscal_year_id):
-    """ダッシュボード分析用に、簡易版がなければPDF読取保存済みの生データを利用する。"""
+def _safe_amount(value):
+    """PDF/OTB/明細テーブルの金額を整数に正規化する。"""
+    if value is None:
+        return 0
+    try:
+        return int(float(str(value).replace(',', '').replace('△', '-').replace('▲', '-').replace('　', '').strip()))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _has_nonzero_attrs(obj, attrs):
+    """指定属性のいずれかに非ゼロ値があるか判定する。"""
+    if not obj:
+        return False
+    return any(_safe_amount(getattr(obj, attr, 0)) != 0 for attr in attrs)
+
+
+def _dashboard_infer_field(stmt_type, account_name):
+    """target_field未設定の標準的な集計科目名をダッシュボード用フィールドへ推定する。"""
+    name = _normalize_account_name(account_name)
+    if not name:
+        return None
+
+    pl_aliases = {
+        '売上高': 'sales',
+        '売上': 'sales',
+        '売上原価': 'cost_of_sales',
+        '売上原価合計': 'cost_of_sales',
+        '売上総利益': 'gross_profit',
+        '粗利益': 'gross_profit',
+        '販売費及び一般管理費': 'selling_general_admin_expenses',
+        '販売費および一般管理費': 'selling_general_admin_expenses',
+        '販管費': 'selling_general_admin_expenses',
+        '営業利益': 'operating_income',
+        '経常利益': 'ordinary_income',
+        '税引前当期純利益': 'income_before_tax',
+        '法人税等': 'income_taxes',
+        '法人税住民税及び事業税': 'income_taxes',
+        '当期純利益': 'net_income',
+        '当期利益': 'net_income',
+    }
+    bs_aliases = {
+        '流動資産': 'current_assets',
+        '流動資産合計': 'current_assets',
+        '固定資産': 'fixed_assets',
+        '固定資産合計': 'fixed_assets',
+        '資産合計': 'total_assets',
+        '流動負債': 'current_liabilities',
+        '流動負債合計': 'current_liabilities',
+        '固定負債': 'fixed_liabilities',
+        '固定負債合計': 'fixed_liabilities',
+        '負債合計': 'total_liabilities',
+        '純資産': 'net_assets',
+        '純資産合計': 'net_assets',
+        '資本金': 'capital',
+        '利益剰余金': 'retained_earnings',
+        '利益剰余金合計': 'retained_earnings',
+        '負債純資産合計': 'total_liabilities_and_net_assets',
+        '負債・純資産合計': 'total_liabilities_and_net_assets',
+    }
+    aliases = pl_aliases if (stmt_type or '').lower() == 'pl' else bs_aliases
+    return aliases.get(name)
+
+
+def _load_otb_items(otb, attr):
+    """OriginalTrialBalanceのJSON明細を安全に読み込む。"""
+    import json as _json
+    if not otb or not getattr(otb, attr, None):
+        return []
+    try:
+        items = _json.loads(getattr(otb, attr))
+    except (TypeError, ValueError):
+        return []
+    return items if isinstance(items, list) else []
+
+
+def _aggregate_dashboard_items(db, tenant_id, fiscal_year_id, stmt_type):
+    """OTBまたはStatementValue明細をtarget_field/科目名からダッシュボード用に集計する。"""
+    result = {}
+    stmt_type = (stmt_type or '').lower()
+    account_model = PlAccountItem if stmt_type == 'pl' else BsAccountItem
+    value_model = PlStatementValue if stmt_type == 'pl' else BsStatementValue
+    otb_attr = 'pl_items' if stmt_type == 'pl' else 'bs_items'
+
+    account_query = db.query(account_model)
+    if tenant_id:
+        account_query = account_query.filter(account_model.tenant_id == tenant_id)
+    account_by_name = {}
+    account_by_norm = {}
+    for ai in account_query.all():
+        target_field = _normalize_target_field(stmt_type, ai.target_field) or _dashboard_infer_field(stmt_type, ai.account_name)
+        if not target_field:
+            continue
+        account_by_name[ai.account_name] = target_field
+        account_by_norm.setdefault(_normalize_account_name(ai.account_name), target_field)
+
+    def add_amount(field, amount):
+        canonical = _normalize_target_field(stmt_type, field) or field
+        if canonical:
+            result[canonical] = result.get(canonical, 0) + _safe_amount(amount)
+
+    otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
+    items = _load_otb_items(otb, otb_attr)
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get('name') or item.get('account_name') or '').strip()
+        field = (
+            _normalize_target_field(stmt_type, item.get('target_field'))
+            or account_by_name.get(name)
+            or account_by_norm.get(_normalize_account_name(name))
+            or _dashboard_infer_field(stmt_type, name)
+        )
+        if field:
+            add_amount(field, item.get('amount') or item.get('value') or 0)
+
+    # OTBに集計可能な明細が無い場合、StatementValueテーブルからも集計する。
+    if not result:
+        value_rows = (
+            db.query(account_model, value_model)
+              .join(value_model,
+                    (value_model.account_item_id == account_model.id) &
+                    (value_model.fiscal_year_id == fiscal_year_id))
+        )
+        if tenant_id:
+            value_rows = value_rows.filter(account_model.tenant_id == tenant_id)
+        for ai, sv in value_rows.all():
+            field = (
+                _normalize_target_field(stmt_type, ai.target_field)
+                or _dashboard_infer_field(stmt_type, ai.account_name)
+            )
+            if field:
+                add_amount(field, sv.amount)
+
+    return result
+
+
+def _value_or_zero(obj, attr):
+    return _safe_amount(getattr(obj, attr, 0)) if obj else 0
+
+
+def _build_dashboard_pl_from_fields(fields, raw_profit_loss=None):
+    """集計フィールドとRaw PLから、指標計算に必要なPLオブジェクトを作る。"""
+    sales = fields.get('sales') or _value_or_zero(raw_profit_loss, 'sales')
+    cost_of_sales = fields.get('cost_of_sales') or _value_or_zero(raw_profit_loss, 'cost_of_sales')
+    gross_profit = fields.get('gross_profit') or _value_or_zero(raw_profit_loss, 'gross_profit')
+    if gross_profit == 0 and sales and cost_of_sales:
+        gross_profit = sales - cost_of_sales
+    operating_expenses = (
+        fields.get('selling_general_admin_expenses')
+        or _value_or_zero(raw_profit_loss, 'selling_general_admin_expenses')
+    )
+    operating_income = fields.get('operating_income') or _value_or_zero(raw_profit_loss, 'operating_income')
+    if operating_income == 0 and gross_profit and operating_expenses:
+        operating_income = gross_profit - operating_expenses
+    ordinary_income = fields.get('ordinary_income') or _value_or_zero(raw_profit_loss, 'ordinary_income')
+    net_income = fields.get('net_income') or _value_or_zero(raw_profit_loss, 'net_income')
+    return SimpleNamespace(
+        sales=sales,
+        cost_of_sales=cost_of_sales,
+        gross_profit=gross_profit,
+        operating_expenses=operating_expenses,
+        operating_income=operating_income,
+        non_operating_income=_value_or_zero(raw_profit_loss, 'non_operating_income'),
+        non_operating_expenses=_value_or_zero(raw_profit_loss, 'non_operating_expenses'),
+        ordinary_income=ordinary_income,
+        net_income=net_income,
+    )
+
+
+def _build_dashboard_bs_from_fields(fields, raw_balance_sheet=None):
+    """集計フィールドとRaw BSから、指標計算に必要なBSオブジェクトを作る。"""
+    current_assets = fields.get('current_assets') or _value_or_zero(raw_balance_sheet, 'current_assets')
+    fixed_assets = fields.get('fixed_assets') or _value_or_zero(raw_balance_sheet, 'fixed_assets')
+    if fixed_assets == 0:
+        fixed_assets = sum(fields.get(k, 0) for k in [
+            'tangible_fixed_assets', 'intangible_fixed_assets', 'investments_and_other', 'deferred_assets'
+        ])
+    total_assets = (
+        fields.get('total_assets')
+        or _value_or_zero(raw_balance_sheet, 'total_assets')
+        or _value_or_zero(raw_balance_sheet, 'total_liabilities_and_net_assets')
+    )
+    if total_assets == 0 and (current_assets or fixed_assets):
+        total_assets = current_assets + fixed_assets
+
+    current_liabilities = fields.get('current_liabilities') or _value_or_zero(raw_balance_sheet, 'current_liabilities')
+    if current_liabilities == 0:
+        current_liabilities = sum(fields.get(k, 0) for k in [
+            'trade_payables', 'short_term_borrowings', 'current_portion_long_term', 'income_taxes_payable',
+            'bonus_reserve', 'other_allowances', 'other_current_liabilities'
+        ])
+    fixed_liabilities = fields.get('fixed_liabilities') or _value_or_zero(raw_balance_sheet, 'fixed_liabilities')
+    if fixed_liabilities == 0:
+        fixed_liabilities = sum(fields.get(k, 0) for k in [
+            'long_term_borrowings', 'executive_borrowings', 'retirement_benefit_liability', 'other_fixed_liabilities'
+        ])
+    total_liabilities = fields.get('total_liabilities') or _value_or_zero(raw_balance_sheet, 'total_liabilities')
+    if total_liabilities == 0 and (current_liabilities or fixed_liabilities):
+        total_liabilities = current_liabilities + fixed_liabilities
+
+    total_equity = fields.get('net_assets') or _value_or_zero(raw_balance_sheet, 'net_assets')
+    if total_equity == 0:
+        total_equity = sum(fields.get(k, 0) for k in [
+            'capital', 'capital_surplus', 'capital_reserve', 'other_capital_surplus',
+            'retained_earnings', 'valuation_difference'
+        ]) - fields.get('treasury_stock', 0)
+    if total_equity == 0 and total_assets and total_liabilities:
+        total_equity = total_assets - total_liabilities
+
+    return SimpleNamespace(
+        current_assets=current_assets,
+        fixed_assets=fixed_assets,
+        total_assets=total_assets,
+        current_liabilities=current_liabilities,
+        fixed_liabilities=fixed_liabilities,
+        total_liabilities=total_liabilities,
+        capital=fields.get('capital') or _value_or_zero(raw_balance_sheet, 'capital'),
+        retained_earnings=fields.get('retained_earnings') or _value_or_zero(raw_balance_sheet, 'retained_earnings'),
+        total_equity=total_equity,
+    )
+
+
+def _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id=None):
+    """ダッシュボード分析用に、簡易版・Raw・OTB/明細のうち実数があるデータを利用する。"""
     profit_loss = db.query(ProfitLossStatement).filter(
         ProfitLossStatement.fiscal_year_id == fiscal_year_id
     ).first()
@@ -22,39 +245,32 @@ def _get_dashboard_financial_statements(db, fiscal_year_id):
         BalanceSheet.fiscal_year_id == fiscal_year_id
     ).first()
 
-    if not profit_loss:
-        raw_profit_loss = db.query(RawProfitLossStatement).filter(
-            RawProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
-        if raw_profit_loss:
-            profit_loss = SimpleNamespace(
-                sales=raw_profit_loss.sales or 0,
-                cost_of_sales=raw_profit_loss.cost_of_sales or 0,
-                gross_profit=raw_profit_loss.gross_profit or 0,
-                operating_expenses=raw_profit_loss.selling_general_admin_expenses or 0,
-                operating_income=raw_profit_loss.operating_income or 0,
-                ordinary_income=raw_profit_loss.ordinary_income or 0,
-                net_income=raw_profit_loss.net_income or 0,
-            )
+    pl_attrs = ['sales', 'cost_of_sales', 'gross_profit', 'operating_expenses', 'operating_income', 'ordinary_income', 'net_income']
+    bs_attrs = ['current_assets', 'fixed_assets', 'total_assets', 'current_liabilities', 'fixed_liabilities', 'total_liabilities', 'total_equity']
 
-    if not balance_sheet:
-        raw_balance_sheet = db.query(RawBalanceSheet).filter(
-            RawBalanceSheet.fiscal_year_id == fiscal_year_id
-        ).first()
-        if raw_balance_sheet:
-            total_equity = raw_balance_sheet.net_assets or 0
-            total_assets = raw_balance_sheet.total_assets or raw_balance_sheet.total_liabilities_and_net_assets or 0
-            balance_sheet = SimpleNamespace(
-                current_assets=raw_balance_sheet.current_assets or 0,
-                fixed_assets=raw_balance_sheet.fixed_assets or 0,
-                total_assets=total_assets,
-                current_liabilities=raw_balance_sheet.current_liabilities or 0,
-                fixed_liabilities=raw_balance_sheet.fixed_liabilities or 0,
-                total_liabilities=raw_balance_sheet.total_liabilities or 0,
-                capital=raw_balance_sheet.capital or 0,
-                retained_earnings=raw_balance_sheet.retained_earnings or 0,
-                total_equity=total_equity,
-            )
+    raw_profit_loss = db.query(RawProfitLossStatement).filter(
+        RawProfitLossStatement.fiscal_year_id == fiscal_year_id
+    ).first()
+    raw_balance_sheet = db.query(RawBalanceSheet).filter(
+        RawBalanceSheet.fiscal_year_id == fiscal_year_id
+    ).first()
+
+    # 簡易版レコードが存在しても全項目ゼロの場合は、PDF読取の実データを優先する。
+    if not _has_nonzero_attrs(profit_loss, pl_attrs):
+        pl_fields = _aggregate_dashboard_items(db, tenant_id, fiscal_year_id, 'pl')
+        candidate_pl = _build_dashboard_pl_from_fields(pl_fields, raw_profit_loss)
+        if _has_nonzero_attrs(candidate_pl, pl_attrs):
+            profit_loss = candidate_pl
+        else:
+            profit_loss = None
+
+    if not _has_nonzero_attrs(balance_sheet, bs_attrs):
+        bs_fields = _aggregate_dashboard_items(db, tenant_id, fiscal_year_id, 'bs')
+        candidate_bs = _build_dashboard_bs_from_fields(bs_fields, raw_balance_sheet)
+        if _has_nonzero_attrs(candidate_bs, bs_attrs):
+            balance_sheet = candidate_bs
+        else:
+            balance_sheet = None
 
     return profit_loss, balance_sheet
 
@@ -892,7 +1108,7 @@ def dashboard_analysis_data(company_id, fiscal_year_id):
         # 損益計算書・貸借対照表を取得
         # PDF読取結果は RawProfitLossStatement / RawBalanceSheet に保存されるため、
         # 簡易版テーブルに未保存でも分析できるように Raw データへフォールバックする。
-        profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fiscal_year_id)
+        profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id)
         
         if not profit_loss or not balance_sheet:
             return jsonify({
@@ -1014,7 +1230,7 @@ def dashboard_multi_year_data(company_id):
         
         multi_year_data = []
         for fy in fiscal_years:
-            profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fy.id)
+            profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fy.id, tenant_id)
             
             if profit_loss and balance_sheet:
                 multi_year_data.append({
