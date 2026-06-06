@@ -1323,14 +1323,8 @@ def simulation_execute():
         if not base_fiscal_year:
             return jsonify({'success': False, 'error': 'ベース年度が見つかりません'}), 404
         
-        # ベース年度の財務データを取得
-        profit_loss = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == base_fiscal_year_id
-        ).first()
-        
-        balance_sheet = db.query(BalanceSheet).filter(
-            BalanceSheet.fiscal_year_id == base_fiscal_year_id
-        ).first()
+        # ベース年度の財務データを取得（簡易PL/BSがゼロの場合はPDF読取明細から再構成）
+        profit_loss, balance_sheet = _get_dashboard_financial_statements(db, base_fiscal_year_id, tenant_id)
         
         if not profit_loss or not balance_sheet:
             return jsonify({'success': False, 'error': 'ベース年度の財務データが見つかりません'}), 404
@@ -1410,14 +1404,8 @@ def simulation_scenario():
         if not base_fiscal_year:
             return jsonify({'success': False, 'error': 'ベース年度が見つかりません'}), 404
         
-        # ベース年度の財務データを取得
-        profit_loss = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == base_fiscal_year_id
-        ).first()
-        
-        balance_sheet = db.query(BalanceSheet).filter(
-            BalanceSheet.fiscal_year_id == base_fiscal_year_id
-        ).first()
+        # ベース年度の財務データを取得（簡易PL/BSがゼロの場合はPDF読取明細から再構成）
+        profit_loss, balance_sheet = _get_dashboard_financial_statements(db, base_fiscal_year_id, tenant_id)
         
         if not profit_loss or not balance_sheet:
             return jsonify({'success': False, 'error': 'ベース年度の財務データが見つかりません'}), 404
@@ -1514,14 +1502,8 @@ def financial_analysis_detailed_analyze():
         if not fiscal_year:
             return jsonify({'error': '会計年度が見つかりません'}), 404
         
-        # 当期の財務データを取得
-        current_pl = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
-        
-        current_bs = db.query(BalanceSheet).filter(
-            BalanceSheet.fiscal_year_id == fiscal_year_id
-        ).first()
+        # 当期の財務データを取得（簡易PL/BSがゼロの場合はPDF読取明細から再構成）
+        current_pl, current_bs = _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id)
         
         if not current_pl or not current_bs:
             return jsonify({'error': '財務データが見つかりません'}), 404
@@ -1537,12 +1519,7 @@ def financial_analysis_detailed_analyze():
         previous_bs = None
         if previous_fiscal_years:
             previous_fiscal_year = previous_fiscal_years[0]
-            previous_pl = db.query(ProfitLossStatement).filter(
-                ProfitLossStatement.fiscal_year_id == previous_fiscal_year.id
-            ).first()
-            previous_bs = db.query(BalanceSheet).filter(
-                BalanceSheet.fiscal_year_id == previous_fiscal_year.id
-            ).first()
+            previous_pl, previous_bs = _get_dashboard_financial_statements(db, previous_fiscal_year.id, tenant_id)
         
         # 当期PLデータを辞書に変換
         current_pl_data = {
@@ -1670,10 +1647,8 @@ def breakeven_analysis_analyze():
         if not fiscal_year:
             return jsonify({'error': '会計年度が見つかりません'}), 404
         
-        # 損益計算書を取得
-        profit_loss = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
+        # 損益計算書を取得（簡易PLがゼロの場合はPDF読取明細から再構成）
+        profit_loss, _ = _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id)
         
         if not profit_loss:
             return jsonify({'error': '損益計算書が見つかりません'}), 404
@@ -1776,14 +1751,8 @@ def budget_analyze():
                 'has_budget': False
             })
         
-        # 実績（損益計算書と貸借対照表）を取得
-        profit_loss = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
-        
-        balance_sheet = db.query(BalanceSheet).filter(
-            BalanceSheet.fiscal_year_id == fiscal_year_id
-        ).first()
+        # 実績（損益計算書と貸借対照表）を取得（簡易PL/BSがゼロの場合はPDF読取明細から再構成）
+        profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id)
         
         if not profit_loss or not balance_sheet:
             return jsonify({'error': '実績データが見つかりません'}), 404
@@ -2054,14 +2023,8 @@ def debt_capacity_analyze():
         if not company:
             return jsonify({'error': '企業が見つかりません'}), 404
         
-        # 損益計算書と貸借対照表を取得
-        profit_loss = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
-        
-        balance_sheet = db.query(BalanceSheet).filter(
-            BalanceSheet.fiscal_year_id == fiscal_year_id
-        ).first()
+        # 損益計算書と貸借対照表を取得（簡易PL/BSがゼロの場合はPDF読取明細から再構成）
+        profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id)
         
         if not profit_loss or not balance_sheet:
             return jsonify({'error': '財務データが見つかりません'}), 404
@@ -2369,14 +2332,8 @@ def retained_earnings_simulation_simulate():
         if not fiscal_year:
             return jsonify({'error': '会計年度が見つかりません'}), 404
         
-        # 財務データを取得
-        profit_loss = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
-        
-        balance_sheet = db.query(BalanceSheet).filter(
-            BalanceSheet.fiscal_year_id == fiscal_year_id
-        ).first()
+        # 財務データを取得（簡易PL/BSがゼロの場合はPDF読取明細から再構成）
+        profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id)
         
         if not profit_loss or not balance_sheet:
             return jsonify({'error': '財務データが見つかりません'}), 404
@@ -2450,14 +2407,8 @@ def retained_earnings_simulation_scenarios():
         if not fiscal_year:
             return jsonify({'error': '会計年度が見つかりません'}), 404
         
-        # 財務データを取得
-        profit_loss = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
-        
-        balance_sheet = db.query(BalanceSheet).filter(
-            BalanceSheet.fiscal_year_id == fiscal_year_id
-        ).first()
+        # 財務データを取得（簡易PL/BSがゼロの場合はPDF読取明細から再構成）
+        profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id)
         
         if not profit_loss or not balance_sheet:
             return jsonify({'error': '財務データが見つかりません'}), 404
@@ -2525,14 +2476,8 @@ def internal_reserve_usage_simulate():
         if not fiscal_year:
             return jsonify({'error': '会計年度が見つかりません'}), 404
         
-        # 財務データを取得
-        profit_loss = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
-        
-        balance_sheet = db.query(BalanceSheet).filter(
-            BalanceSheet.fiscal_year_id == fiscal_year_id
-        ).first()
+        # 財務データを取得（簡易PL/BSがゼロの場合はPDF読取明細から再構成）
+        profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id)
         
         if not profit_loss or not balance_sheet:
             return jsonify({'error': '財務データが見つかりません'}), 404
@@ -2610,14 +2555,8 @@ def internal_reserve_usage_scenarios():
         if not fiscal_year:
             return jsonify({'error': '会計年度が見つかりません'}), 404
         
-        # 財務データを取得
-        profit_loss = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
-        
-        balance_sheet = db.query(BalanceSheet).filter(
-            BalanceSheet.fiscal_year_id == fiscal_year_id
-        ).first()
+        # 財務データを取得（簡易PL/BSがゼロの場合はPDF読取明細から再構成）
+        profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id)
         
         if not profit_loss or not balance_sheet:
             return jsonify({'error': '財務データが見つかりません'}), 404
@@ -2748,9 +2687,7 @@ def least_squares_forecast_forecast():
         net_income_data = []
         
         for fy in fiscal_years:
-            profit_loss = db.query(ProfitLossStatement).filter(
-                ProfitLossStatement.fiscal_year_id == fy.id
-            ).first()
+            profit_loss, _ = _get_dashboard_financial_statements(db, fy.id, tenant_id)
             
             if profit_loss:
                 # 年度番号を抽出（例: "2023年度" -> 2023）
@@ -3267,10 +3204,8 @@ def debt_capacity_method2():
         if not company:
             return jsonify({'error': '企業が見つかりません'}), 404
         
-        # PLを取得
-        pl = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
+        # PLを取得（簡易PLがゼロの場合はPDF読取明細から再構成）
+        pl, _ = _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id)
         
         if not pl:
             return jsonify({'error': 'PLが見つかりません'}), 404
@@ -3398,10 +3333,8 @@ def integrated_monthly_cash_flow_plan():
         if not company:
             return jsonify({'error': '企業が見つかりません'}), 404
         
-        # PLを取得
-        pl = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
+        # PLを取得（簡易PLがゼロの場合はPDF読取明細から再構成）
+        pl, _ = _get_dashboard_financial_statements(db, fiscal_year_id, tenant_id)
         
         if not pl:
             return jsonify({'error': 'PLが見つかりません'}), 404
