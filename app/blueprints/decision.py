@@ -38,15 +38,22 @@ def _dashboard_infer_field(stmt_type, account_name):
 
     pl_aliases = {
         '売上高': 'sales',
+        '売上高計': 'sales',
+        '売上計': 'sales',
         '売上': 'sales',
         '売上原価': 'cost_of_sales',
+        '売上原価計': 'cost_of_sales',
         '売上原価合計': 'cost_of_sales',
         '売上総利益': 'gross_profit',
         '粗利益': 'gross_profit',
         '販売費及び一般管理費': 'selling_general_admin_expenses',
         '販売費および一般管理費': 'selling_general_admin_expenses',
+        '販売管理費計': 'selling_general_admin_expenses',
+        '販管費計': 'selling_general_admin_expenses',
         '販管費': 'selling_general_admin_expenses',
         '営業利益': 'operating_income',
+        '営業外収益': 'non_operating_income',
+        '営業外費用': 'non_operating_expenses',
         '経常利益': 'ordinary_income',
         '税引前当期純利益': 'income_before_tax',
         '法人税等': 'income_taxes',
@@ -75,6 +82,41 @@ def _dashboard_infer_field(stmt_type, account_name):
     }
     aliases = pl_aliases if (stmt_type or '').lower() == 'pl' else bs_aliases
     return aliases.get(name)
+
+
+
+_DASHBOARD_TOTAL_ACCOUNT_FIELD_BY_STMT = {
+    'pl': {
+        str(name or '').replace(' ', '').replace('\u3000', '').strip(): field
+        for name, field in {
+            '売上高': 'sales',
+            '売上高計': 'sales',
+            '売上計': 'sales',
+            '売上原価': 'cost_of_sales',
+            '売上原価計': 'cost_of_sales',
+            '売上原価合計': 'cost_of_sales',
+            '売上総利益': 'gross_profit',
+            '販売費及び一般管理費': 'selling_general_admin_expenses',
+            '販売費および一般管理費': 'selling_general_admin_expenses',
+            '販売管理費計': 'selling_general_admin_expenses',
+            '販管費計': 'selling_general_admin_expenses',
+            '営業利益': 'operating_income',
+            '営業外収益': 'non_operating_income',
+            '営業外費用': 'non_operating_expenses',
+            '経常利益': 'ordinary_income',
+            '税引前当期純利益': 'income_before_tax',
+            '法人税等': 'income_taxes',
+            '当期純利益': 'net_income',
+        }.items()
+    }
+}
+
+
+def _dashboard_total_field(stmt_type, account_name):
+    """合計・小計行の科目名から、内訳行より優先すべき集計フィールドを返す。"""
+    return _DASHBOARD_TOTAL_ACCOUNT_FIELD_BY_STMT.get((stmt_type or '').lower(), {}).get(
+        _normalize_account_name(account_name)
+    )
 
 
 def _load_otb_items(otb, attr):
@@ -116,10 +158,17 @@ def _aggregate_dashboard_items(db, tenant_id, fiscal_year_id, stmt_type):
 
     otb = db.query(OriginalTrialBalance).filter_by(fiscal_year_id=fiscal_year_id).first()
     items = _load_otb_items(otb, otb_attr)
+    total_line_values = {}
     for item in items:
         if not isinstance(item, dict):
             continue
         name = str(item.get('name') or item.get('account_name') or '').strip()
+        amount = item.get('amount') or item.get('value') or 0
+        total_field = _dashboard_total_field(stmt_type, name)
+        if total_field:
+            # PDF/OTBには「売上原価」合計行と、その内訳である「製品売上原価」等が同時に入る。
+            # 合計行がある場合は後で合計値を優先し、内訳との二重計上を防ぐ。
+            total_line_values[total_field] = _safe_amount(amount)
         field = (
             _normalize_target_field(stmt_type, item.get('target_field'))
             or account_by_name.get(name)
@@ -127,7 +176,10 @@ def _aggregate_dashboard_items(db, tenant_id, fiscal_year_id, stmt_type):
             or _dashboard_infer_field(stmt_type, name)
         )
         if field:
-            add_amount(field, item.get('amount') or item.get('value') or 0)
+            add_amount(field, amount)
+
+    for field, amount in total_line_values.items():
+        result[field] = amount
 
     # OTBに集計可能な明細が無い場合、StatementValueテーブルからも集計する。
     if not result:
@@ -176,8 +228,8 @@ def _build_dashboard_pl_from_fields(fields, raw_profit_loss=None):
         gross_profit=gross_profit,
         operating_expenses=operating_expenses,
         operating_income=operating_income,
-        non_operating_income=_value_or_zero(raw_profit_loss, 'non_operating_income'),
-        non_operating_expenses=_value_or_zero(raw_profit_loss, 'non_operating_expenses'),
+        non_operating_income=fields.get('non_operating_income') or _value_or_zero(raw_profit_loss, 'non_operating_income'),
+        non_operating_expenses=fields.get('non_operating_expenses') or _value_or_zero(raw_profit_loss, 'non_operating_expenses'),
         ordinary_income=ordinary_income,
         net_income=net_income,
     )
