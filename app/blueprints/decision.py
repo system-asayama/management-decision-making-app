@@ -8,8 +8,55 @@ from ..utils.formatting import parse_int, parse_int_or_none
 from ..db import SessionLocal
 from ..models_decision import Company, FiscalYear, ProfitLossStatement, BalanceSheet, RestructuredPL, RestructuredBS, ManufacturingCostReport, OriginalTrialBalance, RawProfitLossStatement, RawBalanceSheet, RawManufacturingCostReport, AccountMapping, StatementType, PlAccountItem, PlStatementValue, BsAccountItem, BsStatementValue, McrAccountItem, McrStatementValue
 from datetime import datetime
+from types import SimpleNamespace
 
 bp = Blueprint('decision', __name__, url_prefix='/decision')
+
+
+def _get_dashboard_financial_statements(db, fiscal_year_id):
+    """ダッシュボード分析用に、簡易版がなければPDF読取保存済みの生データを利用する。"""
+    profit_loss = db.query(ProfitLossStatement).filter(
+        ProfitLossStatement.fiscal_year_id == fiscal_year_id
+    ).first()
+    balance_sheet = db.query(BalanceSheet).filter(
+        BalanceSheet.fiscal_year_id == fiscal_year_id
+    ).first()
+
+    if not profit_loss:
+        raw_profit_loss = db.query(RawProfitLossStatement).filter(
+            RawProfitLossStatement.fiscal_year_id == fiscal_year_id
+        ).first()
+        if raw_profit_loss:
+            profit_loss = SimpleNamespace(
+                sales=raw_profit_loss.sales or 0,
+                cost_of_sales=raw_profit_loss.cost_of_sales or 0,
+                gross_profit=raw_profit_loss.gross_profit or 0,
+                operating_expenses=raw_profit_loss.selling_general_admin_expenses or 0,
+                operating_income=raw_profit_loss.operating_income or 0,
+                ordinary_income=raw_profit_loss.ordinary_income or 0,
+                net_income=raw_profit_loss.net_income or 0,
+            )
+
+    if not balance_sheet:
+        raw_balance_sheet = db.query(RawBalanceSheet).filter(
+            RawBalanceSheet.fiscal_year_id == fiscal_year_id
+        ).first()
+        if raw_balance_sheet:
+            total_equity = raw_balance_sheet.net_assets or 0
+            total_assets = raw_balance_sheet.total_assets or raw_balance_sheet.total_liabilities_and_net_assets or 0
+            balance_sheet = SimpleNamespace(
+                current_assets=raw_balance_sheet.current_assets or 0,
+                fixed_assets=raw_balance_sheet.fixed_assets or 0,
+                total_assets=total_assets,
+                current_liabilities=raw_balance_sheet.current_liabilities or 0,
+                fixed_liabilities=raw_balance_sheet.fixed_liabilities or 0,
+                total_liabilities=raw_balance_sheet.total_liabilities or 0,
+                capital=raw_balance_sheet.capital or 0,
+                retained_earnings=raw_balance_sheet.retained_earnings or 0,
+                total_equity=total_equity,
+            )
+
+    return profit_loss, balance_sheet
 
 
 @bp.route('/')
@@ -842,15 +889,10 @@ def dashboard_analysis_data(company_id, fiscal_year_id):
         if not fiscal_year:
             return jsonify({'success': False, 'error': '会計年度が見つかりません'}), 404
         
-        # 損益計算書を取得
-        profit_loss = db.query(ProfitLossStatement).filter(
-            ProfitLossStatement.fiscal_year_id == fiscal_year_id
-        ).first()
-        
-        # 貸借対照表を取得
-        balance_sheet = db.query(BalanceSheet).filter(
-            BalanceSheet.fiscal_year_id == fiscal_year_id
-        ).first()
+        # 損益計算書・貸借対照表を取得
+        # PDF読取結果は RawProfitLossStatement / RawBalanceSheet に保存されるため、
+        # 簡易版テーブルに未保存でも分析できるように Raw データへフォールバックする。
+        profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fiscal_year_id)
         
         if not profit_loss or not balance_sheet:
             return jsonify({
@@ -972,13 +1014,7 @@ def dashboard_multi_year_data(company_id):
         
         multi_year_data = []
         for fy in fiscal_years:
-            profit_loss = db.query(ProfitLossStatement).filter(
-                ProfitLossStatement.fiscal_year_id == fy.id
-            ).first()
-            
-            balance_sheet = db.query(BalanceSheet).filter(
-                BalanceSheet.fiscal_year_id == fy.id
-            ).first()
+            profit_loss, balance_sheet = _get_dashboard_financial_statements(db, fy.id)
             
             if profit_loss and balance_sheet:
                 multi_year_data.append({
