@@ -529,6 +529,67 @@ def company_financial_data(company_id):
         db.close()
 
 
+@bp.route('/companies/<int:company_id>/analysis-basis')
+@require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
+def company_analysis_basis(company_id):
+    """企業別 財務分析基礎データページ（成長力・収益力・資金力・生産力）
+
+    財務諸表組換え（RestructuredPL / RestructuredBS）の数値をもとに、
+    直近3期分の経営分析指標を算出して表示する。
+    """
+    from ..utils.financial_analysis_basis import build_analysis_basis
+
+    tenant_id = session.get('tenant_id')
+    db = SessionLocal()
+    try:
+        if tenant_id:
+            company = db.query(Company).filter_by(id=company_id, tenant_id=tenant_id).first()
+        else:
+            company = db.query(Company).filter_by(id=company_id).first()
+        if not company:
+            return redirect(url_for('decision.company_list'))
+
+        # 直近3期分の会計年度を取得（新しい順 → 古い順に並べ替え）
+        fiscal_years = (
+            db.query(FiscalYear)
+              .filter_by(company_id=company_id)
+              .order_by(FiscalYear.start_date.desc())
+              .limit(3)
+              .all()
+        )
+        fiscal_years = list(reversed(fiscal_years))  # 古い順（3年前→直前期）
+
+        # 期ラベル（右詰めで 3年前 / 2年前 / 直前期 を割り当て）
+        n = len(fiscal_years)
+        base_labels = ['3年前', '2年前', '直前期'][-n:] if n else []
+
+        periods = []
+        for label, fy in zip(base_labels, fiscal_years):
+            rpl = db.query(RestructuredPL).filter_by(fiscal_year_id=fy.id).first()
+            rbs = db.query(RestructuredBS).filter_by(fiscal_year_id=fy.id).first()
+            periods.append({
+                'label': label,
+                'year_name': fy.year_name,
+                'rpl': rpl,
+                'rbs': rbs,
+            })
+
+        analysis = build_analysis_basis(periods, company.employee_count)
+        # 期ラベルに年度名を併記したヘッダーを作る
+        period_headers = [
+            {'label': p['label'], 'year_name': p['year_name']} for p in periods
+        ]
+
+        return render_template(
+            'financial_analysis_basis.html',
+            company=company,
+            analysis=analysis,
+            period_headers=period_headers,
+        )
+    finally:
+        db.close()
+
+
 @bp.route('/companies/<int:company_id>/financial-statements')
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def company_financial_statements(company_id):

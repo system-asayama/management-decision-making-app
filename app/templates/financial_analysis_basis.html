@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ company.name }} - 財務分析基礎データ{% endblock %}
+
+{% macro indicator_table(title, icon, color, rows, period_headers) %}
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-header fw-bold text-white d-flex align-items-center" style="background: {{ color }};">
+    <i class="fas {{ icon }} me-2"></i>{{ title }}
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered analysis-table mb-0">
+        <thead>
+          <tr class="text-center align-middle">
+            <th rowspan="2" style="width:42px;">番号</th>
+            <th rowspan="2" style="min-width:160px;">経営指標</th>
+            <th rowspan="2" style="min-width:200px;">計算式</th>
+            <th rowspan="2" style="width:48px;">単位</th>
+            <th rowspan="2" style="width:80px;">目標値</th>
+            {% for ph in period_headers %}
+              <th colspan="2">{{ ph.label }}<br><span class="fw-normal text-muted small">{{ ph.year_name }}</span></th>
+            {% endfor %}
+            <th rowspan="2" style="width:42px;">採否</th>
+          </tr>
+          <tr class="text-center small">
+            {% for ph in period_headers %}
+              <th style="width:90px;">数値</th>
+              <th style="width:38px;">評価</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr class="{% if row.is_main %}main-row{% else %}sub-row{% endif %}">
+            <td class="text-center fw-bold">{{ row.no }}</td>
+            <td class="{% if row.is_main %}fw-bold{% else %}ps-4{% endif %}">{{ row.name }}</td>
+            <td class="small text-muted">{{ row.formula }}</td>
+            <td class="text-center small">{{ row.unit }}</td>
+            <td class="text-center small">{{ row.target }}</td>
+            {% for cell in row.cells %}
+              <td class="text-end">{{ cell.display }}</td>
+              <td class="text-center grade grade-{{ cell.grade|default('') }}">{{ cell.grade }}</td>
+            {% endfor %}
+            <td class="text-center text-success">{% if row.adopted %}✓{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <!-- パンくずナビ -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/decision/">企業一覧</a></li>
+      <li class="breadcrumb-item"><a href="/decision/companies/{{ company.id }}">{{ company.name }}</a></li>
+      <li class="breadcrumb-item"><a href="/decision/companies/{{ company.id }}/financial-data">財務データ</a></li>
+      <li class="breadcrumb-item active">財務分析基礎データ</li>
+    </ol>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="card shadow-sm border-0 mb-4" style="background: linear-gradient(135deg, #16794d 0%, #28a745 100%);">
+    <div class="card-body text-white py-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h3 class="mb-1 fw-bold"><i class="fas fa-chart-bar me-2"></i>財務分析基礎データ</h3>
+          <p class="mb-0 opacity-75">{{ company.name }}　／　成長力・収益力・資金力・生産力</p>
+        </div>
+        <a href="/decision/companies/{{ company.id }}/financial-data" class="btn btn-outline-light btn-sm">
+          <i class="fas fa-arrow-left me-1"></i>戻る
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {% if not period_headers %}
+    <div class="alert alert-warning">
+      <i class="fas fa-exclamation-triangle me-2"></i>会計年度が登録されていません。先に会計年度と財務諸表組換えを登録してください。
+    </div>
+  {% elif not analysis.has_any_data %}
+    <div class="alert alert-warning">
+      <i class="fas fa-exclamation-triangle me-2"></i>財務諸表組換えのデータが登録されていません。
+      <a href="/decision/restructuring?company_id={{ company.id }}">財務諸表組換え</a>から入力してください。
+    </div>
+  {% else %}
+    <div class="alert alert-info py-2 small">
+      <i class="fas fa-info-circle me-2"></i>金額は財務諸表組換え（1円単位）を基に算出しています。評価記号　◎：優良　○：良好　△：要注意　×：要改善
+    </div>
+  {% endif %}
+
+  {% if period_headers %}
+    {{ indicator_table('成 長 力', 'fa-seedling', 'linear-gradient(135deg,#6f42c1,#8a63d2)', analysis.growth, period_headers) }}
+    {{ indicator_table('収 益 力', 'fa-yen-sign', 'linear-gradient(135deg,#0056b3,#007bff)', analysis.profitability, period_headers) }}
+    {{ indicator_table('資 金 力', 'fa-coins', 'linear-gradient(135deg,#b8860b,#e0a800)', analysis.financial_strength, period_headers) }}
+    {{ indicator_table('生 産 力', 'fa-industry', 'linear-gradient(135deg,#16794d,#28a745)', analysis.productivity, period_headers) }}
+  {% endif %}
+
+</div>
+
+<style>
+.analysis-table { font-size: 0.85rem; }
+.analysis-table th { background-color: #f3ede2; vertical-align: middle; }
+.analysis-table td { vertical-align: middle; }
+.analysis-table tr.main-row > td { background-color: #eef7ef; }
+.analysis-table tr.sub-row > td { background-color: #ffffff; }
+.analysis-table td.grade { font-weight: 700; }
+.analysis-table td.grade-◎ { color: #d6336c; }
+.analysis-table td.grade-○ { color: #1971c2; }
+.analysis-table td.grade-△ { color: #e8590c; }
+.analysis-table td.grade-× { color: #adb5bd; }
+</style>
+{% endblock %}
