@@ -1429,3 +1429,28 @@ class McrStatementValue(Base):
     # リレーション
     fiscal_year = relationship("FiscalYear", back_populates="mcr_statement_values")
     account_item = relationship("McrAccountItem", back_populates="values")
+
+
+# ==================== 財務分析基礎データ コメント ====================
+
+class FinancialAnalysisComment(Base):
+    """財務分析基礎データのコメント
+
+    企業 × 分析カテゴリ（成長力 / 収益力 / 資金力 / 生産力）ごとに、
+    エクセル「経営分析指標」のコメント欄（①〜⑩）を保持する。
+    comments は JSON 文字列（最大10要素の配列）として保存する。
+    """
+    __tablename__ = 'financial_analysis_comments'
+
+    __table_args__ = (
+        UniqueConstraint('company_id', 'category',
+                         name='uq_fa_comment_company_category'),
+        {'extend_existing': True},
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=False, index=True)
+    category = Column(String(20), nullable=False)  # growth / profitability / financial_strength / productivity
+    comments = Column(Text)  # JSON 配列（①〜⑩）
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)

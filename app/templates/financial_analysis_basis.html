@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ company.name }} - 財務分析基礎データ{% endblock %}
 
-{% macro indicator_table(title, icon, color, rows, period_headers) %}
+{% macro indicator_table(cat_key, title, icon, color, rows, period_headers, comment_lines) %}
 <div class="card shadow-sm border-0 mb-4">
   <div class="card-header fw-bold text-white d-flex align-items-center" style="background: {{ color }};">
     <i class="fas {{ icon }} me-2"></i>{{ title }}
@@ -11,26 +11,30 @@
       <table class="table table-sm table-bordered analysis-table mb-0">
         <thead>
           <tr class="text-center align-middle">
+            <th rowspan="2" class="cat-col">分析<br>対象</th>
             <th rowspan="2" style="width:42px;">番号</th>
-            <th rowspan="2" style="min-width:160px;">経営指標</th>
-            <th rowspan="2" style="min-width:200px;">計算式</th>
-            <th rowspan="2" style="width:48px;">単位</th>
-            <th rowspan="2" style="width:80px;">目標値</th>
+            <th rowspan="2" style="min-width:150px;">経営指標</th>
+            <th rowspan="2" style="min-width:190px;">計算式</th>
+            <th rowspan="2" style="width:46px;">単位</th>
+            <th rowspan="2" style="width:78px;">目標値</th>
             {% for ph in period_headers %}
-              <th colspan="2">{{ ph.label }}<br><span class="fw-normal text-muted small">{{ ph.year_name }}</span></th>
+              <th colspan="2">{{ ph.year_name }}</th>
             {% endfor %}
-            <th rowspan="2" style="width:42px;">採否</th>
+            <th rowspan="2" style="width:40px;">採否</th>
           </tr>
           <tr class="text-center small">
             {% for ph in period_headers %}
-              <th style="width:90px;">数値</th>
-              <th style="width:38px;">評価</th>
+              <th style="width:88px;">数値</th>
+              <th style="width:36px;">評価</th>
             {% endfor %}
           </tr>
         </thead>
         <tbody>
           {% for row in rows %}
           <tr class="{% if row.is_main %}main-row{% else %}sub-row{% endif %}">
+            {% if row.group %}
+              <td class="category-cell" rowspan="{{ row.group.rowspan }}"><span>{{ row.group.label }}</span></td>
+            {% endif %}
             <td class="text-center fw-bold">{{ row.no }}</td>
             <td class="{% if row.is_main %}fw-bold{% else %}ps-4{% endif %}">{{ row.name }}</td>
             <td class="small text-muted">{{ row.formula }}</td>
@@ -46,6 +50,25 @@
         </tbody>
       </table>
     </div>
+
+    <!-- コメント欄 -->
+    <form method="post" class="comment-box p-3 border-top">
+      <input type="hidden" name="category" value="{{ cat_key }}">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="fw-bold text-secondary"><i class="fas fa-comment-dots me-1"></i>コメント</span>
+        <button type="submit" class="btn btn-sm btn-outline-secondary">
+          <i class="fas fa-save me-1"></i>コメントを保存
+        </button>
+      </div>
+      {% set marks = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'] %}
+      {% for i in range(10) %}
+        <div class="input-group input-group-sm mb-1">
+          <span class="input-group-text comment-no">{{ marks[i] }}</span>
+          <input type="text" class="form-control" name="comment_{{ i + 1 }}"
+                 value="{{ comment_lines[i] if comment_lines and comment_lines|length > i else '' }}">
+        </div>
+      {% endfor %}
+    </form>
   </div>
 </div>
 {% endmacro %}
@@ -89,15 +112,21 @@
     </div>
   {% else %}
     <div class="alert alert-info py-2 small">
-      <i class="fas fa-info-circle me-2"></i>金額は財務諸表組換え（1円単位）を基に算出しています。評価記号　◎：優良　○：良好　△：要注意　×：要改善
+      <i class="fas fa-info-circle me-2"></i>金額は財務諸表組換え（1円単位）を基に算出しています。
+      成長率は1期前を基準に算出（基準期が無い場合は「－」）。評価記号　◎：優良　○：良好　△：要注意　×：要改善
     </div>
   {% endif %}
 
   {% if period_headers %}
-    {{ indicator_table('成 長 力', 'fa-seedling', 'linear-gradient(135deg,#6f42c1,#8a63d2)', analysis.growth, period_headers) }}
-    {{ indicator_table('収 益 力', 'fa-yen-sign', 'linear-gradient(135deg,#0056b3,#007bff)', analysis.profitability, period_headers) }}
-    {{ indicator_table('資 金 力', 'fa-coins', 'linear-gradient(135deg,#b8860b,#e0a800)', analysis.financial_strength, period_headers) }}
-    {{ indicator_table('生 産 力', 'fa-industry', 'linear-gradient(135deg,#16794d,#28a745)', analysis.productivity, period_headers) }}
+    {{ indicator_table('growth', '成 長 力', 'fa-seedling', 'linear-gradient(135deg,#6f42c1,#8a63d2)', analysis.growth, period_headers, comments.growth) }}
+    {{ indicator_table('profitability', '収 益 力', 'fa-yen-sign', 'linear-gradient(135deg,#0056b3,#007bff)', analysis.profitability, period_headers, comments.profitability) }}
+    {{ indicator_table('financial_strength', '資 金 力', 'fa-coins', 'linear-gradient(135deg,#b8860b,#e0a800)', analysis.financial_strength, period_headers, comments.financial_strength) }}
+    {{ indicator_table('productivity', '生 産 力', 'fa-industry', 'linear-gradient(135deg,#16794d,#28a745)', analysis.productivity, period_headers, comments.productivity) }}
+
+    <p class="text-muted small">
+      ※ 経営資本 ＝ 総資本 － 投資その他の資産・繰延資産等の経営外投資。
+      平均設備残高 ＝ 有形固定資産 － 土地。担保余力は組換BSの簿価（土地・有価証券×50％）を基準に算出。
+    </p>
   {% endif %}
 
 </div>
@@ -113,5 +142,22 @@
 .analysis-table td.grade-○ { color: #1971c2; }
 .analysis-table td.grade-△ { color: #e8590c; }
 .analysis-table td.grade-× { color: #adb5bd; }
+.analysis-table .cat-col { width: 34px; }
+.analysis-table td.category-cell {
+  background-color: #ece4f3;
+  text-align: center;
+  font-weight: 700;
+  width: 34px;
+  padding: 4px 2px;
+}
+.analysis-table td.category-cell span {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  white-space: nowrap;
+  letter-spacing: 1px;
+  display: inline-block;
+}
+.comment-box { background-color: #fcfbf7; }
+.comment-no { min-width: 34px; justify-content: center; font-weight: 700; }
 </style>
 {% endblock %}

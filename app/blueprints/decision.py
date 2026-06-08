@@ -529,15 +529,24 @@ def company_financial_data(company_id):
         db.close()
 
 
-@bp.route('/companies/<int:company_id>/analysis-basis')
+# 財務分析基礎データのコメントカテゴリ
+_ANALYSIS_COMMENT_CATEGORIES = ('growth', 'profitability', 'financial_strength', 'productivity')
+
+
+@bp.route('/companies/<int:company_id>/analysis-basis', methods=['GET', 'POST'])
 @require_roles(ROLES["TENANT_ADMIN"], ROLES["SYSTEM_ADMIN"], ROLES["ADMIN"], ROLES["EMPLOYEE"])
 def company_analysis_basis(company_id):
     """企業別 財務分析基礎データページ（成長力・収益力・資金力・生産力）
 
     財務諸表組換え（RestructuredPL / RestructuredBS）の数値をもとに、
-    直近3期分の経営分析指標を算出して表示する。
+    直近3期分の経営分析指標を算出して表示する。成長率は1期前を基準に
+    全表示列で算出するため、会計年度は最大4期分取得する。
+
+    POST 時は分析コメント（①〜⑩）を保存する。
     """
+    import json as _json
     from ..utils.financial_analysis_basis import build_analysis_basis
+    from ..models_decision import FinancialAnalysisComment
 
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
@@ -549,42 +558,67 @@ def company_analysis_basis(company_id):
         if not company:
             return redirect(url_for('decision.company_list'))
 
-        # 直近3期分の会計年度を取得（新しい順 → 古い順に並べ替え）
+        # ---- コメント保存（POST） ----
+        if request.method == 'POST':
+            category = request.form.get('category', '')
+            if category in _ANALYSIS_COMMENT_CATEGORIES:
+                lines = [(request.form.get(f'comment_{i}', '') or '').strip() for i in range(1, 11)]
+                rec = db.query(FinancialAnalysisComment).filter_by(
+                    company_id=company_id, category=category).first()
+                if rec is None:
+                    rec = FinancialAnalysisComment(company_id=company_id, category=category)
+                    db.add(rec)
+                rec.comments = _json.dumps(lines, ensure_ascii=False)
+                db.commit()
+            return redirect(url_for('decision.company_analysis_basis', company_id=company_id))
+
+        # ---- 会計年度を最大4期取得（新しい順 → 古い順） ----
         fiscal_years = (
             db.query(FiscalYear)
               .filter_by(company_id=company_id)
               .order_by(FiscalYear.start_date.desc())
-              .limit(3)
+              .limit(4)
               .all()
         )
-        fiscal_years = list(reversed(fiscal_years))  # 古い順（3年前→直前期）
+        fiscal_years = list(reversed(fiscal_years))  # 古い順
 
-        # 期ラベル（右詰めで 3年前 / 2年前 / 直前期 を割り当て）
-        n = len(fiscal_years)
-        base_labels = ['3年前', '2年前', '直前期'][-n:] if n else []
+        # 表示は新しい3期、成長率の基準として4期目（先頭表示期の1期前）を使う
+        display_fy = fiscal_years[-3:]
+        base_fy = fiscal_years[-4] if len(fiscal_years) >= 4 else None
 
-        periods = []
-        for label, fy in zip(base_labels, fiscal_years):
-            rpl = db.query(RestructuredPL).filter_by(fiscal_year_id=fy.id).first()
-            rbs = db.query(RestructuredBS).filter_by(fiscal_year_id=fy.id).first()
-            periods.append({
-                'label': label,
+        def _load_period(fy):
+            if fy is None:
+                return None
+            return {
+                'label': fy.year_name,
                 'year_name': fy.year_name,
-                'rpl': rpl,
-                'rbs': rbs,
-            })
+                'rpl': db.query(RestructuredPL).filter_by(fiscal_year_id=fy.id).first(),
+                'rbs': db.query(RestructuredBS).filter_by(fiscal_year_id=fy.id).first(),
+            }
 
-        analysis = build_analysis_basis(periods, company.employee_count)
-        # 期ラベルに年度名を併記したヘッダーを作る
-        period_headers = [
-            {'label': p['label'], 'year_name': p['year_name']} for p in periods
-        ]
+        periods = [_load_period(fy) for fy in display_fy]
+        base_period = _load_period(base_fy)
+
+        analysis = build_analysis_basis(periods, company.employee_count, base_period=base_period)
+        period_headers = [{'label': p['label'], 'year_name': p['year_name']} for p in periods]
+
+        # ---- コメント読込 ----
+        comments = {}
+        for rec in db.query(FinancialAnalysisComment).filter_by(company_id=company_id).all():
+            try:
+                lines = _json.loads(rec.comments) if rec.comments else []
+            except (ValueError, TypeError):
+                lines = []
+            comments[rec.category] = (lines + [''] * 10)[:10]
+        for cat in _ANALYSIS_COMMENT_CATEGORIES:
+            comments.setdefault(cat, [''] * 10)
 
         return render_template(
             'financial_analysis_basis.html',
             company=company,
             analysis=analysis,
             period_headers=period_headers,
+            comments=comments,
         )
     finally:
         db.close()

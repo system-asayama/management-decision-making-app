@@ -99,15 +99,22 @@ def _grade_vs_sales(value: Optional[float], sales_index: Optional[float],
 # 表示用フォーマット
 # ---------------------------------------------------------------------------
 def _fmt(value: Optional[float], unit: str) -> str:
-    """指標値を単位に応じて表示用文字列へ整形する。"""
+    """指標値を単位に応じて表示用文字列へ整形する。データ無しは『－』。"""
     if value is None:
-        return ''
+        return '－'
     if unit == '千円':
         return f'{value:,.0f}'
     if unit == '回':
         return f'{value:.1f}'
     # %・月 などは小数1桁
     return f'{value:.1f}'
+
+
+def _fmt_growth(value: Optional[float]) -> str:
+    """成長率（指数）を『101%』形式で整形する。前期無しは『－』。"""
+    if value is None:
+        return '－'
+    return f'{value:.0f}%'
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +185,10 @@ def _extract(rpl: Any, rbs: Any, employee_count: float) -> Dict[str, float]:
     total_personnel = labor_cost + executive_compensation
     credit_funding = trade_payables + other_current_liabilities + fixed_liabilities
     collateral_capacity = (land + marketable_securities) * 0.5 - interest_bearing_debt
+    # 平均設備残高 = 有形固定資産 － 土地（償却資産）／非償却資産 = 土地
+    equipment = tangible_fixed_assets - land
+    non_depreciable = land
+    depreciable = tangible_fixed_assets - land
     emp = employee_count if employee_count and employee_count > 0 else 0
 
     return {
@@ -200,7 +211,11 @@ def _extract(rpl: Any, rbs: Any, employee_count: float) -> Dict[str, float]:
         'trade_receivables': trade_receivables,
         'inventory_assets': inventory_assets,
         'current_assets': current_assets,
+        'land': land,
         'tangible_fixed_assets': tangible_fixed_assets,
+        'equipment': equipment,
+        'non_depreciable': non_depreciable,
+        'depreciable': depreciable,
         'fixed_assets': fixed_assets,
         'total_assets': total_assets,
         'trade_payables': trade_payables,
@@ -272,13 +287,18 @@ def _financial_strength_values(d: Dict[str, float]) -> Dict[str, Optional[float]
         'quick_ratio': _pct(_safe_div(d['quick_assets'], cl)),
         'cash_ratio': _pct(_safe_div(d['cash_deposits'], cl)),
         'long_term_fit_ratio': _pct(_safe_div(d['fixed_assets'], d['net_assets'] + d['fixed_liabilities'])),
+        # ⑲ 非償却資産自己資本比率 = 非償却資産（土地）÷自己資本
+        'non_depreciable_equity_ratio': _pct(_safe_div(d['non_depreciable'], d['net_assets'])),
+        # ⑳ 償却資産長期負債比率 = 償却資産÷（自己資本－非償却資産＋固定負債）
+        'depreciable_long_term_ratio': _pct(_safe_div(
+            d['depreciable'], d['net_assets'] - d['non_depreciable'] + d['fixed_liabilities'])),
     }
 
 
 def _productivity_values(d: Dict[str, float]) -> Dict[str, Optional[float]]:
     sales = d['sales']
     emp = d['employee_count']
-    equipment = d['tangible_fixed_assets']
+    equipment = d['equipment']  # 平均設備残高 = 有形固定資産 － 土地
     return {
         'added_value_to_capital': _pct(_safe_div(d['gross_added_value'], d['total_assets'])),
         'added_value_to_sales': _pct(_safe_div(d['gross_added_value'], sales)),
@@ -313,7 +333,7 @@ def _build_rows(defs, period_value_dicts):
         cells = []
         for vd in period_value_dicts:
             if vd is None:
-                cells.append({'display': '', 'grade': ''})
+                cells.append({'display': '－', 'grade': ''})
                 continue
             value = vd.get(key)
             grade = grade_fn(value) if grade_fn else ''
@@ -321,8 +341,22 @@ def _build_rows(defs, period_value_dicts):
         rows.append({
             'no': no, 'name': name, 'formula': formula, 'unit': unit,
             'target': target, 'cells': cells, 'is_main': is_main,
-            'adopted': adopted,
+            'adopted': adopted, 'group': None,
         })
+    return rows
+
+
+def _apply_groups(rows, groups):
+    """分析対象（左端）列の rowspan セルを各グループ先頭行に割り当てる。"""
+    i = 0
+    for label, count in groups:
+        for j in range(count):
+            if i + j < len(rows):
+                rows[i + j]['group'] = {'label': label, 'rowspan': count} if j == 0 else None
+        i += count
+    while i < len(rows):
+        rows[i]['group'] = None
+        i += 1
     return rows
 
 
@@ -370,9 +404,11 @@ def _financial_strength_defs():
         ('inventory_turnover', '⑬', '棚卸資産回転率', '売上高÷期末棚卸資産', '回', '', None, True, False),
         ('inventory_months', '⑭', '棚卸資産回転期間', '期末棚卸資産÷（売上高÷12ヶ月）', '月', '＜1', g_le(1), True, True),
         ('current_ratio', '⑮', '流動比率', '流動資産÷流動負債', '%', '≧150', g_ge(150), True, True),
-        ('quick_ratio', '⑯', '当座比率', '当座資産÷流動負債', '%', '≧100', g_ge(100), True, True),
+        ('quick_ratio', '⑯', '当座比率（現預金含む）', '当座資産÷流動負債', '%', '≧100', g_ge(100), True, True),
         ('cash_ratio', '⑰', '現預金比率', '現預金÷流動負債', '%', '≧20', g_ge(20), True, True),
         ('long_term_fit_ratio', '⑱', '長期適合率', '固定資産÷（自己資本＋固定負債）', '%', '≦90', g_le(90), True, True),
+        ('non_depreciable_equity_ratio', '⑲', '非償却資産自己資本比率', '非償却資産（土地）÷自己資本', '%', '≦90', g_le(90), True, True),
+        ('depreciable_long_term_ratio', '⑳', '償却資産長期負債比率', '償却資産÷（自己資本－非償却資産＋固定負債）', '%', '≦90', g_le(90), True, True),
     ]
 
 
@@ -387,7 +423,7 @@ def _productivity_defs():
         ('added_value_to_sales', 'a', '売上高付加価値率', '粗付加価値÷売上高', '%', '', None, False, False),
         ('sales_per_employee', 'b', '従業員一人当り売上高', '売上高÷平均従業員数', '千円', '', None, False, False),
         ('profit_per_employee', '③', '利益生産性', '税引前当期純利益÷平均従業員数', '千円', '≧700', g_ge(700), True, True),
-        ('labor_distribution', '④', '労働分配率', '総人件費÷粗付加価値', '%', '≦65', g_le(65), True, True),
+        ('labor_distribution', '④', '労働分配率', '総人件費÷粗付加価値', '%', '製造・商業≦50／その他≦65', g_le(65), True, True),
         ('equipment_efficiency', '⑤', '設備投資効率', '粗付加価値÷平均設備残高', '%', '≧100', g_ge(100), True, True),
         ('equipment_per_employee', '⑥', '労働装備高', '平均設備残高÷平均従業員数', '千円', '', None, False, False),
     ]
@@ -411,25 +447,30 @@ _GROWTH_DEFS = [
 ]
 
 
-def _build_growth_rows(period_bases: List[Optional[Dict[str, float]]]):
+def _build_growth_rows(period_bases: List[Optional[Dict[str, float]]],
+                       base_extract: Optional[Dict[str, float]]):
     """成長力の行を作る。各期の値は『当期÷前期×100』の指数。
 
-    period_bases は古い順（3年前→直前期）の基礎数値辞書のリスト。
-    成長率は前期が存在する列のみ算出する（先頭列は空欄）。
+    period_bases は表示する期（古い→新しい）の基礎数値辞書のリスト。
+    base_extract は先頭表示期のさらに1期前（成長率算出の基準）。無ければ None。
+    各表示列ごとに前期（先頭列は base_extract）との成長率を算出する。
     """
     n = len(period_bases)
-    # 先に各期の売上高成長指数を計算（>①/<①判定用）
+    # 各表示列の「前期」基礎数値（先頭列は base_extract）
+    prevs = [base_extract] + list(period_bases[:-1]) if n else []
+
+    # 先に各列の売上高成長指数を計算（>①/<①判定用）
     sales_index = [None] * n
-    for i in range(1, n):
-        cur, prev = period_bases[i], period_bases[i - 1]
+    for i in range(n):
+        cur, prev = period_bases[i], prevs[i]
         if cur and prev:
             sales_index[i] = _safe_index(cur.get('sales'), prev.get('sales'))
 
     rows = []
     for key, no, name, formula, target, ttype, is_main, adopted in _GROWTH_DEFS:
-        cells = [{'display': '', 'grade': ''}]  # 先頭列（最古期）は前期なし
-        for i in range(1, n):
-            cur, prev = period_bases[i], period_bases[i - 1]
+        cells = []
+        for i in range(n):
+            cur, prev = period_bases[i], prevs[i]
             value = None
             if cur and prev:
                 value = _safe_index(cur.get(key), prev.get(key))
@@ -441,11 +482,11 @@ def _build_growth_rows(period_bases: List[Optional[Dict[str, float]]]):
                     grade = _grade_vs_sales(value, sales_index[i], higher_better=True)
                 elif ttype == 'lt_sales':
                     grade = _grade_vs_sales(value, sales_index[i], higher_better=False)
-            cells.append({'display': _fmt(value, '%') if value is not None else '', 'grade': grade})
+            cells.append({'display': _fmt_growth(value), 'grade': grade})
         rows.append({
             'no': no, 'name': name, 'formula': formula, 'unit': '%',
             'target': target, 'cells': cells, 'is_main': is_main,
-            'adopted': adopted,
+            'adopted': adopted, 'group': None,
         })
     return rows
 
@@ -463,14 +504,16 @@ def _safe_index(current: Optional[float], previous: Optional[float]) -> Optional
 # エントリポイント
 # ---------------------------------------------------------------------------
 def build_analysis_basis(periods: List[Dict[str, Any]],
-                         employee_count: Optional[int]) -> Dict[str, Any]:
+                         employee_count: Optional[int],
+                         base_period: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """財務分析基礎データを構築する。
 
     Args:
-        periods: 古い順（3年前→直前期）の期データ。
+        periods: 表示する期（古い→新しい）。最大3期。
                  各要素 = {'label': str, 'rpl': RestructuredPL|None,
                             'rbs': RestructuredBS|None}
         employee_count: 平均従業員数（生産力計算用）
+        base_period: 先頭表示期のさらに1期前（成長率の基準）。無ければ None。
 
     Returns:
         テンプレート描画用の dict。
@@ -485,23 +528,38 @@ def build_analysis_basis(periods: List[Dict[str, Any]],
     """
     emp = float(employee_count) if employee_count else 0.0
 
+    def extract_period(p):
+        if not p or (p.get('rpl') is None and p.get('rbs') is None):
+            return None
+        return _extract(p.get('rpl'), p.get('rbs'), emp)
+
     labels = [p.get('label', '') for p in periods]
-    bases: List[Optional[Dict[str, float]]] = []
-    for p in periods:
-        if p.get('rpl') is None and p.get('rbs') is None:
-            bases.append(None)
-        else:
-            bases.append(_extract(p.get('rpl'), p.get('rbs'), emp))
+    bases: List[Optional[Dict[str, float]]] = [extract_period(p) for p in periods]
+    base_extract = extract_period(base_period)
 
     profit_vals = [(_profitability_values(b) if b else None) for b in bases]
     strength_vals = [(_financial_strength_values(b) if b else None) for b in bases]
     productivity_vals = [(_productivity_values(b) if b else None) for b in bases]
 
+    growth_rows = _apply_groups(
+        _build_growth_rows(bases, base_extract),
+        [('成長力', len(_GROWTH_DEFS))])
+    profit_rows = _apply_groups(
+        _build_rows(_profitability_defs(), profit_vals),
+        [('収益力', 19)])
+    strength_rows = _apply_groups(
+        _build_rows(_financial_strength_defs(), strength_vals),
+        [('資金調達源泉の健全性', 4), ('資金調達余力', 3),
+         ('資金運用能力', 7), ('短期返済能力', 3), ('長期返済能力', 3)])
+    productivity_rows = _apply_groups(
+        _build_rows(_productivity_defs(), productivity_vals),
+        [('生産力', 10)])
+
     return {
         'labels': labels,
-        'growth': _build_growth_rows(bases),
-        'profitability': _build_rows(_profitability_defs(), profit_vals),
-        'financial_strength': _build_rows(_financial_strength_defs(), strength_vals),
-        'productivity': _build_rows(_productivity_defs(), productivity_vals),
+        'growth': growth_rows,
+        'profitability': profit_rows,
+        'financial_strength': strength_rows,
+        'productivity': productivity_rows,
         'has_any_data': any(b is not None for b in bases),
     }
