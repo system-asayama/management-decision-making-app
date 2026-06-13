@@ -546,7 +546,11 @@ def company_analysis_basis(company_id):
     """
     import json as _json
     from ..utils.financial_analysis_basis import build_analysis_basis
-    from ..models_decision import FinancialAnalysisComment
+    from ..utils.continuous_financials import (
+        build_continuous_pl, build_continuous_bs, build_budget_actual, build_cashflow,
+        _BUDGET_LINES,
+    )
+    from ..models_decision import FinancialAnalysisComment, AnnualBudget
 
     tenant_id = session.get('tenant_id')
     db = SessionLocal()
@@ -558,18 +562,43 @@ def company_analysis_basis(company_id):
         if not company:
             return redirect(url_for('decision.company_list'))
 
-        # ---- コメント保存（POST） ----
+        def _latest_fy():
+            return (db.query(FiscalYear).filter_by(company_id=company_id)
+                      .order_by(FiscalYear.start_date.desc()).first())
+
+        # ---- 保存（POST） ----
         if request.method == 'POST':
-            category = request.form.get('category', '')
-            if category in _ANALYSIS_COMMENT_CATEGORIES:
-                lines = [(request.form.get(f'comment_{i}', '') or '').strip() for i in range(1, 11)]
-                rec = db.query(FinancialAnalysisComment).filter_by(
-                    company_id=company_id, category=category).first()
-                if rec is None:
-                    rec = FinancialAnalysisComment(company_id=company_id, category=category)
-                    db.add(rec)
-                rec.comments = _json.dumps(lines, ensure_ascii=False)
-                db.commit()
+            form_type = request.form.get('form_type', 'comment')
+
+            if form_type == 'budget':
+                # 予算（AnnualBudget）を直前期に保存。入力は千円 → 円に変換。
+                latest = _latest_fy()
+                if latest is not None:
+                    budget = db.query(AnnualBudget).filter_by(fiscal_year_id=latest.id).first()
+                    if budget is None:
+                        budget = AnnualBudget(fiscal_year_id=latest.id)
+                        db.add(budget)
+                    for _actual_attr, budget_attr, _label, _strong in _BUDGET_LINES:
+                        raw = (request.form.get(budget_attr, '') or '').replace(',', '').strip()
+                        if raw == '':
+                            setattr(budget, budget_attr, None)
+                        else:
+                            try:
+                                setattr(budget, budget_attr, int(round(float(raw))) * 1000)
+                            except ValueError:
+                                pass
+                    db.commit()
+            else:
+                category = request.form.get('category', '')
+                if category in _ANALYSIS_COMMENT_CATEGORIES:
+                    lines = [(request.form.get(f'comment_{i}', '') or '').strip() for i in range(1, 11)]
+                    rec = db.query(FinancialAnalysisComment).filter_by(
+                        company_id=company_id, category=category).first()
+                    if rec is None:
+                        rec = FinancialAnalysisComment(company_id=company_id, category=category)
+                        db.add(rec)
+                    rec.comments = _json.dumps(lines, ensure_ascii=False)
+                    db.commit()
             return redirect(url_for('decision.company_analysis_basis', company_id=company_id))
 
         # ---- 会計年度を最大4期取得（新しい順 → 古い順） ----
@@ -613,12 +642,31 @@ def company_analysis_basis(company_id):
         for cat in _ANALYSIS_COMMENT_CATEGORIES:
             comments.setdefault(cat, [''] * 10)
 
+        # ---- 連続F実績・予算タブ ----
+        all_periods = [p for p in (_load_period(fy) for fy in fiscal_years) if p is not None]
+        continuous_pl = build_continuous_pl(all_periods)
+        continuous_bs = build_continuous_bs(all_periods)
+        cashflow = build_cashflow(all_periods)
+
+        latest_period = periods[-1] if periods else None
+        latest_rpl = latest_period['rpl'] if latest_period else None
+        latest_label = latest_period['label'] if latest_period else ''
+        budget_rec = None
+        if display_fy:
+            budget_rec = db.query(AnnualBudget).filter_by(fiscal_year_id=display_fy[-1].id).first()
+        budget_actual = build_budget_actual(latest_rpl, budget_rec)
+
         return render_template(
             'financial_analysis_basis.html',
             company=company,
             analysis=analysis,
             period_headers=period_headers,
             comments=comments,
+            continuous_pl=continuous_pl,
+            continuous_bs=continuous_bs,
+            cashflow=cashflow,
+            budget_actual=budget_actual,
+            budget_label=latest_label,
         )
     finally:
         db.close()

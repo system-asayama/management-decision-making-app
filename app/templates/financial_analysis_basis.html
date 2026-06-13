@@ -73,6 +73,120 @@
 </div>
 {% endmacro %}
 
+{# 連続P/L・B/S（金額＋構成比）テーブル #}
+{% macro amount_ratio_table(title, icon, color, data, ratio_label) %}
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-header fw-bold text-white d-flex align-items-center justify-content-between" style="background: {{ color }};">
+    <span><i class="fas {{ icon }} me-2"></i>{{ title }}</span>
+    <span class="small fw-normal">単位：千円</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered cont-table mb-0">
+        <thead>
+          <tr class="text-center align-middle">
+            <th rowspan="2" style="min-width:200px;">項目</th>
+            {% for lbl in data.labels %}<th colspan="2">{{ lbl }}</th>{% endfor %}
+          </tr>
+          <tr class="text-center small">
+            {% for lbl in data.labels %}<th style="min-width:96px;">金額</th><th style="min-width:50px;">{{ ratio_label }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in data.rows %}
+          <tr class="{% if row.is_head %}head-row{% elif row.strong %}strong-row{% endif %}">
+            <td class="{% if row.level == 1 %}ps-4{% endif %} {% if row.strong or row.is_head %}fw-bold{% endif %}">{{ row.label }}</td>
+            {% for cell in row.cells %}
+              <td class="text-end">{{ cell.amount }}</td>
+              <td class="text-end text-muted small">{{ cell.ratio }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{# 連続キャッシュフロー計算書（金額のみ） #}
+{% macro cashflow_table(data) %}
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-header fw-bold text-white d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg,#0c7c8c,#17a2b8);">
+    <span><i class="fas fa-money-bill-wave me-2"></i>連続キャッシュフロー計算書（間接法・簡易）</span>
+    <span class="small fw-normal">単位：千円</span>
+  </div>
+  <div class="card-body p-0">
+    {% if not data.has_data %}
+      <div class="alert alert-light m-3 mb-0 small">前期との比較が必要なため、2期以上の組換データが揃うと表示されます。</div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered cont-table mb-0">
+        <thead>
+          <tr class="text-center align-middle">
+            <th style="min-width:240px;">項目</th>
+            {% for lbl in data.labels %}<th style="min-width:110px;">{{ lbl }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in data.rows %}
+          <tr class="{% if row.strong %}strong-row{% endif %}">
+            <td class="{% if row.level == 1 %}ps-4{% endif %} {% if row.strong %}fw-bold{% endif %}">{{ row.label }}</td>
+            {% for cell in row.cells %}<td class="text-end {% if row.strong %}fw-bold{% endif %}">{{ cell }}</td>{% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{# 予算実績P/L（予算は編集・保存可能） #}
+{% macro budget_actual_table(data, label) %}
+<form method="post" class="card shadow-sm border-0 mb-4">
+  <input type="hidden" name="form_type" value="budget">
+  <div class="card-header fw-bold text-white d-flex align-items-center justify-content-between" style="background: linear-gradient(135deg,#b8860b,#e0a800);">
+    <span><i class="fas fa-balance-scale me-2"></i>予算実績P/L（{{ label }}）</span>
+    <span class="small fw-normal">単位：千円</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered cont-table mb-0">
+        <thead>
+          <tr class="text-center align-middle">
+            <th style="min-width:200px;">項目</th>
+            <th style="min-width:130px;">予算（入力）</th>
+            <th style="min-width:110px;">実績</th>
+            <th style="min-width:100px;">差額</th>
+            <th style="min-width:70px;">達成率%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in data.rows %}
+          <tr class="{% if row.strong %}strong-row{% endif %}">
+            <td class="{% if row.strong %}fw-bold{% endif %}">{{ row.label }}</td>
+            <td>
+              <input type="number" step="1" class="form-control form-control-sm text-end budget-input"
+                     name="{{ row.budget_attr }}" value="{{ row.budget_sen }}" placeholder="0">
+            </td>
+            <td class="text-end {% if row.strong %}fw-bold{% endif %}">{{ row.actual }}</td>
+            <td class="text-end {% if row.diff_negative %}text-danger{% endif %}">{{ row.diff }}</td>
+            <td class="text-end small text-muted">{{ row.rate }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-3 border-top d-flex justify-content-between align-items-center">
+      <span class="text-muted small"><i class="fas fa-info-circle me-1"></i>予算は千円単位で入力し、「保存」で実績との差額が再計算されます。</span>
+      <button type="submit" class="btn btn-sm btn-warning text-white"><i class="fas fa-save me-1"></i>予算を保存</button>
+    </div>
+  </div>
+</form>
+{% endmacro %}
+
 {% block content %}
 <div class="container mt-4">
 
@@ -110,23 +224,50 @@
       <i class="fas fa-exclamation-triangle me-2"></i>財務諸表組換えのデータが登録されていません。
       <a href="/decision/restructuring?company_id={{ company.id }}">財務諸表組換え</a>から入力してください。
     </div>
-  {% else %}
-    <div class="alert alert-info py-2 small">
-      <i class="fas fa-info-circle me-2"></i>金額は財務諸表組換え（1円単位）を基に算出しています。
-      成長率は1期前を基準に算出（基準期が無い場合は「－」）。評価記号　◎：優良　○：良好　△：要注意　×：要改善
-    </div>
   {% endif %}
 
   {% if period_headers %}
-    {{ indicator_table('growth', '成 長 力', 'fa-seedling', 'linear-gradient(135deg,#6f42c1,#8a63d2)', analysis.growth, period_headers, comments.growth) }}
-    {{ indicator_table('profitability', '収 益 力', 'fa-yen-sign', 'linear-gradient(135deg,#0056b3,#007bff)', analysis.profitability, period_headers, comments.profitability) }}
-    {{ indicator_table('financial_strength', '資 金 力', 'fa-coins', 'linear-gradient(135deg,#b8860b,#e0a800)', analysis.financial_strength, period_headers, comments.financial_strength) }}
-    {{ indicator_table('productivity', '生 産 力', 'fa-industry', 'linear-gradient(135deg,#16794d,#28a745)', analysis.productivity, period_headers, comments.productivity) }}
+  <!-- タブ -->
+  <ul class="nav nav-tabs mb-3" id="basisTab" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="tab-indicators-btn" data-bs-toggle="tab" data-bs-target="#tab-indicators"
+              type="button" role="tab"><i class="fas fa-chart-bar me-1"></i>経営分析指標</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-continuous-btn" data-bs-toggle="tab" data-bs-target="#tab-continuous"
+              type="button" role="tab"><i class="fas fa-table me-1"></i>① 連続F実績・予算</button>
+    </li>
+  </ul>
 
-    <p class="text-muted small">
-      ※ 経営資本 ＝ 総資本 － 投資その他の資産・繰延資産等の経営外投資。
-      平均設備残高 ＝ 有形固定資産 － 土地。担保余力は組換BSの簿価（土地・有価証券×50％）を基準に算出。
-    </p>
+  <div class="tab-content">
+    <!-- タブ1: 経営分析指標 -->
+    <div class="tab-pane fade show active" id="tab-indicators" role="tabpanel">
+      <div class="alert alert-info py-2 small">
+        <i class="fas fa-info-circle me-2"></i>金額は財務諸表組換え（1円単位）を基に算出しています。
+        成長率は1期前を基準に算出（基準期が無い場合は「－」）。評価記号　◎：優良　○：良好　△：要注意　×：要改善
+      </div>
+      {{ indicator_table('growth', '成 長 力', 'fa-seedling', 'linear-gradient(135deg,#6f42c1,#8a63d2)', analysis.growth, period_headers, comments.growth) }}
+      {{ indicator_table('profitability', '収 益 力', 'fa-yen-sign', 'linear-gradient(135deg,#0056b3,#007bff)', analysis.profitability, period_headers, comments.profitability) }}
+      {{ indicator_table('financial_strength', '資 金 力', 'fa-coins', 'linear-gradient(135deg,#b8860b,#e0a800)', analysis.financial_strength, period_headers, comments.financial_strength) }}
+      {{ indicator_table('productivity', '生 産 力', 'fa-industry', 'linear-gradient(135deg,#16794d,#28a745)', analysis.productivity, period_headers, comments.productivity) }}
+      <p class="text-muted small">
+        ※ 経営資本 ＝ 総資本 － 投資その他の資産・繰延資産等の経営外投資。
+        平均設備残高 ＝ 有形固定資産 － 土地。担保余力は組換BSの簿価（土地・有価証券×50％）を基準に算出。
+      </p>
+    </div>
+
+    <!-- タブ2: 連続F実績・予算 -->
+    <div class="tab-pane fade" id="tab-continuous" role="tabpanel">
+      <div class="alert alert-info py-2 small">
+        <i class="fas fa-info-circle me-2"></i>金額は財務諸表組換えを千円単位で表示しています。
+        予算実績P/Lの「予算」は入力・保存して差額を再計算できます。キャッシュフローは間接法による簡易計算です。
+      </div>
+      {{ amount_ratio_table('連続P/L（過年度実績）', 'fa-file-invoice', 'linear-gradient(135deg,#0056b3,#007bff)', continuous_pl, '構成比') }}
+      {{ budget_actual_table(budget_actual, budget_label) }}
+      {{ amount_ratio_table('連続B/S（過年度実績）', 'fa-landmark', 'linear-gradient(135deg,#16794d,#28a745)', continuous_bs, '構成比') }}
+      {{ cashflow_table(cashflow) }}
+    </div>
+  </div>
   {% endif %}
 
 </div>
@@ -159,5 +300,14 @@
 }
 .comment-box { background-color: #fcfbf7; }
 .comment-no { min-width: 34px; justify-content: center; font-weight: 700; }
+
+.cont-table { font-size: 0.85rem; }
+.cont-table th { background-color: #f3ede2; vertical-align: middle; }
+.cont-table td { vertical-align: middle; }
+.cont-table tr.strong-row > td { background-color: #eef4fb; }
+.cont-table tr.head-row > td { background-color: #e9ecef; }
+.cont-table .budget-input { min-width: 100px; }
+#basisTab .nav-link { color: #495057; font-weight: 600; }
+#basisTab .nav-link.active { color: #16794d; }
 </style>
 {% endblock %}
