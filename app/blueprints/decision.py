@@ -4241,7 +4241,8 @@ def restructuring():
         company_id = request.args.get('company_id', type=int) or request.form.get('company_id', type=int)
         fiscal_year_id = request.args.get('fiscal_year_id', type=int) or request.form.get('fiscal_year_id', type=int)
         active_tab = request.args.get('tab', 'pl')  # 'pl' or 'bs'
-        post_type = request.args.get('type', 'pl')  # POSTの場合はttypeパラメータでPL/BSを判別
+        # POSTの保存種別を判定。フォームの hidden(type) を優先し、URLクエリ、既定 'pl' の順で解決する。
+        post_type = request.form.get('type') or request.args.get('type') or 'pl'
         # システム管理者ログイン時はtenant_idがNoneになるため、company_idから取得する
         if not tenant_id and company_id:
             company_obj = db.query(Company).filter_by(id=company_id).first()

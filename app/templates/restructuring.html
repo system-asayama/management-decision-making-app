@@ -73,6 +73,8 @@
         <!-- PLタブ -->
         <div class="tab-pane fade {% if active_tab != 'bs' %}show active{% endif %}" id="pl-pane" role="tabpanel">
     <form method="POST" id="plRestructuringForm">
+        <input type="hidden" name="type" value="pl">
+        <input type="hidden" name="company_id" value="{{ selected_company.id if selected_company else '' }}">
         <input type="hidden" name="fiscal_year_id" value="{{ selected_fy.id }}">
 
         <div class="row">
@@ -657,6 +659,8 @@
         <!-- BSタブ -->
         <div class="tab-pane fade {% if active_tab == 'bs' %}show active{% endif %}" id="bs-pane" role="tabpanel">
     <form method="POST" id="bsRestructuringForm">
+        <input type="hidden" name="type" value="bs">
+        <input type="hidden" name="company_id" value="{{ selected_company.id if selected_company else '' }}">
         <input type="hidden" name="fiscal_year_id" value="{{ selected_fy.id }}">
 
         <div class="row">
