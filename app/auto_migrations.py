@@ -215,9 +215,11 @@ def run_auto_migrations():
             'total_manufacturing_cost_current', 'beginning_wip', 'ending_wip', 'total_manufacturing_cost',
         ]
         placeholders = ', '.join([f"'{k}'" for k in mcr_keys])
+        # テーブル名の引用符は方言ごとに異なる（PostgreSQL: " / MySQL: `）
+        table_ref = '"T_PL勘定科目"' if db_type == 'postgresql' else '`T_PL勘定科目`'
         try:
             result = session.execute(text(
-                f"UPDATE `T_PL勘定科目` SET target_field = NULL, mapping_status = 'pending' "
+                f"UPDATE {table_ref} SET target_field = NULL, mapping_status = 'pending' "
                 f"WHERE target_field IN ({placeholders})"
             ))
             if result.rowcount > 0:

@@ -5,7 +5,7 @@
 
 import os
 import sqlite3
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 # ---- psycopg2 の有無 ----
 try:
@@ -49,7 +49,18 @@ def get_db():
     if psycopg2:
         try:
             url = urlparse(db_url)
-            sslmode = "disable" if (url.hostname in ("localhost", "127.0.0.1")) else "require"
+            # sslmode の決定優先順位:
+            #   1) DATABASE_URL のクエリ ?sslmode=...
+            #   2) 環境変数 PGSSLMODE
+            #   3) ローカル/コンテナ内DBは disable、それ以外は prefer
+            #      （prefer はSSL不可なら自動的に非SSLへ。require と違い
+            #        SSL非対応の postgres:alpine でも接続できる）
+            q = parse_qs(url.query or "")
+            sslmode = (
+                (q.get("sslmode", [None])[0])
+                or os.environ.get("PGSSLMODE")
+                or ("disable" if url.hostname in ("localhost", "127.0.0.1", "db") else "prefer")
+            )
             conn = psycopg2.connect(
                 dbname=url.path[1:],
                 user=url.username,
