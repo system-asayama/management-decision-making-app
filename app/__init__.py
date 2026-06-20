@@ -319,6 +319,23 @@ def create_app() -> Flask:
         print(f"⚠️ migration blueprint 登録エラー: {e}")
 
     # エラーハンドラ
+    import logging as _logging
+    _err_logger = _logging.getLogger("app.request")
+
+    def _log_exception(exc):
+        """未処理例外の完全なトレースバックを標準出力(JSON)へ出力する。
+
+        github-support-app の『docker compose logs web』取得でそのまま拾えるよう、
+        目印として "APP-ERROR" を付ける（ログ検索は grep APP-ERROR でOK）。
+        """
+        from flask import request
+        try:
+            where = f"{request.method} {request.path}"
+        except Exception:
+            where = "(no request context)"
+        # exc_info に例外を渡すと JsonFormatter が完全なトレースバックを含める
+        _err_logger.error("APP-ERROR 500 at %s", where, exc_info=exc)
+
     @app.errorhandler(404)
     def not_found(error):
         from flask import render_template
@@ -326,11 +343,25 @@ def create_app() -> Flask:
 
     @app.errorhandler(500)
     def internal_error(error):
-        import traceback
         from flask import render_template
-        # エラー詳細をログ出力
-        print(f"⚠️ 500エラー発生: {error}")
-        traceback.print_exc()
-        return render_template('500.html'), 500
+        _log_exception(getattr(error, "original_exception", None) or error)
+        try:
+            return render_template('500.html'), 500
+        except Exception:
+            # 500.html の描画に失敗しても素の文字列を返し、原因ログは必ず残す
+            return "Internal Server Error", 500
+
+    @app.errorhandler(Exception)
+    def unhandled_exception(error):
+        # HTTP例外(4xx/3xxやabort)はそのまま通す
+        from werkzeug.exceptions import HTTPException
+        if isinstance(error, HTTPException):
+            return error
+        from flask import render_template
+        _log_exception(error)
+        try:
+            return render_template('500.html'), 500
+        except Exception:
+            return "Internal Server Error", 500
 
     return app
