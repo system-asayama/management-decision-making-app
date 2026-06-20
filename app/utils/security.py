@@ -20,19 +20,37 @@ def login_user(user_id: int, name: str, role: str, tenant_id: Optional[int], is_
 
 
 def admin_exists() -> bool:
-    """管理者が1人でも居れば True"""
+    """管理者が1人でも居れば True。
+
+    認証用の get_db() は PostgreSQL 接続に失敗すると SQLite(database/login_auth.db)
+    へフォールバックすることがあり、その SQLite には T_管理者 が無いため
+    『no such table: T_管理者』で500になる。
+    ここは業務DBと同じ SQLAlchemy エンジン（DATABASE_URL）を直接参照し、
+    フォールバックに振り回されず常に本来のDBを見るようにする。
+    """
+    # 1) まず SQLAlchemy エンジン（DATABASE_URL = 本来のDB）で確認
+    try:
+        from app.db import engine
+        from sqlalchemy import text
+        with engine.connect() as econn:
+            row = econn.execute(text('SELECT COUNT(*) FROM "T_管理者"')).fetchone()
+            return bool(row and row[0] and int(row[0]) > 0)
+    except Exception:
+        pass
+
+    # 2) フォールバック：従来の get_db()（テーブルが無ければ False 扱い）
     conn = get_db()
     try:
         cur = conn.cursor()
-        sql = _sql(conn, 'SELECT COUNT(*) FROM "T_管理者"')
-        cur.execute(sql)
+        cur.execute(_sql(conn, 'SELECT COUNT(*) FROM "T_管理者"'))
         row = cur.fetchone()
-        cnt = row[0] if row else 0
-        return cnt > 0
+        return bool(row and row[0] and int(row[0]) > 0)
+    except Exception:
+        return False
     finally:
         try:
             conn.close()
-        except:
+        except Exception:
             pass
 
 

@@ -2,6 +2,12 @@ from __future__ import annotations
 import os
 from flask import Flask
 
+# ===== ビルド/デプロイ確認用マーカー =====
+# 本番コンテナのログにこの行が出ていれば「新しいコードが動いている」証拠。
+# 出ていなければ古いイメージのまま（再ビルド/反映が未完了）。
+APP_BUILD_MARKER = "2026-06-20-fix4: sslmode-aware get_db / admin_exists via engine / openpyxl"
+print(f"🟢 APP BUILD MARKER: {APP_BUILD_MARKER}")
+
 # データベーステーブル作成（モジュールレベルで1回だけ実行）
 try:
     from .db import Base, engine
