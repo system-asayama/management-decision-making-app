@@ -5150,6 +5150,14 @@ def pdf_apply():
                         .all()
                 }
 
+                # 同一バッチ内で処理済みの (account_item_id -> value_model) を保持する。
+                # セッションは autoflush=False のため、ループ中に db.add した実績値は
+                # DBクエリでは見えない。決算書には「合計」「計」など同名の行が複数あり、
+                # それらは同じ account_item_id に解決されるため、重複 add すると
+                # flush 時に (fiscal_year_id, account_item_id) の一意制約違反になる。
+                # ここで集約し、同じ科目は金額を上書き（後勝ち）する。
+                staged_values = {}
+
                 for order_idx, item in enumerate(items):
                     if not isinstance(item, dict):
                         continue
@@ -5265,6 +5273,12 @@ def pdf_apply():
                     account_item_id = existing[account_name]
 
                     # 実績値をupsert（既存なら更新、なければ新規）
+                    # 同一バッチ内で既に扱った科目なら、保留中オブジェクトの金額を上書き
+                    # （autoflush=False のため重複 add を避ける）。
+                    if account_item_id in staged_values:
+                        staged_values[account_item_id].amount = amount
+                        continue
+
                     sv = db.query(value_model).filter_by(
                         fiscal_year_id=fiscal_year_id,
                         account_item_id=account_item_id
@@ -5278,6 +5292,7 @@ def pdf_apply():
                             amount=amount
                         )
                         db.add(sv)
+                    staged_values[account_item_id] = sv
 
             upsert_statement_values(otb_pl_items,  PlAccountItem,  PlStatementValue,  order_start=0)
             upsert_statement_values(otb_bs_items,  BsAccountItem,  BsStatementValue,  order_start=0)
